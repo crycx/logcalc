@@ -16,15 +16,20 @@ describe('3D: ristkülik viilkatusega', () => {
   it('4 seina, iga palgitükk mudelist; 2 katusepoolt, katus räästaseina ülemise palgi peal', () => {
     expect(m.walls.map((w) => w.id).sort()).toEqual(['1', '2', 'A', 'B']);
     expect(m.roofs.length).toBe(2);
-    // räästaseina ülemine palk välisservas katuse all (ei torka läbi)
+    // katus toetub räästaseina ülemise palgi siseservale; välisserv lõigatakse kaldu (faas)
     const wa = m.walls.find((w) => w.id === 'A')!;
     const eaveTop = Math.max(...wa.pieces.map((p) => p.y1));
-    const roofAtOuterFace = (r: (typeof m.roofs)[0]) => {
+    const roofAt = (r: (typeof m.roofs)[0], x: number) => {
       const [p0, , p2] = r.pts;
-      const xFace = 120 - 20;
-      return p0[2] + ((xFace - p0[0]) / (p2[0] - p0[0])) * (p2[2] - p0[2]);
+      return p0[2] + ((x - p0[0]) / (p2[0] - p0[0])) * (p2[2] - p0[2]);
     };
-    expect(roofAtOuterFace(m.roofs[0]!)).toBeCloseTo(eaveTop, 6);
+    expect(roofAt(m.roofs[0]!, 120 + 20)).toBeCloseTo(eaveTop, 6);
+    // A kulgeb tagant ette (u = (0, 1)), normaal (−1, 0) = väljapoole: s = +t/2 on välisserv, madalam
+    const rc = wa.roofCross!;
+    expect(rc.z0 - rc.k * 20).toBeCloseTo(eaveTop, 6);
+    expect(rc.z0 + rc.k * 20).toBeCloseTo(roofAt(m.roofs[0]!, 100), 6);
+    expect(rc.k).toBeLessThan(0);
+    expect(m.walls.find((w) => w.id === '1')!.roofCross).toBeNull();
     // hari ligikaudu Hari h (räästa rea ümarduse võrra kõrgem)
     for (const roof of m.roofs) expect(Math.abs(Math.max(...roof.pts.map((p) => p[2])) - 3200)).toBeLessThan(120);
     // räästas allpool küljeseina ülemist serva (üleulatus)

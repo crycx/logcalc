@@ -184,6 +184,8 @@ export class House3d {
     const up = new THREE.Vector3(0, 1, 0);
     const n3 = new THREE.Vector3(-w.u.y, 0, w.u.x);
     const basis = new THREE.Matrix4().makeBasis(u3, up, n3);
+    // ristlõike alus (faasitud palgid): kuju x = −n, y = üles, pressimine piki u (determinant +1)
+    const crossBasis = new THREE.Matrix4().makeBasis(n3.clone().negate(), up, u3);
     const origin = new THREE.Vector3(w.origin.x, 0, w.origin.y);
     const t = w.thickness;
     const place = (mesh: THREE_NS.Object3D, x: number, y: number, z: number) => {
@@ -217,6 +219,27 @@ export class House3d {
         shape.closePath();
         geo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
         geo.translate(0, 0, -t / 2);
+      } else if (w.roofCross && p.y1 > Math.min(w.roofCross.z0 - w.roofCross.k * (t / 2), w.roofCross.z0 + w.roofCross.k * (t / 2)) + 0.5) {
+        // räästaseina ülemine palk: katus toetub siseservale, välisserv lõigatud kaldu (faas)
+        const rc = w.roofCross;
+        const zs = (s: number) => Math.max(p.y0, Math.min(p.y1, rc.z0 + rc.k * s));
+        // ristlõige (a, z), a = −s (alus −n, üles, u -> parempoolne), pressitud piki seina
+        const shape = new THREE.Shape();
+        shape.moveTo(t / 2, p.y0);
+        shape.lineTo(-t / 2, p.y0);
+        shape.lineTo(-t / 2, zs(t / 2));
+        shape.lineTo(t / 2, zs(-t / 2));
+        shape.closePath();
+        geo = new THREE.ExtrudeGeometry(shape, { depth: p.x1 - p.x0, bevelEnabled: false });
+        geo.translate(0, 0, p.x0);
+        const mesh = new THREE.Mesh(geo, material);
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
+        for (const o of [mesh, edges]) {
+          o.applyMatrix4(crossBasis);
+          o.position.add(origin);
+          group.add(o);
+        }
+        continue;
       } else {
         geo = new THREE.BoxGeometry(p.x1 - p.x0, p.y1 - p.y0, t);
         geo.translate((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, 0);

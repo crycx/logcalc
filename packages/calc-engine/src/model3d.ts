@@ -33,6 +33,12 @@ export interface Wall3D {
    * selle järgi (palgi ülemine nurk katusepinnani). null = sein lõpeb räästa kõrgusel.
    */
   roofLine: [number, number][] | null;
+  /**
+   * Räästasein: katuse alumine pind risti seinaga – kõrgus z = z0 + k × s, kus s on kaugus kesktelljest
+   * normaali n = (−u.y, u.x) suunas (−t/2 … t/2). Katus toetub ülemise palgi siseservale; palgid, mis
+   * ulatuvad katusepinnast kõrgemale, lõigatakse kaldu (ülemise palgi faas). null = pole räästasein.
+   */
+  roofCross: { z0: number; k: number } | null;
 }
 
 export interface RoofPlane3D {
@@ -70,6 +76,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       pieces: wallPieces(spec, { maxLogLength: c.maxLogLength }),
       openings: spec.openings.map((o) => ({ x0: o.offset, x1: o.offset + o.width, z0: o.sill, z1: o.sill + o.height, kind: o.kind })),
       roofLine: null,
+      roofCross: null,
     });
   }
 
@@ -124,7 +131,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
     const vols = roofVolumes(plan, geo);
     const ratio = pitchRatio(vols, input);
     const slope = 2 * ratio; // tõus / horisontaal (ratio = kõrgus / sisemine laius)
-    // katuse alumine pind toetub räästaseinte ülemise palgi välisservale (ridade ümardus, pikemad lauad);
+    // katuse alumine pind toetub räästaseinte ülemise palgi siseservale (välisserv lõigatakse kaldu – faas);
     // kõigil mahtudel sama räästa kõrgus, et orud klapiksid
     let eaveTop = input.sideWallHeight;
     for (const w of walls) {
@@ -134,7 +141,22 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       if (!isEave) continue;
       for (const p of w.pieces) if (p.kind !== 'gable') eaveTop = Math.max(eaveTop, p.y1);
     }
-    const zOf = (d: number) => eaveTop + slope * (d + t / 2);
+    const zOf = (d: number) => eaveTop + slope * (d - t / 2);
+    // räästaseinte ristlõike katusejoon (ülemise palgi faas)
+    for (const w of walls) {
+      const g = byId.get(w.id)!;
+      const line = g.dir === 'x' ? g.a.y : g.a.x;
+      for (const v of vols) {
+        if (v.ridge !== g.dir) continue;
+        const [e0, e1] = v.ridge === 'y' ? [v.x0, v.x1] : [v.y0, v.y1];
+        const into = Math.abs(e0 - line) < EPS ? 1 : Math.abs(e1 - line) < EPS ? -1 : 0;
+        if (!into) continue;
+        // normaali komponent katuse tõusu teljel (ridge y -> tõus x-suunas)
+        const nAxis = v.ridge === 'y' ? -w.u.y : w.u.x;
+        w.roofCross = { z0: zOf(0), k: slope * nAxis * into };
+        break;
+      }
+    }
     vols.forEach((v, k) => {
       const across = volumeSpan(v).across;
       const ridgeD = across / 2;
