@@ -119,8 +119,10 @@ function nodeAt(plan: HousePlan, p: { x: number; y: number }, tol = EPS): { plan
  */
 export function addWall(plan: HousePlan, from: { x: number; y: number }, to: { x: number; y: number }, extra: Partial<PlanWall> = {}): { plan: HousePlan; id: WallId } {
   const dir: 'x' | 'y' = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y) ? 'x' : 'y';
-  const end = dir === 'x' ? { x: to.x, y: from.y } : { x: from.x, y: to.y };
+  let end = dir === 'x' ? { x: to.x, y: from.y } : { x: from.x, y: to.y };
   if (Math.abs(end.x - from.x) + Math.abs(end.y - from.y) < 1) throw new Error('Sein on liiga lühike.');
+  // suund ühtne: x-sein vasakult paremale, y-sein tagant ette (uste/akende kaugus samast otsast)
+  if ((dir === 'x' && end.x < from.x) || (dir === 'y' && end.y < from.y)) [from, end] = [end, from];
   let r = nodeAt(plan, from);
   const a = r.id;
   r = nodeAt(r.plan, end);
@@ -169,4 +171,37 @@ export function normalizePlan(plan: HousePlan, x0: number, y0: number): HousePla
   const dy = y0 - minY;
   if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return plan;
   return { ...plan, nodes: plan.nodes.map((n) => ({ ...n, x: round(n.x + dx), y: round(n.y + dy) })) };
+}
+
+/** Tähestiku tähis: 0 -> A, 25 -> Z, 26 -> AA */
+function letter(i: number): string {
+  return i < 26 ? String.fromCharCode(65 + i) : letter(Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
+}
+
+/**
+ * Seinte tähised tavapärases järjekorras: x-suunas seinad numbritega eest taha (1 = esisein, suurim y),
+ * y-suunas seinad tähtedega vasakult paremale. Mitu seina samal joonel: 1a, 1b … / A1, A2 …
+ * Tagastab uue plaani ja vana -> uus tähiste kaardi (uksed/aknad järgivad).
+ */
+export function renumberWalls(plan: HousePlan): { plan: HousePlan; map: Record<string, string> } {
+  const lines = plan.walls.map((w) => ({ w, l: wallLine(plan, w.id) }));
+  const groups = (dir: 'x' | 'y') => {
+    const list = lines.filter((z) => z.l.dir === dir);
+    const out: (typeof list)[] = [];
+    for (const z of [...list].sort((a, b) => a.l.at - b.l.at)) {
+      const g = out.find((q) => Math.abs(q[0]!.l.at - z.l.at) < EPS);
+      if (g) g.push(z);
+      else out.push([z]);
+    }
+    for (const g of out) g.sort((a, b) => a.l.from - b.l.from);
+    return out;
+  };
+  const map: Record<string, string> = {};
+  // numbrid eest (suurim y) taha
+  groups('x')
+    .reverse()
+    .forEach((g, k) => g.forEach((z, i) => (map[z.w.id] = g.length > 1 ? `${k + 1}${String.fromCharCode(97 + i)}` : String(k + 1))));
+  // tähed vasakult paremale
+  groups('y').forEach((g, k) => g.forEach((z, i) => (map[z.w.id] = g.length > 1 ? `${letter(k)}${i + 1}` : letter(k))));
+  return { plan: { ...plan, walls: plan.walls.map((w) => ({ ...w, id: map[w.id] ?? w.id })) }, map };
 }

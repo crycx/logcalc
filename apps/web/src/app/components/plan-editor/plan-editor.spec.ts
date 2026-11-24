@@ -1,5 +1,5 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import { planGeometry, rectanglePlan, type HousePlan } from '@logcalc/calc-engine';
+import { addWall, planGeometry, rectanglePlan, type HousePlan } from '@logcalc/calc-engine';
 import { appConfig } from '../../app.config';
 import { PlanEditor } from './plan-editor';
 
@@ -19,7 +19,7 @@ interface Api {
 describe('PlanEditor', () => {
   let fixture: ComponentFixture<PlanEditor>;
   let emitted: (HousePlan | null)[];
-  let renamed: { from: string; to: string }[];
+  let renamed: Record<string, string>[];
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [PlanEditor], providers: [...appConfig.providers] }).compileComponents();
@@ -47,7 +47,8 @@ describe('PlanEditor', () => {
     expect(cards.map((c) => c.querySelector('.card-name')?.textContent)).toContain('Vaheseinaga');
     cards.find((c) => c.textContent?.includes('Vaheseinaga'))!.click();
     await fixture.whenStable();
-    expect(last()!.walls.map((w) => w.id)).toEqual(['1', '2', 'A', 'B', 'C']);
+    // tähed vasakult paremale: vahesein keskel = B
+    expect(last()!.walls.map((w) => w.id).sort()).toEqual(['1', '2', 'A', 'B', 'C']);
     const g = planGeometry(last()!, 40, C);
     expect(g.find((w) => w.id === '1')!.length).toBe(4000);
     expect(el.querySelectorAll('svg.canvas [data-wall]').length).toBe(5);
@@ -62,7 +63,8 @@ describe('PlanEditor', () => {
 
     api().rename(ev('c'));
     expect(last()!.walls.map((w) => w.id)).toContain('C');
-    expect(renamed).toEqual([{ from: '1', to: 'C' }]);
+    expect(renamed).toEqual([{ '1': 'C' }]);
+    expect(last()!.autoIds).toBe(false);
 
     api().setType('top');
     expect(last()!.walls.find((w) => w.id === 'C')!.topOnly).toBe(1);
@@ -72,6 +74,19 @@ describe('PlanEditor', () => {
     api().undo();
     api().undo();
     expect(last()!.walls.find((w) => w.id === 'C')!.topOnly).toBeUndefined();
+  });
+
+  it('seina lisamine nummerdab ümber (numbrid eest taha) ja annab uste jaoks tähiste kaardi', async () => {
+    fixture.componentRef.setInput('plan', rectanglePlan(4000, 6000, 40, C));
+    await fixture.whenStable();
+    // vahesein keskele: esisein 1, vahesein 2, tagasein 3 (oli 2)
+    (fixture.componentInstance as unknown as { apply(fn: (p: HousePlan) => HousePlan, m: string, s: boolean): unknown }).apply(
+      (p) => addWall(p, { x: 120, y: 3000 }, { x: 3880, y: 3000 }).plan,
+      '',
+      true,
+    );
+    expect(renamed.at(-1)).toEqual({ '2': '3', '3': '2' });
+    expect(planGeometry(last()!, 40, C).find((w) => w.id === '2')!.a.y).toBe(3000);
   });
 
   it('kustutamine; vale tähis jääb muutmata ja annab teate', async () => {

@@ -278,6 +278,8 @@ export interface FloorResult {
 }
 
 export interface RoofResult {
+  /** plaanist maja: tiibade katused (põhiosa on see objekt ise) */
+  parts?: RoofResult[];
   /** Katuse nurk kraadides */
   angle: number;
   boardCount: number;
@@ -299,6 +301,8 @@ export interface RoofResult {
 }
 
 export interface PurlinsResult {
+  /** plaanist maja: tiibade pärlinid */
+  parts?: PurlinsResult[];
   /** Pärlinite arv ühel katusepoolel (ilma tipupärlinita) */
   perSide: number;
   /** Kõik tükid kokku (viilkatusel 2*perSide + 1 tipupärlin) */

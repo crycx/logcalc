@@ -37,6 +37,7 @@ export {
   moveWall,
   nextWallId,
   normalizePlan,
+  renumberWalls,
   reverseWall,
   setWallSpan,
   updateWall,
@@ -44,4 +45,5 @@ export {
   wallSpan,
   type WallLine,
 } from './plan-edit.js';
+export { roofVolumes, gableEnds, pitchRatio, volumeSpan, type RoofVolume, type RoofGableEnd } from './roof-volumes.js';
 export { planTemplate, PLAN_TEMPLATES, type PlanTemplateKind, type PlanTemplateInfo, type PlanTemplateOptions } from './plan-templates.js';

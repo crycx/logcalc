@@ -51,6 +51,11 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
    lahtised osad, piirded, suuna pööramine, kustutamine), valitud seina vaade mudelist (palgid, avad,
    liited, jätkud), tagasivõtmine. Mallid: ristkülik, vaheseinaga, garaaž, veranda, terrass, L-kuju.
    Edasi: sõlme lohistamine, mõõtketi muutmine otse joonisel, külgvaated plaanist.
-4. **Katus ja põrand graafist** – mitu katusemahtu (L-kuju: orgu), viilud graafist; ruumid (graafi tahud)
-   -> põrand ja vundament ruumide kaupa.
+4. ◐ **Katus graafist** (`src/roof-volumes.ts`): plaani sisemine ala (üleujutus väljast) jagatakse
+   ristkülikuteks – suurim = põhiosa (hari `plan.ridge`, vaikimisi y), tiivad harjaga risti ühise seinaga.
+   Viil mahu otsas, mis pole teise mahu vastas; viilupalgid mahu laiuse järgi, kalle põhiosa järgi
+   (Hari h = põhiosa hari); seina osa, mis pole viilu all, saab räästa rea. Samal joonel jätkuvad seinad:
+   otsapidi jätk ristuva seina keskteljel, viil jaguneb. Katuselauad/pärlinid/räästalauad mahtude kaupa
+   (org lõikamata – hoiatus `roof.valley`). Tähised automaatselt: numbrid eest taha, tähed vasakult paremale.
+   Edasi: põrand ja vundament ruumide kaupa; orgude lõikamine; külgvaated plaanist.
 5. **3D vaade** samast mudelist; seejärel CNC (BTL/BTLx).

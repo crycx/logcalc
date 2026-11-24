@@ -65,6 +65,10 @@ export interface HousePlan {
    * 'y' = sügavuse suunas (Gable Sauna 3). Ristuvad seinad algavad täispalgiga.
    */
   halfStart?: 'x' | 'y';
+  /** Katuse põhiosa harja suund (vaikimisi 'y' = sügavuse suunas); tiivad on sellega risti. */
+  ridge?: 'x' | 'y';
+  /** Seinte tähised automaatselt (numbrid eest taha, tähed vasakult paremale); false = käsitsi. */
+  autoIds?: boolean;
 }
 
 /** Seina asend ja palgi geomeetria graafist */
@@ -83,6 +87,9 @@ export interface WallGeometry {
   length: number;
   /** liited seina koordinaatides (palgi algusest) ja ristuva seina tähis */
   joints: { x: number; wall: WallId }[];
+  /** ots jätkub samal joonel teise seinana ristuva seina kohal: palk lõpeb kesktelje kohal (sälguga) */
+  buttStart: boolean;
+  buttEnd: boolean;
 }
 
 const EPS = 0.5;
@@ -134,12 +141,33 @@ export function planGeometry(plan: HousePlan, thickness: number, c: Pick<EngineC
       if (!onSegment(p, s.a, s.b) || !onSegment(p, o.a, o.b)) continue;
       crossings.push({ at: (p.x - s.a.x) * ux + (p.y - s.a.y) * uy, wall: o.w.id });
     }
-    const startExt = crossings.some((k) => Math.abs(k.at) < EPS) ? ext : 0;
-    const endExt = crossings.some((k) => Math.abs(k.at - s.span) < EPS) ? ext : 0;
+    // samal joonel jätkuv sein (sama suund, ühine otspunkt): palgid otsapidi kokku (jätk), ülejääki pole
+    const continues = (pt: PlanNode) =>
+      segs.some((o) => o !== s && o.dir === s.dir && (near(o.a, pt) || near(o.b, pt)) && (s.dir === 'x' ? Math.abs(o.a.y - s.a.y) < EPS : Math.abs(o.a.x - s.a.x) < EPS));
+    const contStart = continues(s.a);
+    const contEnd = continues(s.b);
+    const crossStart = crossings.some((k) => Math.abs(k.at) < EPS);
+    const crossEnd = crossings.some((k) => Math.abs(k.at - s.span) < EPS);
+    const startExt = crossStart && !contStart ? ext : 0;
+    const endExt = crossEnd && !contEnd ? ext : 0;
     const joints = crossings.map((k) => ({ x: k.at + startExt, wall: k.wall })).sort((p, q) => p.x - q.x);
-    return { id: s.w.id, dir: s.dir, a: s.a, b: s.b, span: s.span, startExt, endExt, length: s.span + startExt + endExt, joints };
+    return {
+      id: s.w.id,
+      dir: s.dir,
+      a: s.a,
+      b: s.b,
+      span: s.span,
+      startExt,
+      endExt,
+      length: s.span + startExt + endExt,
+      joints,
+      buttStart: contStart && crossStart,
+      buttEnd: contEnd && crossEnd,
+    };
   });
 }
+
+const near = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.abs(p.x - q.x) < EPS && Math.abs(p.y - q.y) < EPS;
 
 function onSegment(p: { x: number; y: number }, a: PlanNode, b: PlanNode): boolean {
   return p.x >= Math.min(a.x, b.x) - EPS && p.x <= Math.max(a.x, b.x) + EPS && p.y >= Math.min(a.y, b.y) - EPS && p.y <= Math.max(a.y, b.y) + EPS;

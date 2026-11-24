@@ -19,7 +19,9 @@ import {
   planBounds,
   planGeometry,
   planTemplate,
+  renumberWalls,
   reverseWall,
+  roofVolumes,
   setWallSpan,
   updateWall,
   wallLine,
@@ -80,8 +82,8 @@ export class PlanEditor {
 
   readonly plan = input<HousePlan | null>(null);
   readonly planChange = output<HousePlan | null>();
-  /** seina tähis muutus (uksed/aknad viitavad tähisele) */
-  readonly renamed = output<{ from: string; to: string }>();
+  /** seinte tähised muutusid (vana -> uus); uksed/aknad viitavad tähisele */
+  readonly renamed = output<Record<string, string>>();
   readonly thickness = input.required<number>();
   /** palgi pikkused malli jaoks (praegused mõõdud) */
   readonly size = input.required<{ width: number; depth: number }>();
@@ -187,8 +189,22 @@ export class PlanEditor {
           : { x1: sw.a.x, y1: Math.max(sw.a.y, sw.b.y), x2: sw.a.x, y2: Math.min(sw.a.y, sw.b.y), offset: o },
       );
     }
+    // katuse harjad (katusemahud plaanist)
+    let ridges: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    if (p && geo.length) {
+      try {
+        ridges = roofVolumes(p, geo).map((r) =>
+          r.ridge === 'y'
+            ? { x1: (r.x0 + r.x1) / 2, y1: r.y0, x2: (r.x0 + r.x1) / 2, y2: r.y1 }
+            : { x1: r.x0, y1: (r.y0 + r.y1) / 2, x2: r.x1, y2: (r.y0 + r.y1) / 2 },
+        );
+      } catch {
+        ridges = [];
+      }
+    }
     return {
       viewBox: `${b.x0 - pad} ${b.y0 - pad} ${W + 2 * pad} ${D + 2 * pad}`,
+      ridges,
       walls,
       nodes: pts,
       dims,
@@ -255,19 +271,50 @@ export class PlanEditor {
     this.planChange.emit(next);
   }
 
-  /** Muuda plaani; vea korral sõnum, plaan jääb samaks */
-  private apply(fn: (p: HousePlan) => HousePlan, msg = ''): boolean {
+  /**
+   * Muuda plaani; vea korral sõnum, plaan jääb samaks.
+   * structural: seinte asend/arv muutus -> automaatne nummerdus (kui pole käsitsi välja lülitatud).
+   * Tagastab vana -> uus tähiste kaardi (või null vea korral).
+   */
+  private apply(fn: (p: HousePlan) => HousePlan, msg = '', structural = false): Record<string, string> | null {
     const p = this.plan();
-    if (!p) return false;
+    if (!p) return null;
     try {
-      const next = fn(p);
+      let next = fn(p);
       planGeometry(next, this.thickness(), C); // kontroll
+      let map: Record<string, string> = {};
+      if (structural && next.autoIds !== false) {
+        const r = renumberWalls(next);
+        next = r.plan;
+        map = r.map;
+      }
+      const changed = Object.fromEntries(Object.entries(map).filter(([a, b]) => a !== b));
+      const sel = this.selected();
+      if (sel && changed[sel]) this.selected.set(changed[sel]!);
       this.commit(next, msg);
-      return true;
+      if (Object.keys(changed).length) this.renamed.emit(changed);
+      return map;
     } catch (e) {
       this.message.set(e instanceof Error ? e.message : 'Ei saanud muuta.');
-      return false;
+      return null;
     }
+  }
+
+  /** Automaatne nummerdus uuesti sisse (numbrid eest taha, tähed vasakult paremale) */
+  protected renumber(): void {
+    this.apply(
+      (p) => {
+        const next = { ...p };
+        delete next.autoIds;
+        return next;
+      },
+      'Seinad nummerdatud: numbrid eest taha, tähed vasakult paremale.',
+      true,
+    );
+  }
+
+  protected setRidge(v: 'x' | 'y'): void {
+    this.apply((p) => ({ ...p, ridge: v === 'y' ? undefined : v }));
   }
 
   // ------------------------------------------------------------ mallid
@@ -371,12 +418,17 @@ export class PlanEditor {
       const end = this.snap(p, d.from);
       if (Math.abs(end.x - d.from.x) + Math.abs(end.y - d.from.y) < GRID) return;
       let newId = '';
-      const ok = this.apply((plan) => {
-        const r = addWall(plan, d.from, end);
-        newId = r.id;
-        return r.plan;
-      });
-      if (ok) {
+      const map = this.apply(
+        (plan) => {
+          const r = addWall(plan, d.from, end);
+          newId = r.id;
+          return r.plan;
+        },
+        '',
+        true,
+      );
+      if (map) {
+        newId = map[newId] ?? newId;
         this.selected.set(newId);
         this.message.set(`Sein ${newId} lisatud. Jätka klõpsuga, Esc lõpetab.`);
         this.draft.set({ from: end, to: end });
@@ -419,7 +471,7 @@ export class PlanEditor {
     if (this.drag?.moved && this.live()) {
       const next = this.live()!;
       this.live.set(null);
-      this.commit(next);
+      this.apply(() => next, '', true);
     }
     this.live.set(null);
     this.drag = null;
@@ -469,23 +521,27 @@ export class PlanEditor {
     const v = this.num(e);
     const id = this.selected();
     if (v === null || !id || v <= 0) return;
-    this.apply((p) => setWallSpan(p, id, v));
+    this.apply((p) => setWallSpan(p, id, v), '', true);
   }
 
   protected setPosition(e: Event): void {
     const v = this.num(e);
     const s = this.sel();
     if (v === null || !s) return;
-    this.apply((p) => moveWall(p, s.w.id, v - s.position));
+    this.apply((p) => moveWall(p, s.w.id, v - s.position), '', true);
   }
 
   protected rename(e: Event): void {
     const to = (e.target as HTMLInputElement).value.trim().toUpperCase();
     const from = this.selected();
     if (!from || !to || to === from) return;
-    if (this.apply((p) => updateWall(p, from, { id: to }))) {
+    const ok = this.apply(
+      (p) => ({ ...updateWall(p, from, { id: to }), autoIds: false }),
+      'Käsitsi tähis – automaatne nummerdus on välja lülitatud (nupp „Nummerda“ taastab).',
+    );
+    if (ok) {
       this.selected.set(to);
-      this.renamed.emit({ from, to });
+      this.renamed.emit({ [from]: to });
     } else {
       (e.target as HTMLInputElement).value = from;
     }
@@ -596,7 +652,8 @@ export class PlanEditor {
   protected remove(): void {
     const id = this.selected();
     if (!id) return;
-    if (this.apply((p) => deleteWall(p, id), `Sein ${id} kustutatud.`)) this.selected.set(null);
+    this.selected.set(null);
+    this.apply((p) => deleteWall(p, id), `Sein ${id} kustutatud.`, true);
   }
 
   protected select(id: string): void {

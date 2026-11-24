@@ -16,6 +16,7 @@
     </div>
   </div>
 } @else {
+  @if (!compact()) {
   <div class="toolbar">
     @if (!readonly() && !compact()) {
       <mat-button-toggle-group [value]="tool()" (change)="setTool($event.value)" aria-label="Tööriist" hideSingleSelectionIndicator>
@@ -25,6 +26,9 @@
       <button mat-icon-button type="button" (click)="undo()" [disabled]="!canUndo()" matTooltip="Võta tagasi (Ctrl+Z)" aria-label="Võta tagasi"><mat-icon>undo</mat-icon></button>
       <button mat-icon-button type="button" (click)="redo()" [disabled]="!canRedo()" matTooltip="Tee uuesti (Ctrl+Y)" aria-label="Tee uuesti"><mat-icon>redo</mat-icon></button>
       <span class="spacer"></span>
+      <button mat-button type="button" (click)="renumber()" matTooltip="Tähised järjekorda: numbrid eest taha, tähed vasakult paremale">
+        <mat-icon>format_list_numbered</mat-icon> Nummerda
+      </button>
       <button mat-button type="button" [matMenuTriggerFor]="tplMenu"><mat-icon>dashboard_customize</mat-icon> Mall</button>
       <mat-menu #tplMenu="matMenu">
         @for (t of templates; track t.kind) {
@@ -35,6 +39,7 @@
       </mat-menu>
     }
   </div>
+  }
 
   <div class="body" [class.compact]="compact()">
     <div class="canvas-col">
@@ -52,6 +57,9 @@
         (pointerup)="onUp()"
         (pointercancel)="onUp()"
       >
+        @for (r of v.ridges; track $index) {
+          <line class="ridge" [attr.x1]="r.x1" [attr.y1]="r.y1" [attr.x2]="r.x2" [attr.y2]="r.y2" />
+        }
         @for (w of v.walls; track w.id) {
           <g class="wall" [class.selected]="w.selected" [class.partial]="w.partial" [attr.data-wall]="w.id">
             <rect class="log" [attr.x]="w.rect.x" [attr.y]="w.rect.y" [attr.width]="w.rect.w" [attr.height]="w.rect.h" />
@@ -192,6 +200,13 @@
           }
         </ul>
         @if (plan(); as p) {
+          <mat-form-field class="full" matTooltip="Punktiirjoon plaanil = katuse hari. L-/T-maja tiiva hari on põhiosaga risti.">
+            <mat-label>Katuse hari (põhiosa)</mat-label>
+            <mat-select [value]="p.ridge ?? 'y'" (selectionChange)="setRidge($event.value)" [disabled]="readonly()">
+              <mat-option value="y">Sügavuse suunas (viilud seintel 1, 2, …)</mat-option>
+              <mat-option value="x">Laiuse suunas (viilud seintel A, B, …)</mat-option>
+            </mat-select>
+          </mat-form-field>
           <mat-form-field class="full">
             <mat-label>Poole palgiga algavad</mat-label>
             <mat-select [value]="p.halfStart ?? 'x'" (selectionChange)="setHalfStart($event.value)" [disabled]="readonly()">

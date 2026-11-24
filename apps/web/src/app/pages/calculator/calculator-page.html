@@ -381,7 +381,7 @@
           }
         </div>
 
-        @for (w of r.warnings; track w.code) {
+        @for (w of r.warnings; track $index) {
           <div class="warning"><mat-icon>warning</mat-icon> {{ w.message }}</div>
         }
 

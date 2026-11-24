@@ -2,6 +2,7 @@
  * Plaanimallid (plaanieditori „Alusta mallist“). Mõõdud = palgi pikkused (W laius, D sügavus),
  * sõlmed palgi kesktelgedel. Mallid järgivad Viktra Revit-maju (vt WALL-GRAPH.md).
  */
+import { renumberWalls } from './plan-edit.js';
 import { rectanglePlan, type HousePlan, type PlanWall } from './plan.js';
 import type { EngineConstants } from './types.js';
 
@@ -15,7 +16,7 @@ export interface PlanTemplateInfo {
 
 export const PLAN_TEMPLATES: PlanTemplateInfo[] = [
   { kind: 'rect', name: 'Ristkülik', description: '4 seina: esisein 1, tagasein 2, küljed A ja B' },
-  { kind: 'partition', name: 'Vaheseinaga', description: 'Kaks ruumi: vahesein C esi- ja tagaseina vahel (T-liited)' },
+  { kind: 'partition', name: 'Vaheseinaga', description: 'Kaks ruumi: vahesein B esi- ja tagaseina vahel (T-liited)' },
   { kind: 'garage', name: 'Garaaž / keskviil', description: 'Keskel ainult viil ja tõmbepalk (nagu Nora); garaažiuks lisa seinale 1' },
   { kind: 'porch', name: 'Lahtine veranda', description: 'Ees eesviil postideta, külgede ülemised 3 rida ulatuvad ette (nagu Boden)' },
   { kind: 'terrace', name: 'Terrass piirdega', description: 'Ees terrassi raam: piire, nurgapostid, sissepääs; ruumi esisein viiluga (nagu Lund)' },
@@ -33,7 +34,19 @@ export interface PlanTemplateOptions {
   railingRows?: number;
 }
 
+/** Mall tavapäraste tähistega (numbrid eest taha, tähed vasakult paremale). */
 export function planTemplate(
+  kind: PlanTemplateKind,
+  W: number,
+  D: number,
+  thickness: number,
+  c: Pick<EngineConstants, 'cornerOverhang'>,
+  o: PlanTemplateOptions = {},
+): HousePlan {
+  return renumberWalls(rawTemplate(kind, W, D, thickness, c, o)).plan;
+}
+
+function rawTemplate(
   kind: PlanTemplateKind,
   W: number,
   D: number,

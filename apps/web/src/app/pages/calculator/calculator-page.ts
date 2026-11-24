@@ -215,10 +215,13 @@ export class CalculatorPage {
     }
   }
 
-  /** seina tähis muutus plaanis -> uksed/aknad järgivad */
-  protected renameWall(e: { from: string; to: string }): void {
+  /** seinte tähised muutusid plaanis (vana -> uus, korraga) -> uksed/aknad järgivad */
+  protected renameWall(map: Record<string, string>): void {
     for (const arr of [this.form.controls.doors, this.form.controls.windows]) {
-      for (const row of arr.controls) if (row.controls.wall.value === e.from) row.controls.wall.setValue(e.to);
+      for (const row of arr.controls) {
+        const to = map[row.controls.wall.value];
+        if (to !== undefined) row.controls.wall.setValue(to);
+      }
     }
   }
 

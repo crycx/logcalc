@@ -2,9 +2,11 @@ import { DEFAULT_CONSTANTS } from './constants.js';
 import { computeFloor, computeFoundation } from './foundation.js';
 import { resolveDimensions, triangleGeometry } from './geometry.js';
 import { computePurlins, computeRoof } from './roof.js';
-import type { BomLine, CalcResult, EngineConstants, HouseInput, PriceList, Warning } from './types.js';
+import type { BomLine, CalcResult, EngineConstants, HouseInput, PriceList, RoofResult, Warning } from './types.js';
 import { computeLongBoards, computeOpenings, computeWalls } from './walls.js';
 import { buildWalls, placeOpenings, wallCutList, type WallId } from './wall-model.js';
+import { planGeometry } from './plan.js';
+import { pitchRatio, roofVolumes, volumeInput } from './roof-volumes.js';
 
 export class CalcInputError extends Error {
   constructor(
@@ -72,13 +74,50 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   const walls = computeWalls(input, dimensions, tri, longBoards, openings, c);
   const foundation = computeFoundation(input, dimensions, c, warnings);
   const floor = computeFloor(input, dimensions, c);
-  const roof = computeRoof(input, dimensions, tri, longBoards, c);
-  const purlins = computePurlins(input, dimensions, tri, longBoards, c);
+  let roof = computeRoof(input, dimensions, tri, longBoards, c);
+  let purlins = computePurlins(input, dimensions, tri, longBoards, c);
+
+  // plaanist viilkatusega maja: katus mahtude kaupa (põhiosa + tiivad, sama kalle)
+  if (input.plan && input.roofType === 'gable') {
+    const vols = roofVolumes(input.plan, planGeometry(input.plan, input.log.thickness, c));
+    if (vols.length) {
+      const ratio = pitchRatio(vols, input);
+      const parts = vols.map((v) => {
+        const vi = volumeInput(input, v, ratio, c);
+        const vd = resolveDimensions(vi, c);
+        const vt = triangleGeometry(vi, vd, c);
+        // pikemad lauad (räästa pikendus) ainult põhiosal
+        const lb = v.main ? longBoards : computeLongBoards({ ...vi, longBoards: [] }, vd, c);
+        return { roof: computeRoof(vi, vd, vt, lb, c), purlins: computePurlins(vi, vd, vt, lb, c) };
+      });
+      const [main, ...wings] = parts;
+      if (main!.roof) roof = { ...main!.roof, ...(wings.length ? { parts: wings.map((w) => w.roof!).filter(Boolean) } : {}) };
+      if (main!.purlins) purlins = { ...main!.purlins, ...(wings.length ? { parts: wings.map((w) => w.purlins!).filter(Boolean) } : {}) };
+      if (wings.length) {
+        warnings.push({
+          code: 'roof.valley',
+          message: 'Mitme katuseosaga maja (L/T): tiiva katus on arvestatud ristkülikuna (orgu lõikamata) – katuselaudu on veidi rohkem.',
+        });
+      }
+    }
+  }
 
   // seinamudel ja lõikenimekiri (plaanist või ristkülikust)
   const placedOpenings = placeOpenings(input, dimensions, c);
   const wallModel = buildWalls(input, dimensions, tri, c, placedOpenings, input.plan);
   const cutList = wallModel.map((w) => wallCutList(w, input.log, { maxLogLength: c.maxLogLength }));
+  // ava peab mahtuma seina sisse (nurgaliidete vahele)
+  for (const w of wallModel) {
+    const inner = w.joints.length ? [Math.min(...w.joints.map((j) => j.x)), Math.max(...w.joints.map((j) => j.x))] : [0, w.length];
+    for (const o of w.openings) {
+      if (o.offset < inner[0]! || o.offset + o.width > inner[1]! || o.width > inner[1]! - inner[0]!) {
+        warnings.push({
+          code: 'opening.outside',
+          message: `${o.kind === 'door' ? 'Uks' : 'Aken'} ${Math.round(o.width)} mm ei mahu seinale ${w.id} (kaugus ${Math.round(o.offset)} mm, seina sisemõõt ${Math.round(inner[1]! - inner[0]!)} mm).`,
+        });
+      }
+    }
+  }
   for (const cl of cutList) {
     if (cl.overLength > 0) {
       warnings.push({
@@ -126,15 +165,19 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   if (floor) add('porandaLauad', floor.totalJm, { pieces: [{ count: floor.boardCount, length: floor.boardLength }] });
   if (roof) {
     const pf = input.roof?.profiles ?? {};
-    add('katuseLauad', roof.boardsJm, { pieces: [{ count: roof.boardCount, length: roof.boardLength }] });
-    const e = roof.edgeBoards;
+    const all = [roof, ...(roof.parts ?? [])];
+    const sum = (f: (r: RoofResult) => number) => all.reduce((acc, r) => acc + f(r), 0);
+    add('katuseLauad', sum((r) => r.boardsJm), { pieces: all.map((r) => ({ count: r.boardCount, length: r.boardLength })) });
     // Järjekord nagu tootja joonisel: toelauad (RR) ees, siis RF ja EE (QUESTIONS.md K9)
-    add('toelaud38', e.supportSmall.totalJm, { pieces: [{ count: 2, length: e.supportSmall.pieceLength }], profile: pf.supportSmall ?? '38x38' });
-    add('toelaud95', e.supportLarge.totalJm, { pieces: [{ count: 2, length: e.supportLarge.pieceLength }], profile: pf.supportLarge ?? '18x95' });
-    add('esiraastalaud', e.fascia.totalJm, { pieces: [{ count: e.fascia.count, length: e.fascia.pieceLength }], profile: pf.fasciaBoard ?? '18x120' });
-    add('papikinnituslaud', e.felt.totalJm, { pieces: [{ count: e.felt.count, length: e.felt.pieceLength }], profile: pf.feltBoard ?? '18x95' });
+    add('toelaud38', sum((r) => r.edgeBoards.supportSmall.totalJm), { pieces: all.map((r) => ({ count: 2, length: r.edgeBoards.supportSmall.pieceLength })), profile: pf.supportSmall ?? '38x38' });
+    add('toelaud95', sum((r) => r.edgeBoards.supportLarge.totalJm), { pieces: all.map((r) => ({ count: 2, length: r.edgeBoards.supportLarge.pieceLength })), profile: pf.supportLarge ?? '18x95' });
+    add('esiraastalaud', sum((r) => r.edgeBoards.fascia.totalJm), { pieces: all.map((r) => ({ count: r.edgeBoards.fascia.count, length: r.edgeBoards.fascia.pieceLength })), profile: pf.fasciaBoard ?? '18x120' });
+    add('papikinnituslaud', sum((r) => r.edgeBoards.felt.totalJm), { pieces: all.map((r) => ({ count: r.edgeBoards.felt.count, length: r.edgeBoards.felt.pieceLength })), profile: pf.feltBoard ?? '18x95' });
   }
-  if (purlins) add('parlinid', purlins.totalJm, { pieces: [{ count: purlins.pieces, length: purlins.length }] });
+  if (purlins) {
+    const all = [purlins, ...(purlins.parts ?? [])];
+    add('parlinid', all.reduce((acc, x) => acc + x.totalJm, 0), { pieces: all.map((x) => ({ count: x.pieces, length: x.length })) });
+  }
 
   // Uksed ja aknad tükiridadena: sama nime, mõõdu ja hinnaga read liidetakse, alareale seinad
   const addOpenings = (list: HouseInput['doors'], kind: 'door' | 'window', word: string) => {

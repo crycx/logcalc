@@ -11,7 +11,8 @@
  * Kontroll: test/wall-model.test.ts võrdleb Viktra Revit-joonistega (Placas, Brantevik, Carina, Annika, Bente).
  */
 import { courses as splitCourses, type TriangleGeometry } from './geometry.js';
-import { planGeometry, rectanglePlan, type HousePlan, type PlanWall } from './plan.js';
+import { planGeometry, rectanglePlan, type HousePlan, type PlanWall, type WallGeometry } from './plan.js';
+import { gableEnds, pitchRatio, roofVolumes, volumeSpan, type RoofGableEnd, type RoofVolume } from './roof-volumes.js';
 import type { Dimensions, EngineConstants, HouseInput, Opening } from './types.js';
 
 /** Seina tähis: ristkülikul '1', '2', 'A', 'B'; plaanil suvaline (nt 'C', '3'). */
@@ -71,6 +72,9 @@ export interface WallSpec {
   joints: WallJoint[];
   /** muud tühjad alad (lahtine osa, piire, viilu alune) */
   voids?: WallVoid[];
+  /** sein jätkub samal joonel teise seinana: algus/lõpp on jätk ristuva seina keskteljel (sälk) */
+  buttStart?: boolean;
+  buttEnd?: boolean;
 }
 
 export interface CutPiece {
@@ -248,6 +252,73 @@ export function buildWalls(
   const sideCs = splitCourses(input.sideWallHeight - sideBase, p);
   const sideTop = sideBase + (sideCs.full - (sideCs.frac > 0 ? 1 : 0)) * p;
 
+  // viilkatus: katusemahud (põhiosa + tiivad), viilud mahtude otstes, kalle põhiosa järgi
+  const vols: RoofVolume[] = gable ? roofVolumes(plan, geo) : [];
+  const ends: RoofGableEnd[] = gableEnds(vols);
+  const ratio = pitchRatio(vols, input);
+  const t = input.log.thickness;
+
+  /** plaani koordinaat -> seina koordinaat (palgi algusest) */
+  const toWall = (g: WallGeometry, pos: number) => {
+    const a = g.dir === 'x' ? g.a.x : g.a.y;
+    const b = g.dir === 'x' ? g.b.x : g.b.y;
+    return (pos - a) * (Math.sign(b - a) || 1) + g.startExt;
+  };
+  /** seina palkide ulatus plaani koordinaatides (piki seina) */
+  const wallRange = (g: WallGeometry): [number, number] => {
+    const p0 = g.dir === 'x' ? g.a.x : g.a.y;
+    const p1 = g.dir === 'x' ? g.b.x : g.b.y;
+    const sg = Math.sign(p1 - p0) || 1;
+    const lo = p0 - sg * g.startExt;
+    const hi = p1 + sg * g.endExt;
+    return [Math.min(lo, hi), Math.max(lo, hi)];
+  };
+  /** viiluotsad, mis on selle seina joonel (või selgesõnaline viil vaheseinal: mahu laiune) */
+  const endsFor = (g: WallGeometry, w: PlanWall): RoofGableEnd[] => {
+    if (!gable || w.gable === false) return [];
+    const at = g.dir === 'x' ? g.a.y : g.a.x;
+    const [lo, hi] = wallRange(g);
+    const own = ends.filter((e) => e.dir === g.dir && Math.abs(e.at - at) < EPS && Math.min(e.to, hi) - Math.max(e.from, lo) > EPS);
+    if (own.length || w.gable !== true) return own;
+    // vahesein viiluga (Lund 2, Nora 2): maht, mille sees sein on
+    const k = vols.findIndex((v) =>
+      g.dir === 'x'
+        ? v.ridge === 'y' && at > v.y0 - EPS && at < v.y1 + EPS && Math.min(v.x1, hi) - Math.max(v.x0, lo) > EPS
+        : v.ridge === 'x' && at > v.x0 - EPS && at < v.x1 + EPS && Math.min(v.y1, hi) - Math.max(v.y0, lo) > EPS,
+    );
+    if (k < 0) return [];
+    const v = vols[k]!;
+    return [g.dir === 'x' ? { volume: k, dir: 'x', at, from: v.x0, to: v.x1 } : { volume: k, dir: 'y', at, from: v.y0, to: v.y1 }];
+  };
+  /**
+   * Mahu viilupalgid seinal (nagu triangleGeometry, laius mahu järgi): 1. rida = mahu palgi pikkus,
+   * ülejäänud sisemise kolmnurga järgi; lõigatud seina palkide ulatusega (samal joonel jätkuv sein saab ülejäänu).
+   * Tagastab read ja 1. rea ulatuse (räästa osa arvutamiseks).
+   */
+  const gableRowsFor = (g: WallGeometry, e: RoofGableEnd, baseY: number): { rows: WallRow[]; span: [number, number] } => {
+    const v = vols[e.volume]!;
+    const across = volumeSpan(v).across;
+    const innerW = across - t;
+    const innerH = innerW * ratio;
+    const center = (e.from + e.to) / 2;
+    const full = across + t + 2 * c.cornerOverhang;
+    if (innerW <= 0 || innerH <= 0) return { rows: [], span: [center, center] };
+    const n = Math.max(0, Math.ceil((input.sideWallHeight + innerH - baseY) / p - 1e-9));
+    const [lo, hi] = wallRange(g);
+    const rows: WallRow[] = [];
+    for (let i = 1; i <= n; i++) {
+      const dist = (n + 1 - i) * p;
+      const len = i === 1 ? full : (innerW * dist) / innerH;
+      const a = Math.max(lo, center - len / 2);
+      const b = Math.min(hi, center + len / 2);
+      if (b - a <= EPS) continue;
+      const s0 = toWall(g, a);
+      const s1 = toWall(g, b);
+      rows.push({ y0: baseY + (i - 1) * p, y1: baseY + i * p, length: Math.abs(s1 - s0), x0: Math.min(s0, s1), kind: 'gable' });
+    }
+    return { rows, span: [center - full / 2, center + full / 2] };
+  };
+
   const specs = geo.map((g): WallSpec => {
     const w = planWalls.get(g.id)!;
     const L = g.length;
@@ -258,16 +329,43 @@ export function buildWalls(
     if (w.height !== undefined) {
       rows = heightRows(L, w.height, (g.dir === 'x') === halfX);
     } else if (gable && g.dir === 'x') {
-      const carries = w.gable ?? (outerX && fullSpan);
-      if (carries) {
+      const myEnds = endsFor(g, w);
+      if (myEnds.length) {
         rows = rectRows(L, input.frontBackWallHeight, halfX, false);
-        rows.push(...triangleRows(input.frontBackWallHeight));
+        const baseY = rows.length ? rows[rows.length - 1]!.y1 : 0;
+        const spans: [number, number][] = [];
+        for (const e of myEnds) {
+          const r = gableRowsFor(g, e, baseY);
+          rows.push(...r.rows);
+          spans.push(r.span);
+        }
+        // seina osa, mis ei ole viilu all (L-maja: teise mahu räästas): üks rida räästa kõrguseni
+        const [lo, hi] = wallRange(g);
+        let free: [number, number][] = [[lo, hi]];
+        for (const [a, b] of spans) {
+          free = free.flatMap(([s0, e0]): [number, number][] =>
+            b <= s0 + EPS || a >= e0 - EPS ? [[s0, e0]] : [...(a - s0 > EPS ? [[s0, a] as [number, number]] : []), ...(e0 - b > EPS ? [[b, e0] as [number, number]] : [])],
+          );
+        }
+        for (const [a, b] of free) {
+          if (b - a < t + EPS) continue;
+          const s0 = toWall(g, a);
+          const s1 = toWall(g, b);
+          rows.push({ y0: baseY, y1: baseY + p, length: Math.abs(s1 - s0), x0: Math.min(s0, s1), kind: 'log' });
+        }
       } else {
         rows = rectRows(L, sideTop + p / 2, halfX, false);
       }
     } else if (gable) {
       rows = rectRows(L, input.sideWallHeight, !halfX, true);
-      if (outerY) extendTop(rows, L);
+      const myEnds = endsFor(g, w);
+      if (myEnds.length) {
+        // tiiva viil külgsuunas seinal (hari x-suunas)
+        const baseY = rows.length ? rows[rows.length - 1]!.y1 : 0;
+        for (const e of myEnds) rows.push(...gableRowsFor(g, e, baseY).rows);
+      } else if (outerY && (plan.ridge ?? 'y') === 'y') {
+        extendTop(rows, L);
+      }
     } else if (g.dir === 'x') {
       rows = rectRows(L, monoHeight(g.a.y), true, false);
       if (outerX) extendTop(rows, L);
@@ -303,7 +401,16 @@ export function buildWalls(
         }
       }
     }
-    return { id: g.id, length: L, rows, openings: openings.filter((o) => o.wall === g.id), joints: [], voids };
+    return {
+      id: g.id,
+      length: L,
+      rows,
+      openings: openings.filter((o) => o.wall === g.id),
+      joints: [],
+      voids,
+      ...(g.buttStart ? { buttStart: true } : {}),
+      ...(g.buttEnd ? { buttEnd: true } : {}),
+    };
   });
 
   // liited: ristuva seina palgid liite kohal (kõrgusvahemikud) -> sälk ainult neis ridades
@@ -400,10 +507,13 @@ export function wallPieces(wall: WallSpec, opts: { maxLogLength?: number } = {})
           : splitLong(s0, e0, joints.filter((x) => x > jMin + EPS && x < jMax - EPS), max, rowIndex);
       for (const part of parts) {
         // ühe sälguga tükk on ümberpööratav -> algus- ja lõpuotsa tükid on sama detail (nagu Revitis)
+        // jätk samal joonel jätkuva seinaga (otsapidi ristuva seina keskteljel) = sälk
+        const buttS = !!wall.buttStart && part.s <= EPS;
+        const buttE = !!wall.buttEnd && part.e >= wall.length - EPS;
         const notches =
           row.kind === 'gable'
             ? 0
-            : joints.filter((x) => x > part.s + EPS && x < part.e - EPS).length + Number(part.cutS) + Number(part.cutE);
+            : joints.filter((x) => x > part.s + EPS && x < part.e - EPS).length + Number(part.cutS || buttS) + Number(part.cutE || buttE);
         out.push({ x0: part.s, x1: part.e, y0: row.y0, y1: row.y1, kind: row.kind, notches, spliceStart: part.cutS, spliceEnd: part.cutE });
       }
     }
