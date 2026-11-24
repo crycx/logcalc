@@ -262,7 +262,9 @@
               <mat-button-toggle value="plan" [matTooltip]="hasPlan() ? 'Muuda põhiplaani' : 'Vabakujuline plaan: vaheseinad, L-kuju, terrass, veranda, garaaž'">
                 Plaan
               </mat-button-toggle>
-              @if (!isGable()) {
+              @if (hasPlan()) {
+                <mat-button-toggle value="walls" matTooltip="Kõik seinad mudelist: palgid, avad, liited, jätkud">Seinad</mat-button-toggle>
+              } @else if (!isGable()) {
                 <mat-button-toggle value="side">Külg</mat-button-toggle>
               }
               <mat-button-toggle value="floor">Põrand</mat-button-toggle>

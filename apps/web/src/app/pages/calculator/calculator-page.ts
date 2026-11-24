@@ -268,7 +268,9 @@ export class CalculatorPage {
     effect(() => storageSet(PROJECT_KEY, this.project()));
     // külgvaade on ainult ühekaldelisel
     effect(() => {
-      if (this.isGable() && untracked(this.view) === 'side') this.view.set('overview');
+      const v = untracked(this.view);
+      if ((this.isGable() || this.hasPlan()) && v === 'side') this.view.set('overview');
+      if (!this.hasPlan() && v === 'walls') this.view.set('overview');
     });
     void this.initSession();
   }

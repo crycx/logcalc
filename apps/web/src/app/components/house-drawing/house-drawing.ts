@@ -6,7 +6,7 @@ import { PlanEditor } from '../plan-editor/plan-editor';
 import { WallView } from '../wall-view/wall-view';
 import type { HouseFormValue } from '../../core/house-form';
 
-export type DrawingView = 'overview' | 'side' | 'floor' | 'foundation';
+export type DrawingView = 'overview' | 'side' | 'walls' | 'floor' | 'foundation';
 
 interface Rect {
   x: number;
@@ -41,6 +41,19 @@ export class HouseDrawing {
   protected readonly frontWall = computed(() => {
     const ws = this.r().wallModel;
     return ws.find((w) => w.id === '1') ?? ws[0] ?? null;
+  });
+
+  /** plaanist maja: kõik seinad (numbrid eest taha, siis tähed vasakult paremale) */
+  protected readonly allWalls = computed(() => {
+    const key = (id: string) => {
+      const m = /^(\d+)(.*)$/.exec(id);
+      return m ? [0, Number(m[1]), m[2] ?? ''] as const : [1, 0, id] as const;
+    };
+    return [...this.r().wallModel].sort((a, b) => {
+      const ka = key(a.id);
+      const kb = key(b.id);
+      return ka[0] - kb[0] || ka[1] - kb[1] || ka[2].localeCompare(kb[2], 'et', { numeric: true });
+    });
   });
 
   protected readonly clipId = `lc-clip-${++uid}`;

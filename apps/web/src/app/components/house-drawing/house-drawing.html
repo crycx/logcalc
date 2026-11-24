@@ -30,6 +30,15 @@
     }
   }
 
+  @case ('walls') {
+    @for (w of allWalls(); track w.id) {
+      <figure class="view wall-fig">
+        <figcaption>Sein {{ w.id }} · {{ w.length | number: '1.0-0' }} mm</figcaption>
+        <app-wall-view class="wall-mini" [wall]="w" />
+      </figure>
+    }
+  }
+
   @case ('side') {
     @let sides = elevSides();
     @for (e of sides; track e.caption; let i = $index) {
