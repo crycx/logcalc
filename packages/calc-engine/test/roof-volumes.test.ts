@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateHouse,
   planGeometry,
+  pitchRatio,
   planTemplate,
   rectanglePlan,
   renumberWalls,
@@ -38,6 +39,12 @@ describe('katusemahud', () => {
     expect(v.length).toBe(2);
     expect(v[0]).toMatchObject({ main: true, ridge: 'y', x0: J, x1: 3000, y0: J, y1: 8000 - J });
     expect(v[1]).toMatchObject({ main: false, ridge: 'x', x0: 3000, x1: 6000 - J, y0: J, y1: 4000 });
+  });
+
+  it('L-maja kalle sama mis ümbritseval ristkülikul (kitsamate osade hari madalam)', () => {
+    const p = planTemplate('lshape', 6000, 8000, T, C);
+    const ratio = pitchRatio(roofVolumes(p, planGeometry(p, T, C)), base);
+    expect(ratio).toBeCloseTo((3200 - 2166) / (6000 - 2 * J - T), 9);
   });
 });
 

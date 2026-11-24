@@ -308,7 +308,7 @@ export function buildWalls(
     const rows: WallRow[] = [];
     for (let i = 1; i <= n; i++) {
       const dist = (n + 1 - i) * p;
-      const len = i === 1 ? full : (innerW * dist) / innerH;
+      const len = i === 1 ? full : Math.min(full, (innerW * dist) / innerH);
       const a = Math.max(lo, center - len / 2);
       const b = Math.min(hi, center + len / 2);
       if (b - a <= EPS) continue;

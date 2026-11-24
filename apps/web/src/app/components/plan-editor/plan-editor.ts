@@ -139,7 +139,7 @@ export class PlanEditor {
     const D = Math.max(b.y1 - b.y0, 1000);
     const m = Math.max(W, D);
     const fs = m * 0.03;
-    const pad = m * 0.14;
+    const pad = m * 0.17;
     const tv = Math.max(t, m * 0.012); // nähtav paksus
     const sel = this.selected();
     const walls = geo.map((g) => {
@@ -175,9 +175,27 @@ export class PlanEditor {
         length: g.length,
       };
     });
+    // mõõdukett: seinte kesktelgede vahed (kõik sõlmed projitseeritud alumisele ja paremale servale), väljas üldmõõt
+    const uniq = (v: number[]) => [...new Set(v.map((x) => Math.round(x)))].sort((a, c) => a - c);
+    const used = new Set(geo.flatMap((g) => [`${g.a.x},${g.a.y}`, `${g.b.x},${g.b.y}`]));
+    const usedPts = pts.filter((n) => used.has(`${n.x},${n.y}`));
+    const xs = uniq(usedPts.map((n) => n.x));
+    const ys = uniq(usedPts.map((n) => n.y));
+    const chain = (v: number[], dir: 'x' | 'y'): Dim[] =>
+      v.slice(1).map((c, i) => {
+        const a = v[i]!;
+        const shift: Dim['shift'] = c - a < fs * 2.6 ? (i === v.length - 2 ? 'end' : 'start') : undefined;
+        return dir === 'x'
+          ? { x1: a, y1: b.y1, x2: c, y2: b.y1, offset: fs * 1.9, shift }
+          : { x1: b.x1, y1: c, x2: b.x1, y2: a, offset: fs * 1.9, shift };
+      });
+    const cx = xs.length > 2 ? chain(xs, 'x') : [];
+    const cy = ys.length > 2 ? chain(ys, 'y') : [];
     const dims: Dim[] = [
-      { x1: b.x0, y1: b.y1, x2: b.x1, y2: b.y1, offset: fs * 2.2 },
-      { x1: b.x1, y1: b.y1, x2: b.x1, y2: b.y0, offset: fs * 2.2 },
+      ...cx,
+      ...cy,
+      { x1: b.x0, y1: b.y1, x2: b.x1, y2: b.y1, offset: fs * (cx.length ? 3.6 : 2.2) },
+      { x1: b.x1, y1: b.y1, x2: b.x1, y2: b.y0, offset: fs * (cy.length ? 3.6 : 2.2) },
     ];
     const sw = sel ? geo.find((g) => g.id === sel) : undefined;
     if (sw) {

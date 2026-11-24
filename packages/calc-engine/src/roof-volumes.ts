@@ -169,13 +169,18 @@ function uniq(v: number[]): number[] {
 }
 
 /**
- * Katuse kalle kõigil mahtudel sama: sisemine kõrgus / sisemine laius põhiosa järgi
- * (ristkülikul = (hari − küljesein) / (laius − 2 × (ülejääk + paksus)), nagu triangleGeometry).
+ * Katuse kalle kõigil mahtudel sama: sisemine kõrgus / sisemine laius kogu maja (ümbritseva ristküliku)
+ * järgi põhiosa harjaga risti – nagu ristkülikul (hari − küljesein) / (laius − 2 × (ülejääk + paksus)).
+ * L-/T-majal jääb kalle samaks mis sama mõõduga ristkülikul; kitsamate osade harjad on madalamad.
  */
 export function pitchRatio(vols: RoofVolume[], input: HouseInput): number {
   const main = vols.find((v) => v.main);
   if (!main) return 0;
-  const innerW = volumeSpan(main).across - input.log.thickness;
+  const across =
+    main.ridge === 'y'
+      ? Math.max(...vols.map((v) => v.x1)) - Math.min(...vols.map((v) => v.x0))
+      : Math.max(...vols.map((v) => v.y1)) - Math.min(...vols.map((v) => v.y0));
+  const innerW = across - input.log.thickness;
   return innerW > 0 ? (input.roofHeight - input.sideWallHeight) / innerW : 0;
 }
 
