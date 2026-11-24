@@ -34,11 +34,12 @@ export interface Wall3D {
    */
   roofLine: [number, number][] | null;
   /**
-   * Räästasein: katuse alumine pind risti seinaga – kõrgus z = z0 + k × s, kus s on kaugus kesktelljest
-   * normaali n = (−u.y, u.x) suunas (−t/2 … t/2). Katus toetub ülemise palgi siseservale; palgid, mis
-   * ulatuvad katusepinnast kõrgemale, lõigatakse kaldu (ülemise palgi faas). null = pole räästasein.
+   * Räästa lõigud (seina koordinaatides x0..x1): katuse alumine pind risti seinaga – z = z0 + k × s, kus s on
+   * kaugus kesktelljest normaali n = (−u.y, u.x) suunas (−t/2 … t/2). Katus toetub ülemise palgi siseservale;
+   * palgid, mis ulatuvad kõrgemale, lõigatakse kaldu (faas). L-maja sein võib olla osaliselt räästas, osaliselt
+   * viilusein – viilupalgid lõigatakse alati `roofLine` järgi.
    */
-  roofCross: { z0: number; k: number } | null;
+  roofCross: { x0: number; x1: number; z0: number; k: number }[];
 }
 
 export interface RoofPlane3D {
@@ -76,7 +77,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       pieces: wallPieces(spec, { maxLogLength: c.maxLogLength }),
       openings: spec.openings.map((o) => ({ x0: o.offset, x1: o.offset + o.width, z0: o.sill, z1: o.sill + o.height, kind: o.kind })),
       roofLine: null,
-      roofCross: null,
+      roofCross: [],
     });
   }
 
@@ -135,19 +136,26 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
     // (Viktra: viilupalkide tipp = Hari h). Kõik palgid, mis ulatuvad kõrgemale, lõigatakse katuse järgi:
     // räästaseina ülemine palk kaldu (faas), viilupalgid ja viilu täisrea otsad katusejoone järgi.
     const zOf = (d: number) => input.sideWallHeight + slope * (d - t / 2);
+    const outA = t / 2 + ov + EPS;
+    const outL = t / 2 + c.cornerOverhang + EPS;
     // räästaseinte ristlõike katusejoon (ülemise palgi faas)
     for (const w of walls) {
       const g = byId.get(w.id)!;
       const line = g.dir === 'x' ? g.a.y : g.a.x;
+      const p0 = g.dir === 'x' ? w.origin.x : w.origin.y;
+      const uu = g.dir === 'x' ? w.u.x : w.u.y;
       for (const v of vols) {
         if (v.ridge !== g.dir) continue;
         const [e0, e1] = v.ridge === 'y' ? [v.x0, v.x1] : [v.y0, v.y1];
         const into = Math.abs(e0 - line) < EPS ? 1 : Math.abs(e1 - line) < EPS ? -1 : 0;
         if (!into) continue;
+        // lõik piki seina: mahu ulatus harja suunas (+ nurga ülejääk)
+        const [l0, l1] = v.ridge === 'y' ? [v.y0, v.y1] : [v.x0, v.x1];
+        const a = (l0 - outL - p0) * uu;
+        const b = (l1 + outL - p0) * uu;
         // normaali komponent katuse tõusu teljel (ridge y -> tõus x-suunas)
         const nAxis = v.ridge === 'y' ? -w.u.y : w.u.x;
-        w.roofCross = { z0: zOf(0), k: slope * nAxis * into };
-        break;
+        w.roofCross.push({ x0: Math.min(a, b), x1: Math.max(a, b), z0: zOf(0), k: slope * nAxis * into });
       }
     }
     vols.forEach((v, k) => {
@@ -169,8 +177,6 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       }
     });
     // katusepind ka räästa üleulatuse ja otste kohal (palgi otsad nurkades lõigatakse kalde järgi)
-    const outA = t / 2 + ov + EPS;
-    const outL = t / 2 + c.cornerOverhang + EPS;
     roofZ = (x, y) => {
       let best: number | null = null;
       for (const v of vols) {
@@ -198,15 +204,14 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
     const k = yFront - yBack < EPS ? 0 : (input.frontBackWallHeight - input.roofHeight) / (yFront - yBack);
     for (const w of walls) {
       const g = byId.get(w.id)!;
-      if (g.dir === 'x') w.roofCross = { z0: zAt(g.a.y), k: k * w.u.x };
+      if (g.dir === 'x') w.roofCross.push({ x0: -1e9, x1: 1e9, z0: zAt(g.a.y), k: k * w.u.x });
     }
   }
 
-  // katuse joon piki seina (kõik seinad, mis pole räästaseinad): murdepunktid seina otstes, sõlmedes,
-  // mahtude servades ja harjal
+  // katuse joon piki seina (kõik seinad; räästa lõikudes kasutatakse ristlõiget): murdepunktid seina otstes,
+  // sõlmedes, mahtude servades ja harjal
   const volsAll = input.roofType === 'gable' ? roofVolumes(plan, geo) : [];
   for (const w of walls) {
-    if (w.roofCross) continue;
     const xsW = new Set<number>([0, w.length]);
     const g = byId.get(w.id)!;
     const toW = (pos: number) => {

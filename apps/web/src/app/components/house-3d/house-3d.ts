@@ -207,7 +207,9 @@ export class House3d {
     for (const p of w.pieces) {
       const material = p.kind === 'half' ? mat.half : p.kind === 'gable' ? mat.gable : mat.log;
       let geo: THREE_NS.BufferGeometry;
-      const cut = w.roofLine ? underRoof(p, w.roofLine, roofAt) : null;
+      // räästa lõik (mitte viilupalk): ristlõike faas; muidu katusejoon piki seina
+      const rc = p.kind === 'gable' ? undefined : w.roofCross.find((s) => Math.min(p.x1, s.x1) - Math.max(p.x0, s.x0) > 1);
+      const cut = !rc && w.roofLine ? underRoof(p, w.roofLine, roofAt) : null;
       if (cut === 'none') continue;
       if (cut) {
         // palk katusejoone all: otsad kaldu (viilupalgid, viilu täisrea otsad nurkades)
@@ -217,9 +219,8 @@ export class House3d {
         shape.closePath();
         geo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
         geo.translate(0, 0, -t / 2);
-      } else if (w.roofCross && p.y1 > Math.min(w.roofCross.z0 - w.roofCross.k * (t / 2), w.roofCross.z0 + w.roofCross.k * (t / 2)) + 0.5) {
+      } else if (rc && p.y1 > Math.min(rc.z0 - rc.k * (t / 2), rc.z0 + rc.k * (t / 2)) + 0.5) {
         // räästaseina ülemine palk: katus toetub siseservale, välisserv lõigatud kaldu (faas)
-        const rc = w.roofCross;
         const zs = (s: number) => Math.max(p.y0, Math.min(p.y1, rc.z0 + rc.k * s));
         // ristlõige (a, z), a = −s (alus −n, üles, u -> parempoolne), pressitud piki seina
         const shape = new THREE.Shape();

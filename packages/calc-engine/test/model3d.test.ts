@@ -25,11 +25,11 @@ describe('3D: ristkülik viilkatusega', () => {
     };
     expect(roofAt(m.roofs[0]!, 120 + 20)).toBeCloseTo(eaveTop, 6);
     // A kulgeb tagant ette (u = (0, 1)), normaal (−1, 0) = väljapoole: s = +t/2 on välisserv, madalam
-    const rc = wa.roofCross!;
+    const rc = wa.roofCross[0]!;
     expect(rc.z0 - rc.k * 20).toBeCloseTo(eaveTop, 6);
     expect(rc.z0 + rc.k * 20).toBeCloseTo(roofAt(m.roofs[0]!, 100), 6);
     expect(rc.k).toBeLessThan(0);
-    expect(m.walls.find((w) => w.id === '1')!.roofCross).toBeNull();
+    expect(m.walls.find((w) => w.id === '1')!.roofCross).toEqual([]);
     // hari ligikaudu Hari h (räästa rea ümarduse võrra kõrgem)
     for (const roof of m.roofs) expect(Math.abs(Math.max(...roof.pts.map((p) => p[2])) - 3200)).toBeLessThan(120);
     // räästas allpool küljeseina ülemist serva (üleulatus)
@@ -43,12 +43,11 @@ describe('3D: ristkülik viilkatusega', () => {
     expect(w1.length).toBe(6000);
   });
 
-  it('viilusein: katuse joon tõuseb harjani keskel; räästasein joont ei saa', () => {
+  it('viilusein: katuse joon tõuseb harjani keskel; räästasein saab ristlõike', () => {
     const w1 = m.walls.find((w) => w.id === '1')!;
     const peak = w1.roofLine!.reduce((a, b) => (b[1] > a[1] ? b : a));
     expect(peak[0]).toBeCloseTo(3000, 6);
     expect(peak[1]).toBeCloseTo(Math.max(...m.roofs[0]!.pts.map((p) => p[2])), 6);
-    expect(m.walls.find((w) => w.id === 'A')!.roofLine).toBeNull();
   });
 
   it('katus ulatub harja suunas palgi otsteni', () => {
@@ -90,7 +89,7 @@ describe('3D: viilupalgid katuse järgi (Revit Bente IV 28: 15 + faasitud ülemi
   it('räästasein: ülemine palk (4000) siseservas 1824, välisserv faasitud', () => {
     const wa = m.walls.find((w) => w.id === 'A')!;
     expect(Math.max(...wa.pieces.map((p) => p.y1))).toBe(1824);
-    expect(wa.roofCross!.z0 - wa.roofCross!.k * 14).toBeCloseTo(1824, 6);
+    expect(wa.roofCross[0]!.z0 - wa.roofCross[0]!.k * 14).toBeCloseTo(1824, 6);
   });
 });
 
@@ -110,6 +109,21 @@ describe('3D: L-maja', () => {
     const xs = wing.flatMap((r) => r.pts.map((p) => p[0]));
     expect(Math.min(...xs)).toBeCloseTo(4000 - 2880 / 2, 6);
     expect(Math.max(...xs)).toBeCloseTo(8000, 6);
+  });
+
+  it('sein osaliselt räästas, osaliselt viilusein (6000 × 8000, sein A): viilupalgid katusejoone all, räästas ristlõige', () => {
+    const m = model(6000, 8000);
+    const wa = m.walls.find((w) => w.id === 'A')!;
+    const gable = wa.pieces.filter((p) => p.kind === 'gable');
+    expect(gable.length).toBeGreaterThan(3);
+    // räästa lõik ainult kitsa põhiosa kohal (y 4000..7880 + ülejäägid), viil (y 120..4000) jääb välja
+    expect(wa.roofCross.length).toBe(1);
+    const seg = wa.roofCross[0]!;
+    const toW = (y: number) => (y - wa.origin.y) * wa.u.y;
+    expect(Math.min(seg.x0, seg.x1)).toBeGreaterThan(toW(4000) - 200);
+    // viilu tipp katusejoonel
+    const top = gable.reduce((a, b) => (b.y1 > a.y1 ? b : a));
+    expect(Math.max(...wa.roofLine!.map((q) => q[1]))).toBeGreaterThan(top.y0);
   });
 
   it('laiem tiib (6000 × 8000): laiem osa läbib, kitsam põhiosa ulatub orus selle katusesse', () => {
