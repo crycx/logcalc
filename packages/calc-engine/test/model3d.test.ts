@@ -13,10 +13,20 @@ describe('3D: ristkülik viilkatusega', () => {
   const r = calculateHouse(base);
   const m = houseModel3d(base, r, C);
 
-  it('4 seina, iga palgitükk mudelist; 2 katusepoolt harjaga Hari h kõrgusel', () => {
+  it('4 seina, iga palgitükk mudelist; 2 katusepoolt, katus räästaseina ülemise palgi peal', () => {
     expect(m.walls.map((w) => w.id).sort()).toEqual(['1', '2', 'A', 'B']);
     expect(m.roofs.length).toBe(2);
-    for (const roof of m.roofs) expect(Math.max(...roof.pts.map((p) => p[2]))).toBeCloseTo(3200, 6);
+    // räästaseina ülemine palk välisservas katuse all (ei torka läbi)
+    const wa = m.walls.find((w) => w.id === 'A')!;
+    const eaveTop = Math.max(...wa.pieces.map((p) => p.y1));
+    const roofAtOuterFace = (r: (typeof m.roofs)[0]) => {
+      const [p0, , p2] = r.pts;
+      const xFace = 120 - 20;
+      return p0[2] + ((xFace - p0[0]) / (p2[0] - p0[0])) * (p2[2] - p0[2]);
+    };
+    expect(roofAtOuterFace(m.roofs[0]!)).toBeCloseTo(eaveTop, 6);
+    // hari ligikaudu Hari h (räästa rea ümarduse võrra kõrgem)
+    for (const roof of m.roofs) expect(Math.abs(Math.max(...roof.pts.map((p) => p[2])) - 3200)).toBeLessThan(120);
     // räästas allpool küljeseina ülemist serva (üleulatus)
     expect(Math.min(...m.roofs[0]!.pts.map((p) => p[2]))).toBeLessThan(2166);
   });
@@ -32,7 +42,7 @@ describe('3D: ristkülik viilkatusega', () => {
     const w1 = m.walls.find((w) => w.id === '1')!;
     const peak = w1.roofLine!.reduce((a, b) => (b[1] > a[1] ? b : a));
     expect(peak[0]).toBeCloseTo(3000, 6);
-    expect(peak[1]).toBeCloseTo(3200, 6);
+    expect(peak[1]).toBeCloseTo(Math.max(...m.roofs[0]!.pts.map((p) => p[2])), 6);
     expect(m.walls.find((w) => w.id === 'A')!.roofLine).toBeNull();
   });
 

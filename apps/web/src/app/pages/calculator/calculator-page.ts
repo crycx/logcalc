@@ -18,7 +18,18 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { CalcInputError, DEFAULT_CONSTANTS, PlanError, calculateHouse, type CalcResult, type HousePlan, type PriceList } from '@logcalc/calc-engine';
+import {
+  CalcInputError,
+  DEFAULT_CONSTANTS,
+  PlanError,
+  calculateHouse,
+  houseModel3d,
+  type CalcResult,
+  type EngineConstants,
+  type HouseInput,
+  type HousePlan,
+  type PriceList,
+} from '@logcalc/calc-engine';
 import { firstValueFrom, map } from 'rxjs';
 import { Api, Session, type ProjectAccess, type TenantConstants } from '../../core/api';
 import { formatPieces } from '../../helpers/format';
@@ -33,6 +44,7 @@ import { NameDialog, type NameDialogData } from '../../dialogs/name-dialog/name-
 import { ProjectsDialog } from '../../dialogs/projects-dialog/projects-dialog';
 import { ShareDialog } from '../../dialogs/share-dialog/share-dialog';
 import { HouseDrawing, type DrawingView } from '../../components/house-drawing/house-drawing';
+import { House3d } from '../../components/house-3d/house-3d';
 import { PlanEditor } from '../../components/plan-editor/plan-editor';
 import {
   DEFAULT_VALUE,
@@ -55,7 +67,7 @@ import { RowsEditor } from '../../components/rows-editor/rows-editor';
 const STORAGE_KEY = 'logcalc.form.v1';
 const PROJECT_KEY = 'logcalc.project.v1';
 
-type CalcState = { ok: true; result: CalcResult } | { ok: false; message: string };
+type CalcState = { ok: true; result: CalcResult; input: HouseInput; constants: EngineConstants } | { ok: false; message: string };
 /** Majaga salvestatakse kõik peale hindade (hinnad tulevad kliendi hinnakirjast). */
 type HouseData = Omit<HouseFormValue, 'prices' | 'catalog'>;
 interface OpenProject {
@@ -104,6 +116,7 @@ function houseData(v: HouseFormValue): HouseData {
     MatDividerModule,
     RowsEditor,
     HouseDrawing,
+    House3d,
     PlanEditor,
     CatalogEditor,
     RoofIcon,
@@ -120,7 +133,7 @@ export class CalculatorPage {
   protected readonly session = inject(Session);
 
   protected readonly priceKeys = PRICE_KEYS;
-  protected readonly view = signal<DrawingView | 'plan'>('overview');
+  protected readonly view = signal<DrawingView | 'plan' | '3d'>('overview');
 
   protected readonly form = buildHouseForm(this.fb, DEMO);
 
@@ -166,7 +179,7 @@ export class CalculatorPage {
     const positive = Object.fromEntries(Object.entries(tc).filter(([, v]) => typeof v === 'number' && v > 0));
     options.constants = { ...positive, ...options.constants };
     try {
-      return { ok: true, result: calculateHouse(input, options) };
+      return { ok: true, result: calculateHouse(input, options), input, constants: { ...DEFAULT_CONSTANTS, ...options.constants } };
     } catch (e) {
       return { ok: false, message: e instanceof CalcInputError || e instanceof PlanError ? e.message : 'Arvutus ebaõnnestus.' };
     }
@@ -175,6 +188,18 @@ export class CalculatorPage {
   protected readonly result = computed(() => {
     const c = this.calc();
     return c.ok ? c.result : null;
+  });
+
+  /** 3D mudel (ainult 3D vaates) */
+  protected readonly model3d = computed(() => {
+    if (this.view() !== '3d') return null;
+    const c = this.calc();
+    if (!c.ok) return null;
+    try {
+      return houseModel3d(c.input, c.result, c.constants);
+    } catch {
+      return null;
+    }
   });
 
   protected readonly errorMessage = computed(() => {

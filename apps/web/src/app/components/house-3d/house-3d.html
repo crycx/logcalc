@@ -1,0 +1,13 @@
+<div class="bar">
+  <mat-checkbox [ngModel]="showRoof()" (ngModelChange)="showRoof.set($event)">Katus</mat-checkbox>
+  <span class="hint">Lohista pööramiseks, ratas suumib, parem nupp nihutab</span>
+  <button type="button" class="reset" (click)="reset()">Algvaade</button>
+</div>
+<div class="canvas" #canvasHost>
+  @if (loading()) {
+    <div class="overlay">Laen 3D vaadet…</div>
+  }
+  @if (error()) {
+    <div class="overlay">{{ error() }}</div>
+  }
+</div>

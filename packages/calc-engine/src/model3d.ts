@@ -124,12 +124,22 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
     const vols = roofVolumes(plan, geo);
     const ratio = pitchRatio(vols, input);
     const slope = 2 * ratio; // tõus / horisontaal (ratio = kõrgus / sisemine laius)
-    const side = input.sideWallHeight;
+    // katuse alumine pind toetub räästaseinte ülemise palgi välisservale (ridade ümardus, pikemad lauad);
+    // kõigil mahtudel sama räästa kõrgus, et orud klapiksid
+    let eaveTop = input.sideWallHeight;
+    for (const w of walls) {
+      const g = byId.get(w.id)!;
+      const line = g.dir === 'x' ? g.a.y : g.a.x;
+      const isEave = vols.some((v) => v.ridge === g.dir && (v.ridge === 'y' ? [v.x0, v.x1] : [v.y0, v.y1]).some((e) => Math.abs(e - line) < EPS));
+      if (!isEave) continue;
+      for (const p of w.pieces) if (p.kind !== 'gable') eaveTop = Math.max(eaveTop, p.y1);
+    }
+    const zOf = (d: number) => eaveTop + slope * (d + t / 2);
     vols.forEach((v, k) => {
       const across = volumeSpan(v).across;
       const ridgeD = across / 2;
       const [lo, hi] = alongExtent(vols, k, t, c, eaveExtent(v));
-      const z = (d: number) => side + slope * (d - t / 2);
+      const z = zOf;
       const dEave = -(t / 2 + ov);
       // kaks katusepoolt: d mõõdetakse räästaseina kesktelljest harja poole
       const halves: [number, number][] = v.ridge === 'y' ? [[v.x0, 1], [v.x1, -1]] : [[v.y0, 1], [v.y1, -1]];
@@ -148,7 +158,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       for (const v of vols) {
         if (x < v.x0 - EPS || x > v.x1 + EPS || y < v.y0 - EPS || y > v.y1 + EPS) continue;
         const d = v.ridge === 'y' ? Math.min(x - v.x0, v.x1 - x) : Math.min(y - v.y0, v.y1 - y);
-        const zz = side + slope * (d - t / 2);
+        const zz = zOf(d);
         if (best === null || zz > best) best = zz;
       }
       return best;

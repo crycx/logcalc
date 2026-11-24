@@ -1,0 +1,57 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hint {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+  flex: 1;
+}
+
+.reset {
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-primary);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+  }
+}
+
+.canvas {
+  position: relative;
+  height: 480px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--mat-sys-outline-variant);
+
+  ::ng-deep canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    touch-action: none;
+  }
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}

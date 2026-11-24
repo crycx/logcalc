@@ -70,4 +70,9 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
    34 × 3315 (3316), prussid 7 + 5 × 3650, ring 3370 (3388) ja 2360 (2352). Ristkülik = endine tulemus.
    Pindala välispindade järgi (L-kuju), tuuleliistud iga välisnurga kohta.
    Edasi: külgvaated plaanist; terrassilauad eraldi materjalina; orulaud/plekk materjalina.
-5. **3D vaade** samast mudelist; seejärel CNC (BTL/BTLx).
+5. ◐ **3D vaade** (`src/model3d.ts` -> `houseModel3d`, veebis `components/house-3d`, Three.js eraldi tükina):
+   iga palgitükk oma kohal (seina alguspunkt + suund, tükid seina koordinaatides – sama mis lõikenimekirjas),
+   viilupalgid lõigatud katuse alumise pinnani (`roofLine`), avad, katusepinnad mahtude kaupa (katus toetub
+   räästaseina ülemise palgi välisservale; liituva mahu hari ulatub orus teise katusesse). Laiem L-tiib läbib
+   nurga (kõrgem hari), kitsam osa liitub sellega oruga (`roofVolumes` -> `dominate`).
+   Edasi: CNC (BTL/BTLx) samast mudelist – sälgud liidete kohal, jätkud, viilupalkide kaldlõiked.

@@ -275,6 +275,7 @@
               }
               <mat-button-toggle value="floor">Põrand</mat-button-toggle>
               <mat-button-toggle value="foundation">Vundament</mat-button-toggle>
+              <mat-button-toggle value="3d" matTooltip="3D mudel: palgid, avad, katus">3D</mat-button-toggle>
             </mat-button-toggle-group>
           </div>
           @if (view() === 'plan') {
@@ -288,6 +289,10 @@
               [openings]="r.placedOpenings"
               [readonly]="readonly()"
             />
+          } @else if (view() === '3d') {
+            @if (model3d(); as m) {
+              <app-house-3d [model]="m" />
+            }
           } @else {
             <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" />
           }
