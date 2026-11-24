@@ -130,3 +130,45 @@ describe('samal joonel jätkuvad seinad (esisein kahes osas, vahesein nende vahe
     expect(first('1a') + first('1b')).toBeCloseTo(W, 6);
   });
 });
+
+describe('L-maja harjaga laiuse suunas: põhiosa viil sisenurga seinal (kasutaja maja 3110 × 3400)', () => {
+  // vasak osa täissügav (põhiosa, hari x), parem-tagumine tiib; sisenurga sein B vasaku osa ees
+  const t = 28;
+  const j = 114;
+  const xm = 1555;
+  const ym = 1700;
+  const plan: HousePlan = {
+    ridge: 'x',
+    nodes: [
+      { id: 'a', x: j, y: j }, { id: 'b', x: 3110 - j, y: j }, { id: 'c', x: 3110 - j, y: ym },
+      { id: 'd', x: xm, y: ym }, { id: 'e', x: xm, y: 3400 - j }, { id: 'f', x: j, y: 3400 - j },
+    ],
+    walls: [
+      { id: '3', a: 'a', b: 'b' }, { id: 'C', a: 'b', b: 'c' }, { id: '2', a: 'd', b: 'c' },
+      { id: 'B', a: 'd', b: 'e' }, { id: '1', a: 'f', b: 'e' }, { id: 'A', a: 'a', b: 'f' },
+    ],
+  };
+  const r = calculateHouse({
+    ...base, width: 3110, depth: 3400, sideWallHeight: 1824, frontBackWallHeight: 1767, roofHeight: 2223,
+    log: { thickness: t, height: 114 }, plan,
+  });
+  const gable = (id: string) => r.wallModel.find((w) => w.id === id)!.rows.filter((x) => x.kind === 'gable');
+
+  it('sein A: täis viil; sein B: pool viilu (harjani), teine pool on tiiva katuse all', () => {
+    const a = gable('A');
+    const b = gable('B');
+    expect(a.length).toBeGreaterThan(0);
+    expect(b.length).toBe(a.length);
+    // B kolmnurga pool: iga rida on lühem kui A vastav rida, aga üle poole sellest
+    b.forEach((row, i) => {
+      expect(row.length).toBeLessThan(a[i]!.length);
+      expect(row.length).toBeGreaterThan(a[i]!.length / 2 - 120);
+    });
+  });
+
+  it('tiiva viil seinal C, seinal 2 viilu pole', () => {
+    expect(gable('C').length).toBeGreaterThan(0);
+    expect(gable('2')).toEqual([]);
+  });
+});
+

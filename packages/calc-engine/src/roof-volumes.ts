@@ -70,8 +70,10 @@ export function gableEnds(vols: RoofVolume[]): RoofGableEnd[] {
             { volume: k, dir: 'y', at: v.x1, from: v.y0, to: v.y1 },
           ];
     for (const e of cand) {
-      const blocked = vols.some((o, m) => m !== k && touches(o, e));
-      if (!blocked) ends.push(e);
+      // viil kaob ainult siis, kui teised mahud katavad otsa täielikult; osaliselt kaetud ots jääb viiluks
+      // (L-maja harjaga x: põhiosa ots sisenurga seinal B – pool kolmnurgast seinal, teine pool tiiva all)
+      const covered = vols.reduce((sum, o, m) => sum + (m !== k ? overlap(o, e) : 0), 0);
+      if (covered < e.to - e.from - EPS) ends.push(e);
     }
   });
   return ends;
@@ -89,13 +91,12 @@ function sharedEdge(a: RoofVolume, b: RoofVolume): 'v' | 'h' | null {
   return null;
 }
 
-/** kas maht o on serva e vastas (jagab seda serva osaliselt) */
-function touches(o: RoofVolume, e: RoofGableEnd): boolean {
-  const ov = (p0: number, p1: number) => Math.min(p1, e.to) - Math.max(p0, e.from) > EPS;
-  if (e.dir === 'x') return (Math.abs(o.y0 - e.at) < EPS || Math.abs(o.y1 - e.at) < EPS) && ov(o.x0, o.x1);
-  return (Math.abs(o.x0 - e.at) < EPS || Math.abs(o.x1 - e.at) < EPS) && ov(o.y0, o.y1);
+/** kui palju mahust o on serva e vastas (ühise serva pikkus) */
+function overlap(o: RoofVolume, e: RoofGableEnd): number {
+  const ov = (p0: number, p1: number) => Math.max(0, Math.min(p1, e.to) - Math.max(p0, e.from));
+  if (e.dir === 'x') return Math.abs(o.y0 - e.at) < EPS || Math.abs(o.y1 - e.at) < EPS ? ov(o.x0, o.x1) : 0;
+  return Math.abs(o.x0 - e.at) < EPS || Math.abs(o.x1 - e.at) < EPS ? ov(o.y0, o.y1) : 0;
 }
-
 
 /**
  * Katuse kalle kõigil mahtudel sama: sisemine kõrgus / sisemine laius kogu maja (ümbritseva ristküliku)
