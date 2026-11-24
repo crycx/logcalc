@@ -1,6 +1,6 @@
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DEFAULT_CONSTANTS, type CalcResult } from '@logcalc/calc-engine';
+import { DEFAULT_CONSTANTS, type CalcResult, type WallId } from '@logcalc/calc-engine';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 import type { HouseFormValue } from '../../core/house-form';
 
@@ -44,33 +44,70 @@ export class HouseDrawing {
     const pad = m * 0.12;
     const fs = m * 0.04;
     const df = fs * 0.8; // mõõtude teksti suurus
-    const d1 = df * 2.2; // sisemine kett
-    const d2 = df * 4.6; // väline kett
+    const step = df * 2.4; // ketikihtide vahe
     const walls: Rect[] = [
       { x: 0, y: o, w: W, h: t }, // sein 2
       { x: 0, y: D - o - t, w: W, h: t }, // sein 1
       { x: o, y: 0, w: t, h: D }, // sein A
       { x: W - o - t, y: 0, w: t, h: D }, // sein B
     ];
-    const ax = -pad * 0.55;
+
+    // avade mõõtkett seina kohta: palgi otsast -> ava -> ava -> ... -> palgi otsani (nagu Revitis)
+    const placed = this.r().placedOpenings;
+    const chainPts = (wall: WallId): number[] | null => {
+      const ops = placed.filter((op) => op.wall === wall).sort((a, b) => a.offset - b.offset);
+      if (!ops.length) return null;
+      const len = wall === '1' || wall === '2' ? W : D;
+      const pts = [0, ...ops.flatMap((op) => [op.offset, op.offset + op.width]), len]
+        .map((x) => Math.min(Math.max(x, 0), len))
+        .sort((a, b) => a - b);
+      return pts.filter((x, i) => i === 0 || x - pts[i - 1]! > 0.5);
+    };
+    const c1 = chainPts('1');
+    const c2 = chainPts('2');
+    const cA = chainPts('A');
+    const cB = chainPts('B');
+
+    const dims: Dim[] = [];
+    const segs = (pts: number[], make: (a: number, b: number) => Dim) => {
+      for (let i = 0; i + 1 < pts.length; i++) dims.push(make(pts[i]!, pts[i + 1]!));
+    };
+    // all (sein 1): avade kett seina välispinnalt, siis nurgaülejäägid, siis kogupikkus
+    const b1 = step;
+    const b2 = c1 ? 2 * step : step;
+    const b3 = b2 + step;
+    if (c1) segs(c1, (a, b) => ({ x1: a, y1: D - o, x2: b, y2: D - o, offset: o + b1 }));
+    dims.push(
+      { x1: 0, y1: D, x2: o, y2: D, offset: b2, shift: 'start' },
+      { x1: o, y1: D, x2: W - o, y2: D, offset: b2 },
+      { x1: W - o, y1: D, x2: W, y2: D, offset: b2, shift: 'end' },
+      { x1: 0, y1: D, x2: W, y2: D, offset: b3 },
+    );
+    // paremal (sein B)
+    const r2 = cB ? 2 * step : step;
+    const r3 = r2 + step;
+    if (cB) segs(cB, (a, b) => ({ x1: W - o, y1: a, x2: W - o, y2: b, offset: -(o + step) }));
+    dims.push(
+      { x1: W, y1: 0, x2: W, y2: o, offset: -r2, shift: 'start' },
+      { x1: W, y1: o, x2: W, y2: D - o, offset: -r2 },
+      { x1: W, y1: D - o, x2: W, y2: D, offset: -r2 },
+      { x1: W, y1: 0, x2: W, y2: D, offset: -r3 },
+    );
+    // üleval (sein 2) ja vasakul (sein A): ainult avade kett
+    if (c2) segs(c2, (a, b) => ({ x1: a, y1: o, x2: b, y2: o, offset: -(o + step) }));
+    if (cA) segs(cA, (a, b) => ({ x1: o, y1: a, x2: o, y2: b, offset: o + step }));
+
+    // telgede tähised väljapoole ketti
+    const ax = -(c2 || cA ? step + df * 2 : pad * 0.55);
     const labels = [
-      { t: 'A', x: o + t / 2, y: ax },
-      { t: 'B', x: W - o - t / 2, y: ax },
-      { t: '2', x: ax, y: o + t / 2 },
-      { t: '1', x: ax, y: D - o - t / 2 },
+      { t: 'A', x: o + t / 2, y: c2 ? ax : -pad * 0.55 },
+      { t: 'B', x: W - o - t / 2, y: c2 ? ax : -pad * 0.55 },
+      { t: '2', x: cA ? ax : -pad * 0.55, y: o + t / 2 },
+      { t: '1', x: cA ? ax : -pad * 0.55, y: D - o - t / 2 },
     ];
-    // Mõõdukett: nurgaülejääk | välisseina mõõt | nurgaülejääk  ja kogu palgi pikkus
-    const dims: Dim[] = [
-      { x1: 0, y1: D, x2: o, y2: D, offset: d1, shift: 'start' },
-      { x1: o, y1: D, x2: W - o, y2: D, offset: d1 },
-      { x1: W - o, y1: D, x2: W, y2: D, offset: d1, shift: 'end' },
-      { x1: 0, y1: D, x2: W, y2: D, offset: d2 },
-      { x1: W, y1: 0, x2: W, y2: o, offset: -d1, shift: 'start' },
-      { x1: W, y1: o, x2: W, y2: D - o, offset: -d1 },
-      { x1: W, y1: D - o, x2: W, y2: D, offset: -d1 },
-      { x1: W, y1: 0, x2: W, y2: D, offset: -d2 },
-    ];
-    const far = d2 + df * 2;
+    const near = Math.max(pad, -ax + df * 1.5);
+    const farX = r3 + df * 2;
+    const farY = b3 + df * 2;
     return {
       W,
       D,
@@ -81,7 +118,7 @@ export class HouseDrawing {
       walls,
       labels,
       dims,
-      viewBox: `${-pad} ${-pad} ${W + pad + far} ${D + pad + far}`,
+      viewBox: `${-near} ${-near} ${W + near + farX} ${D + near + farY}`,
     };
   });
 
@@ -270,10 +307,25 @@ export class HouseDrawing {
     const d1 = df * 2.2;
     const d2 = df * 4.6;
     const Y0 = Y(0);
-    const dims: Dim[] = [{ x1: 0, y1: Y0, x2: L, y2: Y0, offset: d1 }];
+    // aluse all: avade kett (palgi otsast ava servadeni, nagu Revitis) ja kogupikkus
+    const dims: Dim[] = [];
+    let bottomFar = d1;
+    if (openings.length) {
+      const pts = [0, ...openings.flatMap((op) => [op.x, op.x + op.w]), L].sort((a, b) => a - b);
+      const uniq = pts.filter((x, i) => i === 0 || x - pts[i - 1]! > 0.5);
+      for (let i = 0; i + 1 < uniq.length; i++) dims.push({ x1: uniq[i]!, y1: Y0, x2: uniq[i + 1]!, y2: Y0, offset: d1 });
+      bottomFar = d2;
+    }
+    dims.push({ x1: 0, y1: Y0, x2: L, y2: Y0, offset: bottomFar });
+    // akende alumine serv ja kõrgus (vertikaalne kett ava paremal küljel)
     for (const op of openings) {
-      const yb = op.y + op.h;
-      dims.push({ x1: op.x, y1: yb, x2: op.x + op.w, y2: yb, offset: -df * 1.3 });
+      if (op.kind !== 'window') continue;
+      const xr = op.x + op.w;
+      const ySill = op.y + op.h;
+      dims.push(
+        { x1: xr, y1: Y0, x2: xr, y2: ySill, offset: -df * 1.2 },
+        { x1: xr, y1: ySill, x2: xr, y2: op.y, offset: -df * 1.2 },
+      );
     }
     let xL: number;
     let xR: number;
@@ -303,7 +355,7 @@ export class HouseDrawing {
     }
     const left = xL - (gable ? d2 : d1) - df * 2;
     const right = xR + d1 + df * 2;
-    const bottom = Y0 + d1 + df * 2;
+    const bottom = Y0 + bottomFar + df * 2;
     const topY = Y(Math.max(gable || side ? v.roofHeight : v.frontBackWallHeight, highest)) - df * 2;
 
     return {
