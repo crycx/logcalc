@@ -3,7 +3,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { CalculatorPage } from './calculator-page';
 import { appConfig } from '../../app.config';
 import { NonNullableFormBuilder } from '@angular/forms';
-import { normalizeHouse, setFormValue, type HouseForm } from '../../core/house-form';
+import { normalizeHouse, setFormValue, type HouseForm, type RowValue } from '../../core/house-form';
 
 const ADMIN = { id: 1, email: 'a@b.ee', name: 'Admin', role: 'admin', tenant: { id: 1, slug: 't', name: 'Test OÜ' } };
 const tick = () => new Promise((r) => setTimeout(r));
@@ -170,6 +170,33 @@ describe('CalculatorPage', () => {
       // asukoha väljad: tühi kaugus näitab automaatset väärtust
       const offsetInputs = Array.from(el.querySelectorAll('app-rows-editor .place input')) as HTMLInputElement[];
       expect(offsetInputs.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('ühekalle külgvaade: sein B, ja kui sein A erineb, ka sein A (oma lõikega)', async () => {
+      const fixture = await create(ADMIN);
+      const page = fixture.componentInstance as unknown as { form: HouseForm };
+      const fb = TestBed.inject(NonNullableFormBuilder);
+      const house = (windows: Partial<RowValue>[]) =>
+        normalizeHouse({
+          roofType: 'mono', width: 3553, depth: 2943, frontBackWallHeight: 2223, roofHeight: 1881, logThickness: 28,
+          doors: [{ a: 1440, b: 1995, count: 1 }], windows: windows as RowValue[],
+        });
+      const el: HTMLElement = fixture.nativeElement;
+      const toggle = () => Array.from(el.querySelectorAll('.view-bar button')).find((b) => b.textContent?.includes('Külg')) as HTMLButtonElement;
+      const captions = () => Array.from(el.querySelectorAll('app-house-drawing figcaption')).map((c) => c.textContent?.trim() ?? '');
+
+      setFormValue(fb, page.form, house([{ a: 920, b: 456, count: 1 }]));
+      await fixture.whenStable();
+      toggle().click();
+      await fixture.whenStable();
+      expect(captions()).toEqual(['Külgvaade – sein B (sein A on sama, peegelpildis)']);
+
+      setFormValue(fb, page.form, house([{ a: 920, b: 456, count: 1, wall: 'A' }]));
+      await fixture.whenStable();
+      expect(captions()).toEqual(['Külgvaade – sein B', 'Külgvaade – sein A']);
+      const ids = Array.from(el.querySelectorAll('app-house-drawing clipPath')).map((c) => c.id);
+      expect(new Set(ids).size).toBe(2);
+      expect(el.querySelectorAll('app-house-drawing rect.window').length).toBe(1);
     });
 
     it('arvutab ümber ja näitab viga vigase sisendi korral', async () => {

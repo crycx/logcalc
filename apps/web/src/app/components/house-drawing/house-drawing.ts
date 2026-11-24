@@ -234,13 +234,29 @@ export class HouseDrawing {
   /** Eestvaade: sein 1 (viilkatusel koos viiluga, ühekaldelisel kõrge esisein) */
   protected readonly elev = computed(() => this.elevation('front'));
   /** Külgvaade (ühekaldelise kolmnurk) */
-  protected readonly elevSide = computed(() => this.elevation('side'));
+  /**
+   * Külgvaated väljast vaadatuna: sein B (esisein vasakul) ja sein A (peegelpilt, tagasein vasakul).
+   * Kui seintel A ja B on samad avad samades kohtades, näidatakse ainult üht.
+   */
+  protected readonly elevSides = computed(() => {
+    const key = (w: WallId) =>
+      this.r()
+        .placedOpenings.filter((u) => u.wall === w)
+        .map((u) => `${u.kind}:${Math.round(u.offset)}:${Math.round(u.width)}:${Math.round(u.sill)}:${Math.round(u.height)}`)
+        .sort()
+        .join('|');
+    const same = key('A') === key('B');
+    const b = this.elevation('sideB');
+    if (same) return [{ ...b, caption: 'Külgvaade – sein B (sein A on sama, peegelpildis)' }];
+    return [b, this.elevation('sideA')];
+  });
 
-  private elevation(kind: 'front' | 'side') {
+  private elevation(kind: 'front' | 'sideB' | 'sideA') {
     const v = this.v();
     const r = this.r();
     const gable = v.roofType === 'gable';
-    const side = kind === 'side' && !gable;
+    const side = kind !== 'front' && !gable;
+    const sideWall: WallId = kind === 'sideA' ? 'A' : 'B';
     const { width: W, depth: D } = r.dimensions;
     const p = Math.max(v.logHeight, 1);
     const t = v.logThickness;
@@ -292,10 +308,10 @@ export class HouseDrawing {
       clip = `${-big},${Y(v.frontBackWallHeight)} ${W + big},${Y(v.frontBackWallHeight)} ${W + big},${Y(-big)} ${-big},${Y(-big)}`;
     }
 
-    // uksed ja aknad mootori paigutusest: eestvaates sein 1, külgvaates sein A
-    // (külgvaates on esisein vasakul, seina A kaugus mõõdetakse plaanil ülevalt = tagaseina poolt)
+    // uksed ja aknad mootori paigutusest: eestvaates sein 1, külgvaates sein B (A peegeldatakse lõpus)
+    // (külgvaates on esisein vasakul; külgseina kaugus mõõdetakse plaanil ülevalt = tagaseina poolt)
     const openings = r.placedOpenings
-      .filter((u) => u.wall === (side ? 'A' : '1'))
+      .filter((u) => u.wall === (side ? sideWall : '1'))
       .map((u) => {
         const h = Math.max(Math.min(u.height, wallH - u.sill), 0);
         const x = side ? D - u.offset - u.width : u.offset;
@@ -358,11 +374,11 @@ export class HouseDrawing {
     const bottom = Y0 + bottomFar + df * 2;
     const topY = Y(Math.max(gable || side ? v.roofHeight : v.frontBackWallHeight, highest)) - df * 2;
 
-    return {
+    const result = {
       caption: gable
         ? 'Eestvaade – sein 1 (esisein ja viil)'
         : side
-          ? 'Külgvaade – sein A (kolmnurk)'
+          ? `Külgvaade – sein ${sideWall}`
           : 'Eestvaade – sein 1 (kõrge esisein)',
       viewBox: `${left} ${topY} ${right - left} ${bottom - topY}`,
       fs,
@@ -377,5 +393,62 @@ export class HouseDrawing {
       groundX2: L + ov,
       groundY: Y(0),
     };
+    return kind === 'sideA' ? mirrorElevation(result, D) : result;
   }
+}
+
+/** Külgvaate peegeldus (sein A väljast vaadatuna = sein B peegelpildis): x -> L - x. */
+function mirrorElevation<
+  T extends {
+    viewBox: string;
+    body: Rect;
+    courses: Rect[];
+    openings: (Rect & { kind: 'door' | 'window' })[];
+    roof: string;
+    clip: string;
+    dims: Dim[];
+    groundX1: number;
+    groundX2: number;
+  },
+>(e: T, L: number): T {
+  const fx = (x: number) => L - x;
+  const rect = <R extends Rect>(r: R): R => ({ ...r, x: L - r.x - r.w });
+  const pts = (p: string) =>
+    p
+      .trim()
+      .split(/\s+/)
+      .map((xy) => {
+        const [x, y] = xy.split(',').map(Number);
+        return `${fx(x!)},${y}`;
+      })
+      .join(' ');
+  const dims = e.dims.map((d): Dim => {
+    const vertical = Math.abs(d.x1 - d.x2) < 1e-6;
+    const from = (f?: [number, number]): [number, number] | undefined => (f ? [fx(f[0]), f[1]] : undefined);
+    if (vertical) {
+      return { ...d, x1: fx(d.x1), x2: fx(d.x2), offset: -d.offset, from1: from(d.from1), from2: from(d.from2) };
+    }
+    // horisontaalne: suund vasakult paremale säilib -> punktid vahetuvad
+    const shift = d.shift === 'start' ? 'end' : d.shift === 'end' ? 'start' : undefined;
+    return {
+      x1: fx(d.x2), y1: d.y2, x2: fx(d.x1), y2: d.y1, offset: d.offset,
+      ...(shift ? { shift } : {}),
+      ...(d.text !== undefined ? { text: d.text } : {}),
+      ...(d.from2 ? { from1: from(d.from2) } : {}),
+      ...(d.from1 ? { from2: from(d.from1) } : {}),
+    };
+  });
+  const [vx, vy, vw, vh] = e.viewBox.split(' ').map(Number) as [number, number, number, number];
+  return {
+    ...e,
+    viewBox: `${L - (vx + vw)} ${vy} ${vw} ${vh}`,
+    body: rect(e.body),
+    courses: e.courses.map(rect),
+    openings: e.openings.map(rect),
+    roof: pts(e.roof),
+    clip: pts(e.clip),
+    dims,
+    groundX1: fx(e.groundX2),
+    groundX2: fx(e.groundX1),
+  };
 }
