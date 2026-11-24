@@ -54,6 +54,7 @@ const LABELS: Record<keyof PriceList, string> = {
   katuseLauad: 'Katuselauad',
   parlinid: 'Pärlinid',
   porandaLauad: 'Põrandalauad',
+  terrassiLauad: 'Terrassilauad',
   vundament: 'Vundamendi prussid',
   esiraastalaud: 'Esiräästalaud (RF)',
   papikinnituslaud: 'Papikinnituslaud (EE)',
@@ -185,8 +186,15 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
     add('vundament', foundation.totalJm, { pieces: mergePieces(pieces) });
   }
   if (floor) {
-    const parts = floor.parts ?? [{ boardCount: floor.boardCount, boardLength: floor.boardLength }];
+    const parts = floor.parts?.filter((p) => !p.open) ?? [{ boardCount: floor.boardCount, boardLength: floor.boardLength }];
     add('porandaLauad', floor.totalJm, { pieces: mergePieces(parts.map((p) => ({ count: p.boardCount, length: p.boardLength }))) });
+    const terr = floor.parts?.filter((p) => p.open) ?? [];
+    if (floor.terrace && terr.length) {
+      add('terrassiLauad', floor.terrace.totalJm, {
+        pieces: mergePieces(terr.map((p) => ({ count: p.boardCount, length: p.boardLength }))),
+        profile: `laius ${terr[0]!.boardWidth}`,
+      });
+    }
   }
   if (roof) {
     const pf = input.roof?.profiles ?? {};

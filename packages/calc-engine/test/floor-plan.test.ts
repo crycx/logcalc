@@ -63,9 +63,18 @@ describe('Lund: tuba ja terrass', () => {
     const [room, terrace] = r.floor!.parts!;
     expect(room).toMatchObject({ open: false, along: 'y', boardCount: 34 });
     expect(Math.abs(room!.boardLength - 3316)).toBeLessThanOrEqual(5);
+    // põrandalauad ainult toas
+    expect(r.floor!.boardCount).toBe(34);
     expect(terrace!.open).toBe(true);
-    // Revit: terrassilauad 2310 (terrassi sisemõõt)
-    expect(Math.abs(terrace!.boardLength - 2310)).toBeLessThanOrEqual(10);
+  });
+
+  it('terrassilauad: Revit TB 28x120 – 30 tk, 2310 (terrassi sisemõõt), eraldi materjal', () => {
+    const terrace = r.floor!.parts!.find((p) => p.open)!;
+    expect(terrace).toMatchObject({ boardWidth: 120, boardCount: 30, boardLength: 2310 });
+    const line = r.bom.find((l) => l.key === 'terrassiLauad')!;
+    expect(line.pieces).toEqual([{ count: 30, length: 2310 }]);
+    expect(line.quantity).toBeCloseTo((30 * 2310) / 1000, 9);
+    expect(r.bom.find((l) => l.key === 'porandaLauad')!.pieces).toEqual([{ count: 34, length: 3315 }]);
   });
 
   it('vundament: Revit 12 × 3650 (7 toas + 5 terrassil, seina 2 all topelt), ring 3388 ja 2352', () => {

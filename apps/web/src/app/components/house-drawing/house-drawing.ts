@@ -266,18 +266,20 @@ export class HouseDrawing {
     const g = this.graph();
     const fl = this.r().floor;
     if (!g || !fl?.parts) return null;
-    const bw = Math.max(this.v().floorBoardWidth, 1);
+    const tg = Math.max(this.v().terraceBoardGap, 0);
     let boardsLeft = 3000;
     const parts = fl.parts.map((p, i) => {
       const bx = p.box;
+      const bw = Math.max(p.boardWidth, 1);
+      const step = bw + (p.open ? tg : 0);
       const boards: Rect[] = [];
       const n = Math.min(p.boardCount, boardsLeft);
       boardsLeft -= n;
       for (let k = 0; k < n; k++) {
         boards.push(
           p.along === 'x'
-            ? { x: bx.x0, y: bx.y0 + k * bw, w: p.boardLength, h: bw }
-            : { x: bx.x0 + k * bw, y: bx.y0, w: bw, h: p.boardLength },
+            ? { x: bx.x0, y: bx.y0 + k * step, w: p.boardLength, h: bw }
+            : { x: bx.x0 + k * step, y: bx.y0, w: bw, h: p.boardLength },
         );
       }
       const mid = p.along === 'x' ? (bx.y0 + bx.y1) / 2 : (bx.x0 + bx.x1) / 2;

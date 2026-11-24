@@ -79,6 +79,10 @@ export interface FloorInput {
   boardWidth: number;
   /** Põrandalaua kaugus seinast (porandaKaugusSeinast), vaikimisi 5 */
   distanceFromWall?: number;
+  /** Plaanist maja: terrassi/veranda laua laius, vaikimisi constants.terraceBoardWidth (120, Revit Lund 28x120) */
+  terraceBoardWidth?: number;
+  /** Terrassilaudade vahe, vaikimisi constants.terraceBoardGap (4) */
+  terraceBoardGap?: number;
 }
 
 export interface RoofInput {
@@ -113,6 +117,7 @@ export interface PriceList {
   katuseLauad?: number;
   parlinid?: number;
   porandaLauad?: number;
+  terrassiLauad?: number;
   vundament?: number;
   esiraastalaud?: number;
   papikinnituslaud?: number;
@@ -167,6 +172,10 @@ export interface EngineConstants {
   fasciaExtra: number;
   /** Põrandalaua vaikimisi kaugus seinast laua otsas (v2: 5) */
   defaultFloorGap: number;
+  /** Terrassilaua laius (plaanist maja lahtine osa) */
+  terraceBoardWidth: number;
+  /** Terrassilaudade vahe */
+  terraceBoardGap: number;
   /** Põrandalaudade vahe seinast külgedel, kummalgi pool (Revit: 20) */
   floorSideGap: number;
   /** Vundamendi prussi otsa vahe seinast/ringist, kummaski otsas (Revit: 5) */
@@ -293,8 +302,10 @@ export interface FloorResult {
   boardCount: number;
   boardLength: number;
   totalJm: number;
-  /** plaanist maja: põrand ruumide kaupa (L-ruum mitmes ristkülikus) */
+  /** plaanist maja: põrand ruumide kaupa (L-ruum mitmes ristkülikus); boardCount/totalJm ainult siseruumid */
   parts?: FloorPart[];
+  /** plaanist maja: terrassi/veranda lauad (lahtised osad) eraldi */
+  terrace?: { boardCount: number; totalJm: number } | null;
 }
 
 export interface FloorPart {
@@ -302,8 +313,10 @@ export interface FloorPart {
   box: PlanBox;
   /** ruumi järjekorranumber (0 = suurim) */
   room: number;
-  /** terrass/veranda (lahtine osa) */
+  /** terrass/veranda (lahtine osa): terrassilauad, laudade vahe, otstes vahet pole */
   open: boolean;
+  /** laua laius (terrassil terrassilaua laius) */
+  boardWidth: number;
   /** lauad: 'x' = laiuse suunas, 'y' = sügavuse suunas */
   along: 'x' | 'y';
   boardCount: number;

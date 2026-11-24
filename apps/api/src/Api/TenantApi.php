@@ -16,7 +16,7 @@ use PDO;
 final class TenantApi
 {
     public const PRICE_KEYS = [
-        'seinaLauad', 'tuuleLiist', 'katuseLauad', 'parlinid', 'porandaLauad', 'vundament',
+        'seinaLauad', 'tuuleLiist', 'katuseLauad', 'parlinid', 'porandaLauad', 'terrassiLauad', 'vundament',
         'esiraastalaud', 'papikinnituslaud', 'toelaud38', 'toelaud95',
     ];
     public const CONSTANT_KEYS = [

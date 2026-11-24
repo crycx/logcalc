@@ -20,6 +20,8 @@ export function planFloor(input: HouseInput, plan: HousePlan, geo: WallGeometry[
   const along: 'x' | 'y' = (input.floorDirection ?? 'AB') === 'AB' ? 'x' : 'y';
   const half = input.log.thickness / 2;
   const gap = fl.distanceFromWall ?? c.defaultFloorGap;
+  const tw = fl.terraceBoardWidth && fl.terraceBoardWidth > 0 ? fl.terraceBoardWidth : c.terraceBoardWidth;
+  const tg = fl.terraceBoardGap !== undefined && fl.terraceBoardGap >= 0 ? fl.terraceBoardGap : c.terraceBoardGap;
   const parts: FloorPart[] = [];
   planRooms(plan, geo, grid).forEach((room, k) => {
     for (const r of room.rects) {
@@ -38,18 +40,27 @@ export function planFloor(input: HouseInput, plan: HousePlan, geo: WallGeometry[
       const alongLen = along === 'x' ? box.x1 - box.x0 : box.y1 - box.y0;
       const sideGaps = along === 'x' ? Number(w.y0) + Number(w.y1) : Number(w.x0) + Number(w.x1);
       const across = (along === 'x' ? box.y1 - box.y0 : box.x1 - box.x0) - sideGaps * c.floorSideGap;
-      const boardCount = Math.max(0, Math.ceil(across / fl.boardWidth - 1e-9));
-      const boardLength = alongLen - gap;
+      // terrass: terrassilauad vahedega, otsad seinani (Revit Lund TB 28x120: 30 tk, 2310 = sisemõõt)
+      const open = room.open;
+      const boardWidth = open ? tw : fl.boardWidth;
+      const pitch = open ? tw + tg : fl.boardWidth;
+      const boardCount = Math.max(0, Math.ceil((across + (open ? tg : 0)) / pitch - 1e-9));
+      const boardLength = alongLen - (open ? 0 : gap);
       if (boardCount <= 0 || boardLength <= 0) continue;
-      parts.push({ box, room: k, open: room.open, along, boardCount, boardLength, totalJm: (boardCount * boardLength) / 1000 });
+      parts.push({ box, room: k, open, boardWidth, along, boardCount, boardLength, totalJm: (boardCount * boardLength) / 1000 });
     }
   });
   if (!parts.length) return null;
+  const inner = parts.filter((p) => !p.open);
+  const outer = parts.filter((p) => p.open);
   return {
-    boardCount: parts.reduce((s, p) => s + p.boardCount, 0),
-    boardLength: Math.max(...parts.map((p) => p.boardLength)),
-    totalJm: parts.reduce((s, p) => s + p.totalJm, 0),
+    boardCount: inner.reduce((s, p) => s + p.boardCount, 0),
+    boardLength: inner.length ? Math.max(...inner.map((p) => p.boardLength)) : 0,
+    totalJm: inner.reduce((s, p) => s + p.totalJm, 0),
     parts,
+    terrace: outer.length
+      ? { boardCount: outer.reduce((s, p) => s + p.boardCount, 0), totalJm: outer.reduce((s, p) => s + p.totalJm, 0) }
+      : null,
   };
 }
 

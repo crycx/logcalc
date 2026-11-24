@@ -15,6 +15,8 @@ export const DEFAULT_CONSTANTS: Readonly<EngineConstants> = Object.freeze({
   longBoardThreshold: 114,
   fasciaExtra: 38,
   defaultFloorGap: 5,
+  terraceBoardWidth: 120,
+  terraceBoardGap: 4,
   floorSideGap: 20,
   joistEndGap: 5,
   /** Katuse- ja räästalaudade pikkus ümardatakse üles (mm) – sentimeetri täpsus */

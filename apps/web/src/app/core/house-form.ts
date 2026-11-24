@@ -68,6 +68,7 @@ export const PRICE_KEYS: { key: keyof PriceList; label: string }[] = [
   { key: 'katuseLauad', label: 'Katuselauad' },
   { key: 'parlinid', label: 'Pärlinid' },
   { key: 'porandaLauad', label: 'Põrandalauad' },
+  { key: 'terrassiLauad', label: 'Terrassilauad' },
   { key: 'vundament', label: 'Vundamendi prussid' },
   { key: 'esiraastalaud', label: 'Esiräästalaud (RF)' },
   { key: 'papikinnituslaud', label: 'Papikinnituslaud (EE)' },
@@ -104,6 +105,9 @@ export interface HouseFormValue {
   floorOn: boolean;
   floorBoardWidth: number;
   floorGap: number;
+  /** plaanist maja: terrassi/veranda lauad */
+  terraceBoardWidth: number;
+  terraceBoardGap: number;
   roofOn: boolean;
   roofBoardLength: number;
   roofOverhang: number;
@@ -149,6 +153,8 @@ export const DEFAULT_VALUE: HouseFormValue = {
   floorOn: true,
   floorBoardWidth: 110,
   floorGap: 5,
+  terraceBoardWidth: 120,
+  terraceBoardGap: 4,
   roofOn: true,
   roofBoardLength: 0,
   roofOverhang: 0,
@@ -255,6 +261,8 @@ export function buildHouseForm(fb: NonNullableFormBuilder, v: HouseFormValue = D
     floorOn: fb.control(v.floorOn),
     floorBoardWidth: fb.control(v.floorBoardWidth),
     floorGap: fb.control(v.floorGap),
+    terraceBoardWidth: fb.control(v.terraceBoardWidth),
+    terraceBoardGap: fb.control(v.terraceBoardGap),
     roofOn: fb.control(v.roofOn),
     roofBoardLength: fb.control(v.roofBoardLength),
     roofOverhang: fb.control(v.roofOverhang),
@@ -355,7 +363,14 @@ export function toEngineInput(value: HouseFormValue): { input: HouseInput; optio
       ring: v.ring,
     };
   }
-  if (v.floorOn) input.floor = { boardWidth: n(v.floorBoardWidth), distanceFromWall: n(v.floorGap) };
+  if (v.floorOn) {
+    input.floor = {
+      boardWidth: n(v.floorBoardWidth),
+      distanceFromWall: n(v.floorGap),
+      terraceBoardWidth: n(v.terraceBoardWidth),
+      terraceBoardGap: n(v.terraceBoardGap),
+    };
+  }
   if (v.roofOn) input.roof = { boardLength: n(v.roofBoardLength), overhang: n(v.roofOverhang) };
   if (v.purlinsOn) input.purlins = { count: n(v.purlinCount), ridgeOnly: gable && v.ridgeOnly };
 
