@@ -24,6 +24,18 @@ Võrdlus: `test/revit-houses.test.ts`; toorandmed ja võrdlusskript `Dropbox/log
 | D11 | Vundamendi pruss | täispikk; max vahe 500 | 5 mm vahe kummaski otsas (ka ringprussid); automaatne max vahe 600; valik auto / arv / vahe | pikkus 5/5, arv auto-ga 3/5 |
 | D12 | Põrandalaudade arv | `üles(ava/110) + 1` | `üles((ava − 2×20)/110)` – 20 mm vahe seinast kummalgi pool | 5/5 |
 
+### Seinte graaf vs Revit (Nora I, Boden II, Lund; `test/graph-houses.test.ts`)
+
+| # | Koht | Revit | Mudel |
+|---|---|---|---|
+| D13 | Piirde ülemine palk, seina ülemine palk | Eraldi tähis (Lund 1LG9, ALG6, BLG5; ATL/BTL), sama mõõt | Sama pikkuse ja sälkudega tükid on üks detail; profiili erinevust (faasitud pealispind) veel ei eristata |
+| D14 | Boden viil 1LG5* / 4LG5* | 1286 | 1420 (rida 284 × k; Revit'i väärtus jääb reeglist välja – tõenäoliselt viga) |
+| D15 | Boden ALG4 / BLG2 (veranda kohal 3. ülemine rida) | 4700 (ots faasitud) | 4800 – faasimist ei modelleerita |
+
+Pikkade seinte jätk (max `maxLogLength` 6000): jätk ristuva seina (vaheseina) kesktelje kohal, mõlemal tükil seal sälk;
+paaris- ja paaritud read eri vaheseintes (jätkud vaheliti). Ilma sobiva vaheseinata -> hoiatus `wall.logTooLong`.
+Plaanist maja seinalauad (BOM) = lõikenimekirja summa.
+
 Tuuleliistud = nurkade vertikaalsed liistud (4 nurka × seina kõrgus) – v2 valem jääb. Revit näitab laopikkust (4 × 2200; kõrgemal seinal + 550).
 
 ## Kontroll päris majadega

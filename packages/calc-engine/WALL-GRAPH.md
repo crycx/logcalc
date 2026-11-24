@@ -12,7 +12,11 @@ ainult täisnurgad (x- või y-suunas). Seina kõrvalt vaadates kulgeb x sõlmest
 - Seina **suund** määrab ridade nihke: laiuse suunas (x) seinad algavad poole palgiga (BL),
   sügavuse suunas (y) seinad täispalgiga – nii nagu kõigis Viktra joonistel. Ristuvad seinad vahelduvad ½ palki.
 - **Liide** = koht, kus teine sein seda seina ristub või puudutab (L-nurk, T, X). Liite kohal on palgil
-  sälk; seina otsas ulatub palk liitest edasi `cornerOverhang` (100) + ½ paksust.
+  sälk; seina otsas ulatub palk liitest edasi `cornerOverhang` (100) + ½ paksust – ka T-liites läbib
+  vahesein välisseina ja ulatub 100 välja (kinnitatud). Sälk tekib ainult ridades, kus ristuval seinal
+  liite kohal palk on (nt keskviil sälgub külgseina ainult ülemistes ridades).
+- **Pikk sein**: palk max 6 m (`maxLogLength`); pikem jätkatakse vaheseina kohalt, read vaheliti eri
+  vaheseintes (kinnitatud).
 - **Seina vaade (elevation)** = palgiread alt üles miinus **tühjad alad** (ristkülikud seina koordinaatides):
   uksed, aknad, lahtine osa (terrass/veranda), piirde vahed, „ainult viil“ alumine osa.
   Lõikenimekiri: iga rida lõigatakse tühjade aladega tükkideks; tüki **sälkude arv** = liidete arv tüki sees
@@ -31,10 +35,12 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
 
 ## Etapid
 
-1. **Mootori tuum** – üldine seinavaade (read, tühjad alad, liited, lõikenimekiri) + graafi andmemudel.
+1. ✅ **Mootori tuum** – üldine seinavaade (read, tühjad alad, liited, lõikenimekiri) + graafi andmemudel.
    Ristküliku maja läbi graafi annab täpselt sama tulemuse mis praegu (5 Revit-maja regressioon).
-2. **Seinatüübid ja -osad** – ainult viil, tõmbepalgid, lahtine osa, piire, nurgapost, pikendatud ülemised
-   palgid, X-/T-liited. Kontroll: Nora, Boden, Lund tükk tüki haaval.
+2. ✅ **Seinatüübid ja -osad** (`PlanWall`): `topOnly` (ainult viil/tõmbepalk/lae serv), `gable`, `height`
+   (post, piire), `open` (lahtine osa), `railings` (piire vahepalkidega); liite kõrgusvahemik (sälk ainult
+   ridades, kus ristuval seinal palk on); max palk 6 m -> jätk vaheseina kohal, read vaheliti.
+   Kontroll: Nora, Boden, Lund tükk tüki haaval (`test/graph-houses.test.ts`, erinevused D13–D15).
 3. **Plaanieditor** – SVG plaan: seinte joonistamine (täisnurk, haaramine), sõlmede lohistamine,
    valitud seina paneel täpsete väljadega (pikkus, tüüp, avad), mõõtketid muudetavad. Mallid: ristkülik,
    garaaž, veranda, terrass, L-kuju.

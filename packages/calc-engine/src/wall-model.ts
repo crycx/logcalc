@@ -11,7 +11,7 @@
  * Kontroll: test/wall-model.test.ts võrdleb Viktra Revit-joonistega (Placas, Brantevik, Carina, Annika, Bente).
  */
 import { courses as splitCourses, type TriangleGeometry } from './geometry.js';
-import { planGeometry, rectanglePlan, type HousePlan } from './plan.js';
+import { planGeometry, rectanglePlan, type HousePlan, type PlanWall } from './plan.js';
 import type { Dimensions, EngineConstants, HouseInput, Opening } from './types.js';
 
 /** Seina tähis: ristkülikul '1', '2', 'A', 'B'; plaanil suvaline (nt 'C', '3'). */
@@ -42,6 +42,12 @@ export interface WallRow {
   x0?: number;
 }
 
+export interface WallJoint {
+  x: number;
+  wall?: WallId;
+  ranges?: [number, number][];
+}
+
 /** Tühi ala seinas (seina koordinaatides): uks, aken, lahtine osa, piirde vahe, viilu alune jne. */
 export interface WallVoid {
   x0: number;
@@ -57,8 +63,12 @@ export interface WallSpec {
   length: number;
   rows: WallRow[];
   openings: PlacedOpening[];
-  /** liited: ristuvate seinte kesktelgede asukohad seina koordinaatides (seal on palgil sälk) */
-  joints: number[];
+  /**
+   * Liited: ristuvate seinte kesktelgede asukohad seina koordinaatides (seal on palgil sälk).
+   * `ranges` = kõrgused, kus ristuval seinal liite kohal palk on (puudub = kogu kõrgus);
+   * nt keskviilu (ainult ülemine rida) liide sälgub külgseinal ainult ülemistes ridades.
+   */
+  joints: WallJoint[];
   /** muud tühjad alad (lahtine osa, piire, viilu alune) */
   voids?: WallVoid[];
 }
@@ -78,6 +88,8 @@ export interface WallCutList {
   wall: WallId;
   pieces: CutPiece[];
   totalJm: number;
+  /** tükid, mis on pikemad kui max palk ja mida ei saanud vaheseina kohalt jätkata */
+  overLength: number;
 }
 
 const EPS = 0.5; // mm
@@ -189,8 +201,8 @@ export function buildWalls(
     // kõrged lisanduvad ridadena peale
     let y = rows.length ? rows[rows.length - 1]!.y1 : 0;
     for (const b of tall) {
-      rows.push({ y0: y, y1: y + p, length: b.length, kind: 'log' });
-      y += p;
+      rows.push({ y0: y, y1: y + b.height, length: b.length, kind: 'log' });
+      y += b.height;
     }
     // kõige ülemine pikem palk = TL
     const top = rows[rows.length - 1];
@@ -200,46 +212,155 @@ export function buildWalls(
   const triangleRows = (baseY: number): WallRow[] =>
     tri.courses.map((cr) => ({ y0: baseY + (cr.index - 1) * p, y1: baseY + cr.index * p, length: cr.length, kind: 'gable' as const }));
 
+  /** kindla kõrgusega sein (post, piire): täisread, ülemine pool palki kui jääk on ≥ ½ palki */
+  const heightRows = (length: number, height: number, halfStart: boolean): WallRow[] => {
+    const rows: WallRow[] = [];
+    let y = 0;
+    if (halfStart) {
+      rows.push({ y0: 0, y1: p / 2, length, kind: 'half' });
+      y = p / 2;
+    }
+    while (y + p <= height + 1) {
+      rows.push({ y0: y, y1: y + p, length, kind: 'log' });
+      y += p;
+    }
+    if (height - y >= p / 2 - 1) rows.push({ y0: y, y1: y + p / 2, length, kind: 'top' });
+    return rows;
+  };
+
   const geo = planGeometry(plan, input.log.thickness, c);
+  const planWalls = new Map<WallId, PlanWall>(plan.walls.map((w) => [w.id, w]));
+  // välisseinad: x-suunas esimene/viimane, y-suunas vasak/parem
+  const xWalls = geo.filter((g) => g.dir === 'x');
+  const yWalls = geo.filter((g) => g.dir === 'y');
+  const yBack = Math.min(...xWalls.map((g) => g.a.y));
+  const yFront = Math.max(...xWalls.map((g) => g.a.y));
+  const xLeft = Math.min(...yWalls.map((g) => g.a.x));
+  const xRight = Math.max(...yWalls.map((g) => g.a.x));
+  const near = (a: number, b: number) => Math.abs(a - b) < EPS;
   // ühekalle: kõrgem esisein (suurim y), madalam tagasein (väikseim y); vahepealsed seinad lineaarselt
-  const ys = geo.filter((g) => g.dir === 'x').map((g) => g.a.y);
-  const yFront = Math.max(...ys);
-  const yBack = Math.min(...ys);
   const monoHeight = (y: number) =>
     yFront - yBack < EPS ? input.frontBackWallHeight : input.roofHeight + ((y - yBack) / (yFront - yBack)) * (input.frontBackWallHeight - input.roofHeight);
+  // viiluta x-suunas vahesein ulatub külgseinte täisridade peale + ½ palki (Boden 2: 19 rida + ½ = 2223)
+  const sideCs = splitCourses(input.sideWallHeight, p);
+  const sideTop = (sideCs.full - (sideCs.frac > 0 ? 1 : 0)) * p;
 
-  return geo.map((g): WallSpec => {
+  const specs = geo.map((g): WallSpec => {
+    const w = planWalls.get(g.id)!;
     const L = g.length;
+    const outerX = g.dir === 'x' && (near(g.a.y, yBack) || near(g.a.y, yFront));
+    const outerY = g.dir === 'y' && (near(g.a.x, xLeft) || near(g.a.x, xRight));
+    const fullSpan = g.startExt > 0 && g.endExt > 0;
     let rows: WallRow[];
-    if (gable && g.dir === 'x') {
-      rows = rectRows(L, input.frontBackWallHeight, true, false);
-      rows.push(...triangleRows(input.frontBackWallHeight));
+    if (w.height !== undefined) {
+      rows = heightRows(L, w.height, g.dir === 'x');
+    } else if (gable && g.dir === 'x') {
+      const carries = w.gable ?? (outerX && fullSpan);
+      if (carries) {
+        rows = rectRows(L, input.frontBackWallHeight, true, false);
+        rows.push(...triangleRows(input.frontBackWallHeight));
+      } else {
+        rows = rectRows(L, sideTop + p / 2, true, false);
+      }
     } else if (gable) {
       rows = rectRows(L, input.sideWallHeight, false, true);
-      extendTop(rows, L);
+      if (outerY) extendTop(rows, L);
     } else if (g.dir === 'x') {
       rows = rectRows(L, monoHeight(g.a.y), true, false);
-      extendTop(rows, L);
+      if (outerX) extendTop(rows, L);
     } else {
       const n = Math.floor((input.roofHeight - p / 2) / p + 1e-9);
       rows = Array.from({ length: n }, (_, i) => ({ y0: i * p, y1: (i + 1) * p, length: L, kind: 'log' as const }));
-      rows.push(...triangleRows(n * p));
+      if (w.gable ?? outerY) rows.push(...triangleRows(n * p));
     }
-    return { id: g.id, length: L, rows, openings: openings.filter((o) => o.wall === g.id), joints: g.joints.map((k) => k.x) };
+
+    // tühjad alad seina tüübist: ainult ülemised read, lahtised osad, piirde vahed
+    const rect = rows.filter((r) => r.kind !== 'gable');
+    const n = rect.length;
+    const voids: WallVoid[] = [];
+    const FAR = 1e7;
+    if (w.topOnly !== undefined && w.topOnly < n) {
+      voids.push({ x0: -FAR, x1: FAR, y0: 0, y1: rect[n - Math.max(w.topOnly, 0)]!.y0, kind: 'open' });
+    }
+    for (const o of w.open ?? []) {
+      const b = Math.max(o.bottomRows ?? 0, 0);
+      const t = Math.max(o.topRows ?? 0, 0);
+      const y0 = b < n ? rect[b]!.y0 : Infinity;
+      const y1 = n - t - 1 >= 0 ? rect[n - t - 1]!.y1 : -Infinity;
+      if (y1 > y0 + EPS) voids.push({ x0: o.x0, x1: o.x1, y0, y1, kind: 'open' });
+    }
+    for (const r of w.railings ?? []) {
+      const len = r.spacerLength ?? 300;
+      const solid = r.spacers.map((x) => [x, x + len] as const).sort((a, b) => a[0] - b[0]);
+      for (let i = 1; i < Math.min(r.rows, n); i += 2) {
+        let x = r.x0;
+        for (const [a, b] of [...solid, [r.x1, r.x1] as const]) {
+          if (a - x > EPS) voids.push({ x0: x, x1: Math.min(a, r.x1), y0: rect[i]!.y0, y1: rect[i]!.y1, kind: 'open' });
+          x = Math.max(x, b);
+        }
+      }
+    }
+    return { id: g.id, length: L, rows, openings: openings.filter((o) => o.wall === g.id), joints: [], voids };
   });
+
+  // liited: ristuva seina palgid liite kohal (kõrgusvahemikud) -> sälk ainult neis ridades
+  const specById = new Map(specs.map((x) => [x.id, x]));
+  geo.forEach((g, i) => {
+    specs[i]!.joints = g.joints.map((k) => {
+      const other = specById.get(k.wall);
+      const otherX = geo.find((o) => o.id === k.wall)?.joints.find((q) => q.wall === g.id)?.x;
+      return other && otherX !== undefined ? { x: k.x, wall: k.wall, ranges: solidRanges(other, otherX) } : { x: k.x, wall: k.wall };
+    });
+  });
+  return specs;
+}
+
+/** Seina palkide kõrgusvahemikud kohas x (rea tükid, mida tühjad alad ei lõika) */
+function solidRanges(wall: WallSpec, x: number): [number, number][] {
+  const voids = [
+    ...wall.openings.map((o) => ({ x0: o.offset, x1: o.offset + o.width, y0: o.sill, y1: o.sill + o.height })),
+    ...(wall.voids ?? []),
+  ];
+  const out: [number, number][] = [];
+  for (const r of wall.rows) {
+    // viilu-/kolmnurgapalgid toetuvad nurgaliitele (ühekalde külgseinal ka lühemad) -> alati olemas
+    if (r.kind === 'gable') {
+      out.push([r.y0, r.y1]);
+      continue;
+    }
+    const x0 = r.x0 ?? -(r.length - wall.length) / 2;
+    if (x < x0 - EPS || x > x0 + r.length + EPS) continue;
+    const cut = voids.some((v) => v.x0 < x + EPS && v.x1 > x - EPS && v.y0 < r.y1 - EPS && v.y1 > r.y0 + EPS);
+    if (!cut) out.push([r.y0, r.y1]);
+  }
+  return out;
 }
 
 /** Ühe seina lõikenimekiri: iga rida miinus tühjad alad -> tükid; sälkude arv = liidete arv tükis. */
-export function wallCutList(wall: WallSpec, log: { thickness: number; height: number }): WallCutList {
+export function wallCutList(
+  wall: WallSpec,
+  log: { thickness: number; height: number },
+  opts: { maxLogLength?: number } = {},
+): WallCutList {
   const t = Math.round(log.thickness);
-  const p = log.height;
+  const max = opts.maxLogLength ?? Infinity;
   const groups = new Map<string, Omit<CutPiece, 'mark'>>();
+  let overLength = 0;
   const voids: WallVoid[] = [
     ...wall.openings.map((o): WallVoid => ({ x0: o.offset, x1: o.offset + o.width, y0: o.sill, y1: o.sill + o.height, kind: o.kind })),
     ...(wall.voids ?? []),
   ];
 
+  // jätk ainult vaheseina kohal, mitte seina otsa nurgaliites
+  const jMin = Math.min(...wall.joints.map((j) => j.x));
+  const jMax = Math.max(...wall.joints.map((j) => j.x));
+  let rowIndex = -1;
   for (const row of wall.rows) {
+    if (row.kind !== 'gable') rowIndex++;
+    // selle rea liited (ristuval seinal on samas kõrguses palk)
+    const joints = wall.joints
+      .filter((j) => !j.ranges || j.ranges.some(([a, b]) => a < row.y1 - EPS && b > row.y0 + EPS))
+      .map((j) => j.x);
     // pikem ülemine palk: avad paiknevad tavalise palgi koordinaatides, pikendus otstes (või x0 järgi)
     const x0 = row.x0 ?? -(row.length - wall.length) / 2;
     let segs: [number, number][] = [[x0, x0 + row.length]];
@@ -259,16 +380,24 @@ export function wallCutList(wall: WallSpec, log: { thickness: number; height: nu
         });
       }
     }
-    const height = row.kind === 'half' ? Math.round(p / 2) : Math.round(p);
+    const height = Math.round(row.y1 - row.y0);
     const profile = `${t}x${height}`;
-    for (const [s, e] of segs) {
-      const length = Math.round(e - s);
-      // ühe sälguga tükk on ümberpööratav -> algus- ja lõpuotsa tükid on sama detail (nagu Revitis)
-      const notches = row.kind === 'gable' ? 0 : wall.joints.filter((x) => x > s + EPS && x < e - EPS).length;
-      const key = `${row.kind}|${profile}|${length}|${notches}`;
-      const g = groups.get(key);
-      if (g) g.count++;
-      else groups.set(key, { profile, count: 1, length, kind: row.kind, notches });
+    for (const [s0, e0] of segs) {
+      // liiga pikk palk -> jätk liite (vaheseina) kohal; read vaheliti eri liidetes
+      const parts = row.kind === 'gable' ? [{ s: s0, e: e0, cutS: false, cutE: false }] : splitLong(s0, e0, joints.filter((x) => x > jMin + EPS && x < jMax - EPS), max, rowIndex);
+      for (const part of parts) {
+        const length = Math.round(part.e - part.s);
+        if (length > max + EPS) overLength++;
+        // ühe sälguga tükk on ümberpööratav -> algus- ja lõpuotsa tükid on sama detail (nagu Revitis)
+        const notches =
+          row.kind === 'gable'
+            ? 0
+            : joints.filter((x) => x > part.s + EPS && x < part.e - EPS).length + Number(part.cutS) + Number(part.cutE);
+        const key = `${row.kind}|${profile}|${length}|${notches}`;
+        const g = groups.get(key);
+        if (g) g.count++;
+        else groups.set(key, { profile, count: 1, length, kind: row.kind, notches });
+      }
     }
   }
 
@@ -282,5 +411,35 @@ export function wallCutList(wall: WallSpec, log: { thickness: number; height: nu
     return { ...g, mark: `${wall.id}${prefix}-${counters[prefix]}${g.kind === 'gable' ? '*' : ''}` };
   });
   const totalJm = pieces.reduce((s, x) => s + (x.count * x.length) / 1000, 0);
-  return { wall: wall.id, pieces, totalJm };
+  return { wall: wall.id, pieces, totalJm, overLength };
 }
+
+/**
+ * Pikk palk tükkideks liidete kohalt (jätk ristuva seina kesktelje kohal, tükk saab seal sälgu).
+ * Kui sobivaid liiteid on mitu, kasutavad paaris- ja paaritud read eri liiteid (jätkud vaheliti).
+ */
+function splitLong(s: number, e: number, joints: number[], max: number, rowIndex: number): { s: number; e: number; cutS: boolean; cutE: boolean }[] {
+  const out: { s: number; e: number; cutS: boolean; cutE: boolean }[] = [];
+  let start = s;
+  let cutS = false;
+  for (let guard = 0; guard < 50 && e - start > max + EPS; guard++) {
+    const inner = joints.filter((x) => x > start + EPS && x < e - EPS && x - start <= max + EPS);
+    if (!inner.length) break;
+    // üks jätk piisab? eelista keskele lähimaid; muidu kaugeim võimalik
+    const single = inner.filter((x) => e - x <= max + EPS);
+    let pick: number;
+    if (single.length) {
+      const mid = (start + e) / 2;
+      const byMid = [...single].sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+      pick = byMid[rowIndex % 2 === 1 && byMid.length > 1 ? 1 : 0]!;
+    } else {
+      pick = inner[inner.length - 1 - (rowIndex % 2 === 1 && inner.length > 1 ? 1 : 0)]!;
+    }
+    out.push({ s: start, e: pick, cutS, cutE: true });
+    start = pick;
+    cutS = true;
+  }
+  out.push({ s: start, e, cutS, cutE: false });
+  return out;
+}
+

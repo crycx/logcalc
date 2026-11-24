@@ -75,6 +75,19 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   const roof = computeRoof(input, dimensions, tri, longBoards, c);
   const purlins = computePurlins(input, dimensions, tri, longBoards, c);
 
+  // seinamudel ja lõikenimekiri (plaanist või ristkülikust)
+  const placedOpenings = placeOpenings(input, dimensions, c);
+  const wallModel = buildWalls(input, dimensions, tri, c, placedOpenings, input.plan);
+  const cutList = wallModel.map((w) => wallCutList(w, input.log, { maxLogLength: c.maxLogLength }));
+  for (const cl of cutList) {
+    if (cl.overLength > 0) {
+      warnings.push({
+        code: 'wall.logTooLong',
+        message: `Seinas ${cl.wall} on ${cl.overLength} palki pikemad kui ${c.maxLogLength} mm ja jätkamiseks pole vaheseina.`,
+      });
+    }
+  }
+
   const prices = options.prices ?? {};
   const bom: BomLine[] = [];
   const add = (key: keyof PriceList, quantity: number, extra: Partial<BomLine> = {}) => {
@@ -90,7 +103,9 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
     });
   };
 
-  add('seinaLauad', walls.netJm);
+  // plaanist maja: seinalauad = lõikenimekirja summa (ristküliku valem ei kehti)
+  const wallJm = input.plan ? cutList.reduce((sum, w) => sum + w.totalJm, 0) : walls.netJm;
+  add('seinaLauad', wallJm);
   if (walls.netJm > 0) {
     // nurkade vertikaalsed liistud: 4 nurka × seina kõrgus
     const p = input.log.height;
@@ -122,7 +137,6 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   if (purlins) add('parlinid', purlins.totalJm, { pieces: [{ count: purlins.pieces, length: purlins.length }] });
 
   // Uksed ja aknad tükiridadena: sama nime, mõõdu ja hinnaga read liidetakse, alareale seinad
-  const placedOpenings = placeOpenings(input, dimensions, c);
   const addOpenings = (list: HouseInput['doors'], kind: 'door' | 'window', word: string) => {
     // paigutatud avad on ridade järjekorras, kogus lahti laotud
     const placed = placedOpenings.filter((p) => p.kind === kind);
@@ -162,9 +176,6 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   addOpenings(input.windows, 'window', 'Aken');
 
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
-
-  const wallModel = buildWalls(input, dimensions, tri, c, placedOpenings, input.plan);
-  const cutList = wallModel.map((w) => wallCutList(w, input.log));
 
   return { dimensions, cutList, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
 }

@@ -173,6 +173,8 @@ export interface EngineConstants {
   joistEndGap: number;
   /** Katuse- ja räästalaudade pikkuse ümardus üles (mm), nt 10 = sentimeetri täpsus */
   roofBoardRounding: number;
+  /** Pikim toodetav palk (mm); pikemad seinad jätkatakse vaheseina (liite) kohalt, ridade kaupa vaheliti */
+  maxLogLength: number;
 }
 
 export type Unit = 'jm' | 'tk' | 'm2' | 'm3' | 'deg' | 'mm';

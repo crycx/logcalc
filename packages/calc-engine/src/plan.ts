@@ -22,6 +22,39 @@ export interface PlanWall {
   /** algus- ja lõppsõlm; seina vaates kulgeb x sõlmest a sõlme b poole */
   a: string;
   b: string;
+  /**
+   * Ainult N ülemist rida (+ viil, kui sein kannab viilu): keskviil/tõmbepalk (Nora 2: 1),
+   * veranda eesviil (Boden 1: 1), lae serv (Boden 3: 2).
+   */
+  topOnly?: number;
+  /** Kas sein kannab viilu. Vaikimisi viilkatusel x-suunas välisseinad (esimene ja viimane). */
+  gable?: boolean;
+  /** Seina kõrgus (mm), kui erineb maja omast, nt piirde post (Lund AA: 741 = 6½ rida). */
+  height?: number;
+  /** Lahtised osad (terrass, veranda, sissepääs) seina koordinaatides (mm palgi algusest). */
+  open?: OpenSection[];
+  /** Piirded: alumised read, iga teine rida vahedega; vahepalgid kindlates kohtades. */
+  railings?: Railing[];
+}
+
+/** Lahtine osa: kõik read x0..x1 vahel, välja arvatud alumised ja ülemised read. */
+export interface OpenSection {
+  x0: number;
+  x1: number;
+  /** alt alles jäävad read (nt piire) */
+  bottomRows?: number;
+  /** ülalt alles jäävad read (sillus, räästas) */
+  topRows?: number;
+}
+
+/** Piire: `rows` alumist rida; paaritud read (2., 4., ...) on vahedega, vahepalgid algavad kohtades `spacers`. */
+export interface Railing {
+  x0: number;
+  x1: number;
+  rows: number;
+  spacers: number[];
+  /** vahepalgi pikkus (Viktra: 300) */
+  spacerLength?: number;
 }
 
 export interface HousePlan {

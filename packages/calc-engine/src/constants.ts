@@ -19,4 +19,6 @@ export const DEFAULT_CONSTANTS: Readonly<EngineConstants> = Object.freeze({
   joistEndGap: 5,
   /** Katuse- ja räästalaudade pikkus ümardatakse üles (mm) – sentimeetri täpsus */
   roofBoardRounding: 10,
+  /** Pikim toodetav palk (mm); pikemad seinad jätkatakse vaheseina kohalt, ridade kaupa vaheliti */
+  maxLogLength: 6000,
 });
