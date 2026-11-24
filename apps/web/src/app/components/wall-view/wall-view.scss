@@ -34,8 +34,26 @@ svg {
   vector-effect: non-scaling-stroke;
 
   &.door {
-    fill: #dde9f5;
+    fill: #8d6a45;
+    stroke: #4e3820;
   }
+}
+
+.door-panel {
+  fill: none;
+  stroke: #5e4529;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.door-handle {
+  fill: #2f2a24;
+}
+
+.mullion {
+  stroke: #4a78a8;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
 }
 
 .joint {

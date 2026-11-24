@@ -135,6 +135,17 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
           message: `${o.kind === 'door' ? 'Uks' : 'Aken'} ${Math.round(o.width)} mm ei mahu seinale ${w.id} (kaugus ${Math.round(o.offset)} mm, seina sisemõõt ${Math.round(inner[1]! - inner[0]!)} mm).`,
         });
       }
+      // ava seina lahtises osas (terrass, veranda, sissepääs): seal palke pole
+      const area = o.width * o.height;
+      const inOpen = (w.voids ?? [])
+        .filter((v) => v.kind === 'open')
+        .reduce((sum, v) => sum + Math.max(0, Math.min(v.x1, o.offset + o.width) - Math.max(v.x0, o.offset)) * Math.max(0, Math.min(v.y1, o.sill + o.height) - Math.max(v.y0, o.sill)), 0);
+      if (area > 0 && inOpen > area / 2) {
+        warnings.push({
+          code: 'opening.inOpen',
+          message: `${o.kind === 'door' ? 'Uks' : 'Aken'} ${Math.round(o.width)} mm on seina ${w.id} lahtises osas (terrass/veranda – seal palke pole). Vali ruumi sein.`,
+        });
+      }
     }
   }
   for (const cl of cutList) {

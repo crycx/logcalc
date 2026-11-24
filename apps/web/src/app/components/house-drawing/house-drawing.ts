@@ -1,6 +1,6 @@
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DEFAULT_CONSTANTS, planBounds, planGeometry, type CalcResult, type PlanBox, type WallId } from '@logcalc/calc-engine';
+import { DEFAULT_CONSTANTS, planBounds, planGeometry, type CalcResult, type HouseModel3D, type PlanBox, type WallId } from '@logcalc/calc-engine';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 import { PlanEditor } from '../plan-editor/plan-editor';
 import { WallView } from '../wall-view/wall-view';
@@ -35,6 +35,10 @@ export class HouseDrawing {
   readonly v = input.required<HouseFormValue>();
   readonly r = input.required<CalcResult>();
   readonly view = input<DrawingView>('overview');
+  /** 3D mudel (katusejoon seinte kohal: viilupalgid kaldu) */
+  readonly model = input<HouseModel3D | null>(null);
+
+  protected readonly roofLines = computed(() => new Map((this.model()?.walls ?? []).map((w) => [w.id, w.roofLine] as const)));
 
   /** plaanist maja: mõõdud (mallide jaoks, siin ainult kuvamine) ja esisein mudelist */
   protected readonly planSize = computed(() => ({ width: this.r().dimensions.width, depth: this.r().dimensions.depth }));

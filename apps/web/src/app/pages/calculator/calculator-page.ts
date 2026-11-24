@@ -50,6 +50,7 @@ import {
   DEFAULT_VALUE,
   PRICE_KEYS,
   buildCatalogItem,
+  buildRow,
   buildHouseForm,
   normalizeHouse,
   planBox,
@@ -190,9 +191,10 @@ export class CalculatorPage {
     return c.ok ? c.result : null;
   });
 
-  /** 3D mudel (ainult 3D vaates) */
+  /** 3D mudel (3D vaade; seinte joonistel katusejoon viilupalkide lõikamiseks) */
   protected readonly model3d = computed(() => {
-    if (this.view() !== '3d') return null;
+    const v = this.view();
+    if (v !== '3d' && v !== 'walls' && !(v === 'overview' && this.hasPlan())) return null;
     const c = this.calc();
     if (!c.ok) return null;
     try {
@@ -238,6 +240,17 @@ export class CalculatorPage {
     if (v.lengthScenario !== 'log' || v.width !== box.width || v.depth !== box.depth) {
       this.form.patchValue({ lengthScenario: 'log', width: box.width, depth: box.depth });
     }
+  }
+
+  /**
+   * Plaanist: uks/aken valitud seinale. Mõõdud kataloogi esimesest (kui on), muidu tüüpilised
+   * (uks 900 × 1995, aken 770 × 1026 – Viktra); asukoht automaatne.
+   */
+  protected addOpening(e: { kind: 'door' | 'window'; wall: string }): void {
+    const item = this.formValue().catalog[e.kind === 'door' ? 'doors' : 'windows'][0];
+    const [a, b] = item ? [item.width, item.height] : e.kind === 'door' ? [900, 1995] : [770, 1026];
+    const arr = e.kind === 'door' ? this.form.controls.doors : this.form.controls.windows;
+    arr.push(buildRow(this.fb, { a, b, count: 1, name: item?.name ?? '', price: item?.price ?? 0, wall: e.wall }));
   }
 
   /** seinte tähised muutusid plaanis (vana -> uus, korraga) -> uksed/aknad järgivad */

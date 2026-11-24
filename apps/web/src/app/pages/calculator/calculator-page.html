@@ -283,6 +283,7 @@
               [plan]="formValue().plan"
               (planChange)="setPlan($event)"
               (renamed)="renameWall($event)"
+              (addOpening)="addOpening($event)"
               [thickness]="formValue().logThickness"
               [size]="planSize()"
               [walls]="r.wallModel"
@@ -294,7 +295,7 @@
               <app-house-3d [model]="m" />
             }
           } @else {
-            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" />
+            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" />
           }
         </div>
         @if (!readonly()) {

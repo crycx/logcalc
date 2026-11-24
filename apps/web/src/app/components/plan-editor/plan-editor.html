@@ -185,6 +185,11 @@
           <button mat-button type="button" (click)="addRailing()"><mat-icon>add</mat-icon> Piire</button>
           <mat-divider />
           <div class="actions">
+            <button mat-button type="button" (click)="addOpeningHere('door')" matTooltip="Uks sellele seinale (asukoht automaatne, muuda vasakul)"><mat-icon>door_front</mat-icon> Lisa uks</button>
+            <button mat-button type="button" (click)="addOpeningHere('window')" matTooltip="Aken sellele seinale (asukoht automaatne, muuda vasakul)"><mat-icon>window</mat-icon> Lisa aken</button>
+          </div>
+          <mat-divider />
+          <div class="actions">
             <button mat-button type="button" (click)="reverse()" matTooltip="Uste/akende ja lahtiste osade kaugus mõõdetakse teisest otsast"><mat-icon>swap_horiz</mat-icon> Pööra suund</button>
             <button mat-button type="button" class="danger" (click)="remove()"><mat-icon>delete</mat-icon> Kustuta sein</button>
           </div>

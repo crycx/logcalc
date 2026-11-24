@@ -10,7 +10,7 @@
     @if (frontWall(); as fw) {
       <figure class="view">
         <figcaption>Sein {{ fw.id }}</figcaption>
-        <app-wall-view class="plan-mini" [wall]="fw" />
+        <app-wall-view class="plan-mini" [wall]="fw" [roofLine]="roofLines().get(fw.id) ?? null" [dimensions]="true" />
       </figure>
     }
     } @else {
@@ -34,7 +34,7 @@
     @for (w of allWalls(); track w.id) {
       <figure class="view wall-fig">
         <figcaption>Sein {{ w.id }} · {{ w.length | number: '1.0-0' }} mm</figcaption>
-        <app-wall-view class="wall-mini" [wall]="w" />
+        <app-wall-view class="wall-mini" [wall]="w" [roofLine]="roofLines().get(w.id) ?? null" [dimensions]="true" />
       </figure>
     }
   }

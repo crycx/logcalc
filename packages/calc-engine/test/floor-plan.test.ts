@@ -123,3 +123,16 @@ describe('L-maja', () => {
     expect(bays[0]!.joistLength).toBeGreaterThan(bays[1]!.joistLength);
   });
 });
+
+describe('ava lahtises osas (terrassi sissepääs) – hoiatus', () => {
+  const base: HouseInput = {
+    roofType: 'gable', lengthScenario: 'log', width: 4000, depth: 5950, sideWallHeight: 2166, frontBackWallHeight: 2109, roofHeight: 2678,
+    log: { thickness: 40, height: 114 }, plan: planTemplate('terrace', 4000, 5950, 40, C),
+  };
+  it('uks terrassi raamil (sein 1) -> hoiatus; toa esiseinal (sein 2) -> ei', () => {
+    const on1 = calculateHouse({ ...base, doors: [{ width: 1440, height: 1995, count: 1, wall: '1' }] });
+    expect(on1.warnings.some((w) => w.code === 'opening.inOpen')).toBe(true);
+    const on2 = calculateHouse({ ...base, doors: [{ width: 1440, height: 1995, count: 1, wall: '2' }] });
+    expect(on2.warnings.some((w) => w.code === 'opening.inOpen')).toBe(false);
+  });
+});

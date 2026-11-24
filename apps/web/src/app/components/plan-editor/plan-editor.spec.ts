@@ -54,6 +54,21 @@ describe('PlanEditor', () => {
     expect(el.querySelectorAll('svg.canvas [data-wall]').length).toBe(5);
   });
 
+  it('mall „Terrass piirdega“: sein 1 uksed/aknad toa esiseinale 2, tagaseina omad seinale 3', async () => {
+    await (fixture.componentInstance as unknown as { useTemplate(k: string): Promise<void> }).useTemplate('terrace');
+    expect(renamed.at(-1)).toEqual({ '1': '2', '2': '3' });
+  });
+
+  it('lisa uks valitud seinale', async () => {
+    fixture.componentRef.setInput('plan', rectanglePlan(4000, 6000, 40, C));
+    await fixture.whenStable();
+    const added: { kind: string; wall: string }[] = [];
+    fixture.componentInstance.addOpening.subscribe((e) => added.push(e));
+    api().select('B');
+    (fixture.componentInstance as unknown as { addOpeningHere(k: string): void }).addOpeningHere('door');
+    expect(added).toEqual([{ kind: 'door', wall: 'B' }]);
+  });
+
   it('pikkuse muutmine, ümbernimetamine (uksed järgivad), ehitus, tagasivõtmine', async () => {
     fixture.componentRef.setInput('plan', rectanglePlan(4000, 6000, 40, C));
     await fixture.whenStable();

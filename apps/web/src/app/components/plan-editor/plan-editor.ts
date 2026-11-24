@@ -84,6 +84,8 @@ export class PlanEditor {
   readonly planChange = output<HousePlan | null>();
   /** seinte tähised muutusid (vana -> uus); uksed/aknad viitavad tähisele */
   readonly renamed = output<Record<string, string>>();
+  /** lisa valitud seinale uks või aken (vanem lisab rea uste/akende loetellu) */
+  readonly addOpening = output<{ kind: 'door' | 'window'; wall: string }>();
   readonly thickness = input.required<number>();
   /** palgi pikkused malli jaoks (praegused mõõdud) */
   readonly size = input.required<{ width: number; depth: number }>();
@@ -335,6 +337,14 @@ export class PlanEditor {
     this.apply((p) => ({ ...p, ridge: v === 'y' ? undefined : v }));
   }
 
+  /** Uks/aken valitud seinale */
+  protected addOpeningHere(kind: 'door' | 'window'): void {
+    const id = this.selected();
+    if (!id) return;
+    this.addOpening.emit({ kind, wall: id });
+    this.message.set(`${kind === 'door' ? 'Uks' : 'Aken'} lisatud seinale ${id} – mõõdud ja asukoht vasakul „Seinad“ all.`);
+  }
+
   // ------------------------------------------------------------ mallid
   protected async useTemplate(kind: PlanTemplateKind): Promise<void> {
     if (this.plan()) {
@@ -347,7 +357,12 @@ export class PlanEditor {
     }
     const { width, depth } = this.size();
     this.selected.set(null);
-    this.commit(planTemplate(kind, width, depth, this.thickness(), C), `Mall: ${PLAN_TEMPLATES.find((t) => t.kind === kind)?.name}`);
+    const next = planTemplate(kind, width, depth, this.thickness(), C);
+    this.commit(next, `Mall: ${PLAN_TEMPLATES.find((t) => t.kind === kind)?.name}`);
+    // uksed/aknad ristküliku seintelt (1 ees, 2 taga, A vasak, B parem) malli vastavatele seintele:
+    // esisein = kõige eesmine täissein (terrassi/veranda raam pole ruumi sein), tagasein = kõige tagumine
+    const map = templateWallMap(next, this.thickness());
+    if (Object.keys(map).length) this.renamed.emit(map);
   }
 
   protected async clearPlan(): Promise<void> {
@@ -679,4 +694,34 @@ export class PlanEditor {
     this.tool.set('select');
     this.draft.set(null);
   }
+}
+
+/** Ristküliku tähised (1, 2, A, B) -> malli ruumi esi-, taga-, vasak- ja parempoolne sein (ainult erinevad) */
+function templateWallMap(plan: HousePlan, thickness: number): Record<string, string> {
+  let geo: WallGeometry[];
+  try {
+    geo = planGeometry(plan, thickness, C);
+  } catch {
+    return {};
+  }
+  const pw = new Map(plan.walls.map((w) => [w.id, w]));
+  const solid = (id: string) => {
+    const w = pw.get(id);
+    return !!w && w.topOnly === undefined && !(w.open?.length) && !(w.railings?.length);
+  };
+  const xs = geo.filter((g) => g.dir === 'x').sort((a, b) => b.a.y - a.a.y || b.length - a.length);
+  const ys = geo.filter((g) => g.dir === 'y');
+  const front = xs.find((g) => solid(g.id)) ?? xs[0];
+  const back = [...xs].sort((a, b) => a.a.y - b.a.y || b.length - a.length)[0];
+  const left = [...ys].sort((a, b) => a.a.x - b.a.x || b.length - a.length)[0];
+  const right = [...ys].sort((a, b) => b.a.x - a.a.x || b.length - a.length)[0];
+  const map: Record<string, string> = {};
+  const set = (from: string, to: WallGeometry | undefined) => {
+    if (to && to.id !== from) map[from] = to.id;
+  };
+  set('1', front);
+  set('2', back);
+  set('A', left);
+  set('B', right);
+  return map;
 }
