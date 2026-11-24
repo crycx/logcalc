@@ -181,6 +181,8 @@ export interface BomLine {
   /** Tükkide arv ja tüki pikkus, kui on teada */
   pieces?: { count: number; length: number }[];
   profile?: string;
+  /** Uksed/aknad: millistel seintel (iga tüki kohta üks) */
+  walls?: ('1' | '2' | 'A' | 'B')[];
   unitPrice?: number;
   total?: number;
 }

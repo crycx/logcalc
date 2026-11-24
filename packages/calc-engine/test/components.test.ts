@@ -181,6 +181,26 @@ describe('uksed ja aknad materjalide nimekirjas (K7)', () => {
     expect(win.total).toBeUndefined();
     expect(r.totalPrice).toBe(450);
   });
+
+  it('sama mõõdu ja hinnaga read liidetakse, alareal seinad', () => {
+    const r = calculateHouse({
+      ...gable,
+      windows: [
+        { width: 765, height: 990, count: 1, wall: 'A' },
+        { width: 765, height: 990, count: 2, wall: 'B' },
+        { width: 765, height: 990, count: 1, wall: '1', unitPrice: 200 },
+        { width: 500, height: 500, count: 1, wall: '2' },
+      ],
+    });
+    const wins = r.bom.filter((l) => l.key.startsWith('window:'));
+    expect(wins.map((l) => [l.label, l.quantity, l.profile])).toEqual([
+      ['Aken 765 × 990', 3, 'seinad A, B ×2'],
+      ['Aken 765 × 990', 1, 'sein 1'],
+      ['Aken 500 × 500', 1, 'sein 2'],
+    ]);
+    expect(wins[0]!.walls).toEqual(['A', 'B', 'B']);
+    expect(wins[1]!.total).toBe(200);
+  });
 });
 
 describe('katuse ridade järjekord (K9)', () => {

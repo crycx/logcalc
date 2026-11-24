@@ -4,7 +4,7 @@ import { resolveDimensions, triangleGeometry } from './geometry.js';
 import { computePurlins, computeRoof } from './roof.js';
 import type { BomLine, CalcResult, EngineConstants, HouseInput, PriceList, Warning } from './types.js';
 import { computeLongBoards, computeOpenings, computeWalls } from './walls.js';
-import { buildWalls, placeOpenings, wallCutList } from './wall-model.js';
+import { buildWalls, placeOpenings, wallCutList, type WallId } from './wall-model.js';
 
 export class CalcInputError extends Error {
   constructor(
@@ -121,29 +121,59 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   }
   if (purlins) add('parlinid', purlins.totalJm, { pieces: [{ count: purlins.pieces, length: purlins.length }] });
 
-  // Uksed ja aknad tükiridadena (hind tk kohta, kui on antud)
-  const addOpenings = (list: HouseInput['doors'], kind: 'door' | 'window', word: string) =>
-    (list ?? []).forEach((o, i) => {
-      if (!(o.count > 0)) return;
+  // Uksed ja aknad tükiridadena: sama nime, mõõdu ja hinnaga read liidetakse, alareale seinad
+  const placedOpenings = placeOpenings(input, dimensions, c);
+  const addOpenings = (list: HouseInput['doors'], kind: 'door' | 'window', word: string) => {
+    // paigutatud avad on ridade järjekorras, kogus lahti laotud
+    const placed = placedOpenings.filter((p) => p.kind === kind);
+    let n = 0;
+    const groups = new Map<string, { o: NonNullable<HouseInput['doors']>[number]; count: number; walls: WallId[] }>();
+    for (const o of list ?? []) {
+      const cnt = o.count > 0 ? Math.floor(o.count) : 0;
+      const walls = placed.slice(n, n + cnt).map((p) => p.wall);
+      n += cnt;
+      if (!(o.count > 0)) continue;
+      const price = o.unitPrice !== undefined && o.unitPrice > 0 ? o.unitPrice : 0;
+      const key = `${o.name?.trim() ?? ''}|${Math.round(o.width)}|${Math.round(o.height)}|${price}`;
+      const g = groups.get(key);
+      if (g) {
+        g.count += o.count;
+        g.walls.push(...walls);
+      } else groups.set(key, { o, count: o.count, walls });
+    }
+    [...groups.values()].forEach(({ o, count, walls }, i) => {
       const label = `${word} ${o.name?.trim() || `${Math.round(o.width)} × ${Math.round(o.height)}`}`;
       const priced = o.unitPrice !== undefined && o.unitPrice > 0;
+      const size = o.name ? `${Math.round(o.width)} × ${Math.round(o.height)} mm` : '';
+      const where = wallsText(walls);
+      const profile = [size, where].filter(Boolean).join(' · ');
       bom.push({
         key: `${kind}:${i}`,
         label,
-        quantity: o.count,
+        quantity: count,
         unit: 'tk',
-        ...(o.name ? { profile: `${Math.round(o.width)} × ${Math.round(o.height)} mm` } : {}),
-        ...(priced ? { unitPrice: o.unitPrice, total: o.count * (o.unitPrice as number) } : {}),
+        ...(profile ? { profile } : {}),
+        ...(where ? { walls: [...walls] } : {}),
+        ...(priced ? { unitPrice: o.unitPrice, total: count * (o.unitPrice as number) } : {}),
       });
     });
+  };
   addOpenings(input.doors, 'door', 'Uks');
   addOpenings(input.windows, 'window', 'Aken');
 
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
 
-  const placedOpenings = placeOpenings(input, dimensions, c);
   const wallModel = buildWalls(input, dimensions, tri, c, placedOpenings);
   const cutList = wallModel.map((w) => wallCutList(w, input.log));
 
   return { dimensions, cutList, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
+}
+
+/** „sein A“, „seinad 1, A“, „seinad A ×2, B“ – seinte järjekord 1, 2, A, B */
+function wallsText(walls: WallId[]): string {
+  if (!walls.length) return '';
+  const order: WallId[] = ['1', '2', 'A', 'B'];
+  const counts = order.map((w) => [w, walls.filter((x) => x === w).length] as const).filter(([, c]) => c > 0);
+  const parts = counts.map(([w, c]) => (c > 1 ? `${w} ×${c}` : w));
+  return `${counts.length === 1 && counts[0]![1] === 1 ? 'sein' : 'seinad'} ${parts.join(', ')}`;
 }

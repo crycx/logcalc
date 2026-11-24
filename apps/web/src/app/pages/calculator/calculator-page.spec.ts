@@ -199,7 +199,7 @@ describe('CalculatorPage', () => {
       expect(el.querySelectorAll('app-house-drawing rect.window').length).toBe(1);
     });
 
-    it('akna kopeerimine: koopia rea alla, kaugus automaatne; teisele seinale -> materjalides 2 akna rida', async () => {
+    it('akna kopeerimine: koopia rea alla, kaugus automaatne; teisele seinale -> materjalides üks rida 2 tk (seinad A, B)', async () => {
       const fixture = await create(ADMIN);
       const page = fixture.componentInstance as unknown as { form: HouseForm };
       const fb = TestBed.inject(NonNullableFormBuilder);
@@ -218,7 +218,11 @@ describe('CalculatorPage', () => {
       expect(w[1]).toMatchObject({ a: 920, b: 456, count: 1, wall: 'A', offset: null, sill: 1368 });
       page.form.controls.windows.at(1).controls.wall.setValue('B');
       await fixture.whenStable();
-      expect(bomRows(el).filter((t) => t.includes('Aken 920') && t.includes('1 tk')).length).toBe(2);
+      // sama mõõduga aknad ühel real, alareal seinad
+      const win = bomRows(el).filter((t) => t.includes('Aken 920'));
+      expect(win.length).toBe(1);
+      expect(win[0]).toContain('2 tk');
+      expect(win[0]).toContain('seinad A, B');
     });
 
     it('arvutab ümber ja näitab viga vigase sisendi korral', async () => {
