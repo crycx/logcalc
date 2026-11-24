@@ -143,6 +143,35 @@ describe('CalculatorPage', () => {
       expect(bomRows(el).find((t) => t.includes('Uks 1440'))).toContain('1 tk');
     });
 
+    it('akna asukoht (kaugus, põrandast) -> lõikenimekiri nagu Revitis (Carina 1LG-1 4 × 293)', async () => {
+      const fixture = await create(ADMIN);
+      const page = fixture.componentInstance as unknown as { form: HouseForm };
+      const fb = TestBed.inject(NonNullableFormBuilder);
+      setFormValue(fb, page.form, normalizeHouse({
+        roofType: 'mono', width: 3553, depth: 2943, frontBackWallHeight: 2223, roofHeight: 1881, logThickness: 28,
+        longBoards: [{ a: 3753, b: 114, count: 2 }],
+        doors: [{ a: 1440, b: 1995, count: 1, wall: '1', offset: 450 }],
+        windows: [{ a: 920, b: 456, count: 1, wall: '1', offset: 2183, sill: 1539 }],
+      }));
+      await fixture.whenStable();
+      const el: HTMLElement = fixture.nativeElement;
+      const tab = Array.from(el.querySelectorAll('.details [role="tab"]')).find((t) => t.textContent?.includes('Lõikenimekiri')) as HTMLElement;
+      tab.click();
+      await fixture.whenStable();
+      await new Promise((r) => setTimeout(r, 50));
+      await fixture.whenStable();
+      // lahtrid: tähis | profiil | tk | pikkus | sälk
+      const rows = Array.from(el.querySelectorAll('app-cut-list tbody tr')).map((r) =>
+        Array.from(r.querySelectorAll('td')).map((td) => td.textContent?.trim() ?? ''),
+      );
+      expect(rows).toContainEqual(['1LG-1', '28x114', '4', '293', '–']);
+      expect(rows).toContainEqual(['1LG-2', '28x114', '21', '450', '1 ots']);
+      expect(el.querySelector('app-cut-list .summary')?.textContent).toContain('jm');
+      // asukoha väljad: tühi kaugus näitab automaatset väärtust
+      const offsetInputs = Array.from(el.querySelectorAll('app-rows-editor .place input')) as HTMLInputElement[];
+      expect(offsetInputs.length).toBeGreaterThanOrEqual(4);
+    });
+
     it('arvutab ümber ja näitab viga vigase sisendi korral', async () => {
       const fixture = await create(ADMIN);
       const input = fixture.nativeElement.querySelector('input[formcontrolname="logHeight"]') as HTMLInputElement;

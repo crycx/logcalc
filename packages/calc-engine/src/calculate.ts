@@ -4,7 +4,7 @@ import { resolveDimensions, triangleGeometry } from './geometry.js';
 import { computePurlins, computeRoof } from './roof.js';
 import type { BomLine, CalcResult, EngineConstants, HouseInput, PriceList, Warning } from './types.js';
 import { computeLongBoards, computeOpenings, computeWalls } from './walls.js';
-import { buildWalls, wallCutList } from './wall-model.js';
+import { buildWalls, placeOpenings, wallCutList } from './wall-model.js';
 
 export class CalcInputError extends Error {
   constructor(
@@ -141,8 +141,9 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
 
-  const wallModel = buildWalls(input, dimensions, tri, c);
+  const placedOpenings = placeOpenings(input, dimensions, c);
+  const wallModel = buildWalls(input, dimensions, tri, c, placedOpenings);
   const cutList = wallModel.map((w) => wallCutList(w, input.log));
 
-  return { dimensions, cutList, wallModel, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
+  return { dimensions, cutList, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
 }

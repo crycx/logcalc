@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, inject, input } from '@angular/core';
 import { FormArray, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,13 +7,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import type { PlacedOpening, WallId } from '@logcalc/calc-engine';
 import { buildRow, type CatalogItem, type RowForm } from '../../core/house-form';
 
 /** Korduvate ridade (pikemad lauad, uksed, aknad) muutmine; uste/akende puhul valik kataloogist. */
 @Component({
   selector: 'app-rows-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [DecimalPipe, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './rows-editor.html',
   styleUrl: './rows-editor.scss',
 })
@@ -26,6 +28,11 @@ export class RowsEditor {
   readonly bLabel = input('Kõrgus');
   readonly addLabel = input('Lisa');
   readonly emptyText = input('Pole lisatud.');
+  /** Uksed/aknad: näita asukoha välju (sein, kaugus, alumine serv) */
+  readonly placement = input(false);
+  /** Mootori paigutatud avad (selle tüübi omad, ridade järjekorras, kogus lahti laotud) – automaatsete väärtuste vihjeks */
+  readonly placed = input<PlacedOpening[]>([]);
+  protected readonly wallIds: WallId[] = ['1', '2', 'A', 'B'];
 
   constructor() {
     // FormArray on sama objekt ka siis, kui read asendatakse (maja avamine) – OnPush vajab märguannet
@@ -52,6 +59,13 @@ export class RowsEditor {
     } else {
       row.patchValue({ name: '', price: 0 });
     }
+  }
+
+  /** Rea esimese koopia paigutus (automaatse väärtuse vihje) */
+  autoOf(i: number): PlacedOpening | undefined {
+    const rows = this.rows().getRawValue();
+    const start = rows.slice(0, i).reduce((s, r) => s + Math.max(0, Math.floor(r.count || 0)), 0);
+    return this.placed()[start];
   }
 
   /** Kas rea mõõdud vastavad endiselt valitud mudelile */

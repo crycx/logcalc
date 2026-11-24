@@ -68,9 +68,15 @@ const EPS = 0.5; // mm
 /** Ava asukoht: kasutaja antud või vaikimisi (sein 1, ühtlaselt; aken ülaservaga ukse ülaservas). */
 export function placeOpenings(input: HouseInput, dims: Dimensions, c: EngineConstants): PlacedOpening[] {
   const p = input.log.height;
+  // asukohaga rida: esimene koopia antud kohta, ülejäänud koopiad automaatselt (et ei kattuks)
   const all: { o: Opening; kind: 'door' | 'window' }[] = [];
-  for (const o of input.doors ?? []) for (let i = 0; i < Math.max(0, Math.floor(o.count)); i++) all.push({ o, kind: 'door' });
-  for (const o of input.windows ?? []) for (let i = 0; i < Math.max(0, Math.floor(o.count)); i++) all.push({ o, kind: 'window' });
+  const expand = (o: Opening, kind: 'door' | 'window') => {
+    for (let i = 0; i < Math.max(0, Math.floor(o.count)); i++) {
+      all.push({ o: i === 0 || o.offset === undefined ? o : { ...o, offset: undefined }, kind });
+    }
+  };
+  for (const o of input.doors ?? []) expand(o, 'door');
+  for (const o of input.windows ?? []) expand(o, 'window');
 
   const wallLen = (w: WallId) => (w === '1' || w === '2' ? dims.width : dims.depth);
   const wallTop = (w: WallId) =>
@@ -119,12 +125,12 @@ export function buildWalls(
   dims: Dimensions,
   tri: TriangleGeometry,
   c: EngineConstants,
+  openings: PlacedOpening[] = placeOpenings(input, dims, c),
 ): WallSpec[] {
   const p = input.log.height;
   const gable = input.roofType === 'gable';
   const W = dims.width;
   const D = dims.depth;
-  const openings = placeOpenings(input, dims, c);
 
   /** read: (pool palki +) täisread, kuni kõrguseni; mittetäpse kõrguse puhul nagu mootoris */
   const rectRows = (length: number, height: number, halfStart: boolean, sideRule: boolean): WallRow[] => {

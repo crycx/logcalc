@@ -1,4 +1,4 @@
-@for (row of rows().controls; track row; let i = $index) {
+@for (row of rows().controls; track $index; let i = $index) {
   <div class="row">
     @if (catalog().length > 0) {
       <mat-form-field class="model">
@@ -31,6 +31,27 @@
     <button mat-icon-button type="button" (click)="remove(i)" matTooltip="Eemalda" [attr.aria-label]="'Eemalda rida ' + (i + 1)">
       <mat-icon>delete</mat-icon>
     </button>
+    @if (placement()) {
+      @let auto = autoOf(i);
+      <div class="place">
+        <mat-form-field class="wall" floatLabel="always">
+          <mat-label>Sein</mat-label>
+          <mat-select [formControl]="row.controls.wall" aria-label="Sein, millel ava on">
+            @for (w of wallIds; track w) {
+              <mat-option [value]="w">{{ w }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field floatLabel="always" matTooltip="Kaugus seina algusest (palgi otsast) ava vasaku servani. Seinad 1 ja 2 algavad plaanil vasakult, A ja B ülevalt. Tühi = automaatne.">
+          <mat-label>Kaugus, mm</mat-label>
+          <input matInput type="number" min="0" [formControl]="row.controls.offset" [placeholder]="auto ? 'auto ' + (auto.offset | number: '1.0-0') : 'auto'" />
+        </mat-form-field>
+        <mat-form-field floatLabel="always" matTooltip="Ava alumise serva kõrgus seina alusest. Uks tavaliselt 0. Tühi = automaatne (aken ülaservaga ukse ülaservas).">
+          <mat-label>Põrandast, mm</mat-label>
+          <input matInput type="number" min="0" [formControl]="row.controls.sill" [placeholder]="auto ? 'auto ' + (auto.sill | number: '1.0-0') : 'auto'" />
+        </mat-form-field>
+      </div>
+    }
   </div>
 } @empty {
   <p class="empty">{{ emptyText() }}</p>

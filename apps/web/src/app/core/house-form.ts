@@ -6,6 +6,7 @@ import type {
   LengthScenario,
   PriceList,
   RoofType,
+  WallId,
 } from '@logcalc/calc-engine';
 
 /**
@@ -18,6 +19,10 @@ export type RowForm = FormGroup<{
   count: FormControl<number>;
   name: FormControl<string>;
   price: FormControl<number>;
+  /** uksed/aknad: sein, kaugus seina algusest, alumine serv (null = automaatne) */
+  wall: FormControl<WallId>;
+  offset: FormControl<number | null>;
+  sill: FormControl<number | null>;
 }>;
 
 export interface RowValue {
@@ -26,6 +31,9 @@ export interface RowValue {
   count: number;
   name?: string;
   price?: number;
+  wall?: WallId;
+  offset?: number | null;
+  sill?: number | null;
 }
 
 /** Ettevõtte uste/akende kataloogi rida */
@@ -154,6 +162,9 @@ const normRow = (r: RowValue): Required<RowValue> => ({
   count: r.count ?? 1,
   name: r.name ?? '',
   price: r.price ?? 0,
+  wall: r.wall ?? '1',
+  offset: r.offset ?? null,
+  sill: r.sill ?? null,
 });
 
 /**
@@ -195,6 +206,9 @@ export function buildRow(fb: NonNullableFormBuilder, v: RowValue = { a: 0, b: 0,
     count: fb.control(r.count),
     name: fb.control(r.name),
     price: fb.control(r.price),
+    wall: fb.control<WallId>(r.wall),
+    offset: fb.control<number | null>(r.offset),
+    sill: fb.control<number | null>(r.sill),
   });
 }
 
@@ -283,12 +297,16 @@ export function setFormValue(fb: NonNullableFormBuilder, form: HouseForm, v: Hou
 
 const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
 const rows = (list: RowValue[]) => list.filter((r) => n(r.a) > 0 && n(r.b) > 0 && n(r.count) > 0);
+const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 const opening = (r: RowValue) => ({
   width: r.a,
   height: r.b,
   count: r.count,
   ...(r.name ? { name: r.name } : {}),
   ...(n(r.price) > 0 ? { unitPrice: n(r.price) } : {}),
+  ...(r.wall ? { wall: r.wall } : {}),
+  ...(isNum(r.offset) ? { offset: r.offset } : {}),
+  ...(isNum(r.sill) ? { sill: r.sill } : {}),
 });
 
 /** Vormi väärtus -> arvutusmootori sisend. */

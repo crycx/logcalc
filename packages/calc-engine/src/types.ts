@@ -318,6 +318,8 @@ export interface CalcResult {
   cutList: import('./wall-model.js').WallCutList[];
   /** Seinad koos ridade ja paigutatud avadega (joonistamiseks) */
   wallModel: import('./wall-model.js').WallSpec[];
+  /** Uksed ja aknad paigutatuna (sisendi järjekorras: uksed, siis aknad; kogus lahti laotud) */
+  placedOpenings: import('./wall-model.js').PlacedOpening[];
   walls: WallsResult;
   openings: OpeningsResult;
   longBoards: LongBoardsResult;

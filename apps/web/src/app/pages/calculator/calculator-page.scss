@@ -183,8 +183,8 @@
 /* Kesk: joonis */
 .drawing {
   padding: 10px 16px 12px;
-  flex: 1;
-  min-height: 280px;
+  flex: 1 0 auto;
+  min-height: 380px;
   display: flex;
   flex-direction: column;
   gap: 8px;

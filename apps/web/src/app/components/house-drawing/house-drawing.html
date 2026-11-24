@@ -114,9 +114,8 @@
     @if (o.swing) {
       <svg:path class="plan-swing" [attr.d]="o.swing" />
     }
-    @if (o.glass; as g) {
-      <svg:line class="plan-glass" [attr.x1]="g.x1" [attr.x2]="g.x2" [attr.y1]="g.y1" [attr.y2]="g.y1" />
-      <svg:line class="plan-glass" [attr.x1]="g.x1" [attr.x2]="g.x2" [attr.y1]="g.y2" [attr.y2]="g.y2" />
+    @for (g of o.glass ?? []; track $index) {
+      <svg:line class="plan-glass" [attr.x1]="g.x1" [attr.x2]="g.x2" [attr.y1]="g.y1" [attr.y2]="g.y2" />
     }
   }
 </ng-template>

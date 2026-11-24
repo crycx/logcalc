@@ -44,6 +44,7 @@ import {
 } from '../../core/house-form';
 import { CatalogEditor } from '../../components/catalog-editor/catalog-editor';
 import { RoofIcon } from '../../components/roof-icon/roof-icon';
+import { CutList } from '../../components/cut-list/cut-list';
 import { RowsEditor } from '../../components/rows-editor/rows-editor';
 
 const STORAGE_KEY = 'logcalc.form.v1';
@@ -99,6 +100,7 @@ function houseData(v: HouseFormValue): HouseData {
     HouseDrawing,
     CatalogEditor,
     RoofIcon,
+    CutList,
   ],
   templateUrl: './calculator-page.html',
   styleUrl: './calculator-page.scss',
@@ -174,6 +176,9 @@ export class CalculatorPage {
   });
 
   protected readonly hasPrices = computed(() => (this.result()?.totalPrice ?? 0) > 0);
+  /** Mootori paigutatud avad (automaatsete väärtuste vihjeks ridade redaktoris) */
+  protected readonly placedDoors = computed(() => this.result()?.placedOpenings.filter((o) => o.kind === 'door') ?? []);
+  protected readonly placedWindows = computed(() => this.result()?.placedOpenings.filter((o) => o.kind === 'window') ?? []);
 
   constructor() {
     inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');

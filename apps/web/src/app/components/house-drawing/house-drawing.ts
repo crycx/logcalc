@@ -2,7 +2,7 @@ import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { DEFAULT_CONSTANTS, type CalcResult } from '@logcalc/calc-engine';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
-import type { HouseFormValue, RowValue } from '../../core/house-form';
+import type { HouseFormValue } from '../../core/house-form';
 
 export type DrawingView = 'overview' | 'side' | 'floor' | 'foundation';
 
@@ -161,44 +161,37 @@ export class HouseDrawing {
     return { joists, ring, dims, label: `${f.joistCount} × ${Math.round(f.joistLength)} mm${ringNote}, vahe ${Math.round(f.spacing)} mm` };
   });
 
-  /**
-   * Uksed ja aknad seinal 1 (esisein, laius W). Mudel asukohti veel ei tea –
-   * jaotatakse ühtlaselt; sama paigutust kasutavad plaan ja eestvaade.
-   */
-  protected readonly frontOpenings = computed(() => {
-    const v = this.v();
-    const W = this.r().dimensions.width;
-    const o = DEFAULT_CONSTANTS.cornerOverhang;
-    const units: { kind: 'door' | 'window'; w: number; h: number }[] = [];
-    const push = (kind: 'door' | 'window', list: RowValue[]) =>
-      list.forEach((x) => {
-        for (let i = 0; i < Math.min(x.count, 6); i++) if (x.a > 0 && x.b > 0) units.push({ kind, w: x.a, h: x.b });
-      });
-    push('door', v.doors);
-    push('window', v.windows);
-    const inner0 = o + v.logThickness;
-    const innerW = W - 2 * inner0;
-    const gap = units.length ? Math.max((innerW - units.reduce((sum, u) => sum + u.w, 0)) / (units.length + 1), 0) : 0;
-    let x = inner0 + gap;
-    return units.map((u) => {
-      const res = { ...u, x };
-      x += u.w + gap;
-      return res;
-    });
-  });
-
-  /** Plaan: avad seinal 1 (uks: ava + avanemiskaar, aken: topeltjoon) */
+  /** Plaan: avad kõigil seintel (mootori paigutus). Uks: ava + avanemiskaar sissepoole, aken: topeltjoon. */
   protected readonly planOpenings = computed(() => {
-    const { D, o, t } = this.plan();
-    const yIn = D - o - t; // siseserv
-    const yOut = D - o; // välisserv
-    return this.frontOpenings().map((u) => ({
-      kind: u.kind,
-      gap: { x: u.x, y: yIn, w: u.w, h: t },
-      // uks avaneb sissepoole: hing vasakul, leht + veerandkaar
-      swing: u.kind === 'door' ? `M${u.x},${yIn} L${u.x},${yIn - u.w} A${u.w},${u.w} 0 0 1 ${u.x + u.w},${yIn}` : null,
-      glass: u.kind === 'window' ? { x1: u.x, x2: u.x + u.w, y1: yIn + t / 3, y2: yOut - t / 3 } : null,
-    }));
+    const { W, D, o, t } = this.plan();
+    return this.r().placedOpenings.map((u) => {
+      const a = u.offset;
+      const b = u.offset + u.width;
+      // seina sise- ja väliserv ning sissepoole suund
+      const horiz = u.wall === '1' || u.wall === '2';
+      const inner = u.wall === '1' ? D - o - t : u.wall === '2' ? o + t : u.wall === 'A' ? o + t : W - o - t;
+      const outer = u.wall === '1' ? D - o : u.wall === '2' ? o : u.wall === 'A' ? o : W - o;
+      const dir = Math.sign(outer - inner) * -1; // sissepoole
+      const gap = horiz
+        ? { x: a, y: Math.min(inner, outer), w: u.width, h: t }
+        : { x: Math.min(inner, outer), y: a, w: t, h: u.width };
+      const leaf = inner + dir * u.width;
+      const swing =
+        u.kind !== 'door'
+          ? null
+          : horiz
+            ? `M${a},${inner} L${a},${leaf} A${u.width},${u.width} 0 0 ${dir < 0 ? 1 : 0} ${b},${inner}`
+            : `M${inner},${a} L${leaf},${a} A${u.width},${u.width} 0 0 ${dir > 0 ? 1 : 0} ${inner},${b}`;
+      const q1 = inner + (outer - inner) / 3;
+      const q2 = inner + ((outer - inner) * 2) / 3;
+      const glass =
+        u.kind !== 'window'
+          ? null
+          : horiz
+            ? [{ x1: a, x2: b, y1: q1, y2: q1 }, { x1: a, x2: b, y1: q2, y2: q2 }]
+            : [{ x1: q1, x2: q1, y1: a, y2: b }, { x1: q2, x2: q2, y1: a, y2: b }];
+      return { kind: u.kind, gap, swing, glass };
+    });
   });
 
   /** Eestvaade: sein 1 (viilkatusel koos viiluga, ühekaldelisel kõrge esisein) */
@@ -262,13 +255,15 @@ export class HouseDrawing {
       clip = `${-big},${Y(v.frontBackWallHeight)} ${W + big},${Y(v.frontBackWallHeight)} ${W + big},${Y(-big)} ${-big},${Y(-big)}`;
     }
 
-    // uksed ja aknad – ainult eestvaates (sein 1)
-    const openings = side
-      ? []
-      : this.frontOpenings().map((u) => {
-          const sill = u.kind === 'door' ? 0 : Math.max(Math.min(900, wallH - u.h - p), 0);
-          return { kind: u.kind, x: u.x, y: Y(sill + u.h), w: u.w, h: Math.min(u.h, wallH) };
-        });
+    // uksed ja aknad mootori paigutusest: eestvaates sein 1, külgvaates sein A
+    // (külgvaates on esisein vasakul, seina A kaugus mõõdetakse plaanil ülevalt = tagaseina poolt)
+    const openings = r.placedOpenings
+      .filter((u) => u.wall === (side ? 'A' : '1'))
+      .map((u) => {
+        const h = Math.max(Math.min(u.height, wallH - u.sill), 0);
+        const x = side ? D - u.offset - u.width : u.offset;
+        return { kind: u.kind, x, y: Y(u.sill + h), w: u.width, h };
+      });
 
     // Mõõtjooned
     const df = fs * 0.8;
