@@ -5,3 +5,14 @@ export { resolveDimensions, triangleGeometry, slopeLength, courses, type Triangl
 export { computeWalls, computeOpenings, computeLongBoards } from './walls.js';
 export { computeFoundation, computeFloor } from './foundation.js';
 export { computeRoof, computePurlins } from './roof.js';
+export {
+  buildWalls,
+  placeOpenings,
+  wallCutList,
+  type CutPiece,
+  type PlacedOpening,
+  type WallCutList,
+  type WallId,
+  type WallRow,
+  type WallSpec,
+} from './wall-model.js';

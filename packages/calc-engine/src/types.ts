@@ -49,6 +49,12 @@ export interface Opening {
   name?: string;
   /** Hind tk kohta (€) */
   unitPrice?: number;
+  /** Sein, millel ava on (vaikimisi '1' = esisein) */
+  wall?: '1' | '2' | 'A' | 'B';
+  /** Kaugus seina palgi otsast ava vasaku servani (mm). Puudub = paigutatakse ühtlaselt. */
+  offset?: number;
+  /** Alumine serv seina alusest (mm). Uks vaikimisi 0, aken ülaservaga ukse ülaservas. */
+  sill?: number;
 }
 
 export interface FoundationInput {
@@ -308,6 +314,10 @@ export interface Warning {
 
 export interface CalcResult {
   dimensions: Dimensions;
+  /** Iga seina lõikenimekiri (seinamudel) */
+  cutList: import('./wall-model.js').WallCutList[];
+  /** Seinad koos ridade ja paigutatud avadega (joonistamiseks) */
+  wallModel: import('./wall-model.js').WallSpec[];
   walls: WallsResult;
   openings: OpeningsResult;
   longBoards: LongBoardsResult;
