@@ -128,3 +128,74 @@ export function volumeInput(input: HouseInput, v: RoofVolume, ratio: number, c: 
     roofHeight: input.sideWallHeight + innerW * ratio,
   };
 }
+
+/** Tiiva katus harja suunas: kust kuhu katuselauad ulatuvad (WALL-GRAPH.md, etapp 4 – org) */
+export interface WingSpan {
+  /** katuselaudade ala pikkus harja suunas (vabast viilust teise mahu räästa jooneni / seinani) */
+  length: number;
+  /** vabade viiluotste arv (esiräästa- ja papikinnituslauad ainult neis) */
+  gableEnds: number;
+  /** pärlinite pikkus: oru poolt ulatub tiiva hari põhiosa katusesse (ristlõike pool laiust) */
+  purlinLength: number;
+  /** kas mõni ots on teise mahu räästa vastas (org) */
+  valley: boolean;
+}
+
+/**
+ * Mahu k katuse ulatus harja suunas.
+ * - vaba ots: palgi otsani (kesktelg + t/2 + nurga ülejääk) – viil nagu ristkülikul;
+ * - teise mahu räästa vastas (org): selle räästa jooneni (kesktelg + t/2 + räästa üleulatus) – põhiosa lauad
+ *   lõigatakse orus ja lõikejäägid (45°, sama kalle) on täpselt tiiva oru lauad, seega tiivale lisa pole vaja;
+ * - teise mahu viilu vastas: seina välispinnani.
+ * Ilma ühendusteta maht annab sama pikkuse mis ristkülik (along + t + 2 × ülejääk).
+ */
+export function wingSpan(
+  vols: RoofVolume[],
+  k: number,
+  t: number,
+  c: Pick<EngineConstants, 'cornerOverhang'>,
+  hostOverhang: (m: number) => number,
+): WingSpan {
+  const v = vols[k]!;
+  const { along, across } = volumeSpan(v);
+  const ends: RoofGableEnd[] =
+    v.ridge === 'y'
+      ? [
+          { volume: k, dir: 'x', at: v.y0, from: v.x0, to: v.x1 },
+          { volume: k, dir: 'x', at: v.y1, from: v.x0, to: v.x1 },
+        ]
+      : [
+          { volume: k, dir: 'y', at: v.x0, from: v.y0, to: v.y1 },
+          { volume: k, dir: 'y', at: v.x1, from: v.y0, to: v.y1 },
+        ];
+  let length = along;
+  let purlinLength = along;
+  let gableEnds = 0;
+  let valley = false;
+  for (const e of ends) {
+    let host = -1;
+    let best = EPS;
+    vols.forEach((o, m) => {
+      const ov = m !== k ? overlap(o, e) : 0;
+      if (ov > best) {
+        best = ov;
+        host = m;
+      }
+    });
+    if (host < 0) {
+      length += t / 2 + c.cornerOverhang;
+      purlinLength += t / 2 + c.cornerOverhang;
+      gableEnds++;
+    } else if (vols[host]!.ridge === e.dir) {
+      // teise mahu räästas (hari serva suunas): tiiva lauad kuni räästa jooneni, hari ulatub orus edasi
+      length -= t / 2 + hostOverhang(host);
+      purlinLength += across / 2;
+      valley = true;
+    } else {
+      // teise mahu viilusein: kuni seina välispinnani
+      length -= t / 2;
+      purlinLength -= t / 2;
+    }
+  }
+  return { length, gableEnds, purlinLength, valley };
+}

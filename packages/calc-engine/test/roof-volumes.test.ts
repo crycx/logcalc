@@ -78,11 +78,28 @@ describe('L-maja seinad ja katus', () => {
     expect(gableLens('2')).toEqual([]);
   });
 
-  it('katuselauad ja pärlinid kahe osa kaupa + hoiatus orust', () => {
+  it('katuselauad ja pärlinid kahe osa kaupa', () => {
     const boards = r.bom.find((l) => l.key === 'katuseLauad')!;
     expect(boards.pieces!.length).toBe(2);
     expect(r.bom.find((l) => l.key === 'parlinid')!.pieces!.length).toBe(2);
-    expect(r.warnings.some((w) => w.code === 'roof.valley')).toBe(true);
+    expect(r.warnings.some((w) => w.code === 'roof.valley')).toBe(false);
+  });
+
+  it('org: tiiva katus vabast viilust põhiosa räästa jooneni, servalauad ainult vabas otsas', () => {
+    const roof = calculateHouse({ ...base, plan, roof: { boardLength: 0, overhang: 300 } }).roof!;
+    const ov = roof.computedOverhang!;
+    const wing = roof.parts![0]!;
+    // tiib x 3000..5880: vaba ots 5880 + 20 + 100, põhiosa räästas 3000 + 20 + üleulatus
+    expect(wing.roofLength).toBeCloseTo(5880 + 120 - (3000 + 20 + ov), 6);
+    expect(wing.boardCount).toBe(2 * Math.floor(wing.roofLength / 110));
+    expect(wing.edgeBoards.fascia.count).toBe(2);
+    expect(wing.edgeBoards.felt.count).toBe(2);
+    expect(wing.edgeBoards.supportSmall.pieceLength).toBeCloseTo(wing.roofLength, 6);
+    // põhiosa täislaudadega (oru lõikejäägid lähevad tiivale)
+    expect(roof.roofLength).toBe(8000);
+    // tiiva hari ulatub põhiosa katusesse pool tiiva laiusest
+    const pur = calculateHouse({ ...base, plan, purlins: { count: 0, ridgeOnly: true } }).purlins!.parts![0]!;
+    expect(pur.length).toBeCloseTo(2880 + 120 + 3880 / 2, 6);
   });
 
   it('ristküliku plaan: katus sama mis ilma plaanita', () => {

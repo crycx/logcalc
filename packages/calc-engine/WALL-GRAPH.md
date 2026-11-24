@@ -57,7 +57,10 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
    ümbritseva ristküliku järgi (kinnitatud: „kalle jääb samaks“; kitsama osa hari madalam kui Hari h);
    seina osa, mis pole viilu all, saab räästa rea. Samal joonel jätkuvad seinad:
    otsapidi jätk ristuva seina keskteljel, viil jaguneb. Katuselauad/pärlinid/räästalauad mahtude kaupa
-   (org lõikamata – hoiatus `roof.valley`). Tähised automaatselt: numbrid eest taha, tähed vasakult paremale.
+   (org: tiiva katus vabast viilust teise mahu räästa jooneni, põhiosa täislaudadega – orus lõigatud põhiosa
+   laudade 45° lõikejäägid on täpselt tiiva oru lauad; tiiva hari/pärlinid ulatuvad põhiosa katusesse
+   pool tiiva laiusest; esiräästa- ja papikinnituslauad ainult vabas viiluotsas; viilu vastas – seinani).
+   Osaliselt teise mahu vastas olev viiluots jääb viiluks (sisenurga sein saab poole kolmnurga). Tähised automaatselt: numbrid eest taha, tähed vasakult paremale.
    **Põrand ja vundament** (`src/plan-regions.ts`, `src/floor-plan.ts`): ala, mida piiravad alt olemas
    seinad („ainult viil“ esiseinaga veranda jääb välja – Boden). Põrand ruumide kaupa (ruume eraldavad alt
    olemas seinad; terrass/veranda märgitud lahtiseks), lauad igas ristkülikus, seina ääres sama vahe mis
@@ -66,5 +69,5 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
    Kontroll Revitiga: Boden põrand 32 × 2615 (Revit 2617), prussid 6 × 3450 + ring 2690; Lund tuba
    34 × 3315 (3316), prussid 7 + 5 × 3650, ring 3370 (3388) ja 2360 (2352). Ristkülik = endine tulemus.
    Pindala välispindade järgi (L-kuju), tuuleliistud iga välisnurga kohta.
-   Edasi: orgude lõikamine; külgvaated plaanist; terrassilauad eraldi materjalina.
+   Edasi: külgvaated plaanist; terrassilauad eraldi materjalina; orulaud/plekk materjalina.
 5. **3D vaade** samast mudelist; seejärel CNC (BTL/BTLx).

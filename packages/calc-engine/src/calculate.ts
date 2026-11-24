@@ -6,7 +6,7 @@ import type { BomLine, CalcResult, EngineConstants, HouseInput, PriceList, RoofR
 import { computeLongBoards, computeOpenings, computeWalls } from './walls.js';
 import { buildWalls, placeOpenings, wallCutList, type WallId } from './wall-model.js';
 import { planGeometry } from './plan.js';
-import { pitchRatio, roofVolumes, volumeInput } from './roof-volumes.js';
+import { pitchRatio, roofVolumes, volumeInput, wingSpan, type WingSpan } from './roof-volumes.js';
 import { planFloor, planFoundation } from './floor-plan.js';
 import { outerArea, outlineCorners, planGrid, solidBelow } from './plan-regions.js';
 
@@ -103,15 +103,19 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
         const lb = v.main ? longBoards : computeLongBoards({ ...vi, longBoards: [] }, vd, c);
         return { roof: computeRoof(vi, vd, vt, lb, c), purlins: computePurlins(vi, vd, vt, lb, c) };
       });
+      // tiivad: katus vabast viilust teise mahu räästa jooneni (org) või seinani; põhiosa jääb täislaudadega
+      // (orus lõigatud põhiosa laudade jäägid katavad tiiva oru – sama kalle, 45°)
+      const t = input.log.thickness;
+      const ovOf = (m: number) => parts[m]?.roof?.computedOverhang ?? input.roof?.overhang ?? c.defaultRoofOverhang;
+      parts.forEach((p, k) => {
+        if (k === 0) return;
+        const span = wingSpan(vols, k, t, c, ovOf);
+        if (p.roof) p.roof = trimRoof(p.roof, span, c);
+        if (p.purlins) p.purlins = { ...p.purlins, length: span.purlinLength, totalJm: (p.purlins.pieces * span.purlinLength) / 1000 };
+      });
       const [main, ...wings] = parts;
       if (main!.roof) roof = { ...main!.roof, ...(wings.length ? { parts: wings.map((w) => w.roof!).filter(Boolean) } : {}) };
       if (main!.purlins) purlins = { ...main!.purlins, ...(wings.length ? { parts: wings.map((w) => w.purlins!).filter(Boolean) } : {}) };
-      if (wings.length) {
-        warnings.push({
-          code: 'roof.valley',
-          message: 'Mitme katuseosaga maja (L/T): tiiva katus on arvestatud ristkülikuna (orgu lõikamata) – katuselaudu on veidi rohkem.',
-        });
-      }
     }
   }
 
@@ -245,6 +249,26 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 }
 
 /** „sein A“, „seinad 1, A“, „seinad A ×2, B“ – seinte järjekord 1, 2, A, B */
+/** Tiiva katus: lauad ja servalauad katuse tegeliku pikkuse järgi (ainult vabades viiluotstes servalauad) */
+function trimRoof(r: RoofResult, span: WingSpan, c: EngineConstants): RoofResult {
+  const len = Math.max(0, span.length);
+  const perSlope = Math.floor(len / c.roofBoardWidth + 1e-9);
+  const boardCount = 2 * perSlope;
+  const n = 2 * span.gableEnds;
+  const e = r.edgeBoards;
+  const fascia = { ...e.fascia, count: n, totalJm: (n * e.fascia.pieceLength) / 1000 };
+  const felt = { ...e.felt, count: n, totalJm: (n * e.felt.pieceLength) / 1000 };
+  const supportSmall = { count: 2, pieceLength: len, totalJm: (2 * len) / 1000 };
+  const supportLarge = { count: 2, pieceLength: len, totalJm: (2 * len) / 1000 };
+  return {
+    ...r,
+    roofLength: len,
+    boardCount,
+    boardsJm: (boardCount * r.boardLength) / 1000,
+    edgeBoards: { fascia, felt, supportSmall, supportLarge, totalJm: fascia.totalJm + felt.totalJm + supportSmall.totalJm + supportLarge.totalJm },
+  };
+}
+
 /** Sama pikkusega tükid kokku (järjekord säilib) */
 function mergePieces(pieces: { count: number; length: number }[]): { count: number; length: number }[] {
   const out: { count: number; length: number }[] = [];
