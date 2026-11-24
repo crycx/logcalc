@@ -50,7 +50,7 @@ export interface Opening {
   /** Hind tk kohta (€) */
   unitPrice?: number;
   /** Sein, millel ava on (vaikimisi '1' = esisein) */
-  wall?: '1' | '2' | 'A' | 'B';
+  wall?: string;
   /** Kaugus seina palgi otsast ava vasaku servani (mm). Puudub = paigutatakse ühtlaselt. */
   offset?: number;
   /** Alumine serv seina alusest (mm). Uks vaikimisi 0, aken ülaservaga ukse ülaservas. */
@@ -142,6 +142,11 @@ export interface HouseInput {
   floor?: FloorInput;
   roof?: RoofInput;
   purlins?: PurlinInput;
+  /**
+   * Põhiplaan graafina (vt WALL-GRAPH.md). Puudub = ristkülik laiuse ja sügavuse järgi.
+   * Praegu kasutavad seda seinamudel ja lõikenimekiri; materjalide kogused tulevad veel ristkülikust.
+   */
+  plan?: import('./plan.js').HousePlan;
 }
 
 /** Mootori konstandid. Vaikeväärtused vastavad vanale v2 käitumisele. */
@@ -182,7 +187,7 @@ export interface BomLine {
   pieces?: { count: number; length: number }[];
   profile?: string;
   /** Uksed/aknad: millistel seintel (iga tüki kohta üks) */
-  walls?: ('1' | '2' | 'A' | 'B')[];
+  walls?: string[];
   unitPrice?: number;
   total?: number;
 }

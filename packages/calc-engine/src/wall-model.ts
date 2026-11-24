@@ -11,9 +11,11 @@
  * Kontroll: test/wall-model.test.ts võrdleb Viktra Revit-joonistega (Placas, Brantevik, Carina, Annika, Bente).
  */
 import { courses as splitCourses, type TriangleGeometry } from './geometry.js';
+import { planGeometry, rectanglePlan, type HousePlan } from './plan.js';
 import type { Dimensions, EngineConstants, HouseInput, Opening } from './types.js';
 
-export type WallId = '1' | '2' | 'A' | 'B';
+/** Seina tähis: ristkülikul '1', '2', 'A', 'B'; plaanil suvaline (nt 'C', '3'). */
+export type WallId = string;
 
 export interface PlacedOpening {
   kind: 'door' | 'window';
@@ -36,6 +38,17 @@ export interface WallRow {
   /** palgi pikkus selles reas (pikem ülemine palk võib olla pikem kui sein) */
   length: number;
   kind: 'half' | 'log' | 'top' | 'gable';
+  /** rea palgi algus seina koordinaatides; puudub = pikendus võrdselt mõlemas otsas */
+  x0?: number;
+}
+
+/** Tühi ala seinas (seina koordinaatides): uks, aken, lahtine osa, piirde vahe, viilu alune jne. */
+export interface WallVoid {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  kind: 'door' | 'window' | 'open';
 }
 
 export interface WallSpec {
@@ -44,6 +57,10 @@ export interface WallSpec {
   length: number;
   rows: WallRow[];
   openings: PlacedOpening[];
+  /** liited: ristuvate seinte kesktelgede asukohad seina koordinaatides (seal on palgil sälk) */
+  joints: number[];
+  /** muud tühjad alad (lahtine osa, piire, viilu alune) */
+  voids?: WallVoid[];
 }
 
 export interface CutPiece {
@@ -53,8 +70,8 @@ export interface CutPiece {
   count: number;
   length: number;
   kind: WallRow['kind'];
-  /** nurgaliite sälkude arv otstes: 0 (avade vahel), 1 (seina otsas, ümberpööratav), 2 (terve rida) */
-  notches: 0 | 1 | 2;
+  /** liidete (sälkude) arv tükis: 0 (avade vahel), 1 (seina otsas / post, ümberpööratav), 2 (terve rida), 3+ (läbib vaheseinu) */
+  notches: number;
 }
 
 export interface WallCutList {
@@ -119,19 +136,20 @@ export function placeOpenings(input: HouseInput, dims: Dimensions, c: EngineCons
   });
 }
 
-/** Ristkülikukujulise maja seinad. */
+/**
+ * Maja seinad plaanist (vaikimisi ristkülik). Pikkus ja liited tulevad graafist, read seina suunast:
+ * x-suunas (laiuse) seinad algavad poole palgiga ja kannavad viilu, y-suunas seinad on räästaseinad.
+ */
 export function buildWalls(
   input: HouseInput,
   dims: Dimensions,
   tri: TriangleGeometry,
   c: EngineConstants,
   openings: PlacedOpening[] = placeOpenings(input, dims, c),
+  plan: HousePlan = rectanglePlan(dims.width, dims.depth, input.log.thickness, c),
 ): WallSpec[] {
   const p = input.log.height;
   const gable = input.roofType === 'gable';
-  const W = dims.width;
-  const D = dims.depth;
-
   /** read: (pool palki +) täisread, kuni kõrguseni; mittetäpse kõrguse puhul nagu mootoris */
   const rectRows = (length: number, height: number, halfStart: boolean, sideRule: boolean): WallRow[] => {
     const rows: WallRow[] = [];
@@ -182,52 +200,55 @@ export function buildWalls(
   const triangleRows = (baseY: number): WallRow[] =>
     tri.courses.map((cr) => ({ y0: baseY + (cr.index - 1) * p, y1: baseY + cr.index * p, length: cr.length, kind: 'gable' as const }));
 
-  const walls: WallSpec[] = [];
-  if (gable) {
-    const fb = (id: WallId): WallSpec => {
-      const rows = rectRows(W, input.frontBackWallHeight, true, false);
+  const geo = planGeometry(plan, input.log.thickness, c);
+  // ühekalle: kõrgem esisein (suurim y), madalam tagasein (väikseim y); vahepealsed seinad lineaarselt
+  const ys = geo.filter((g) => g.dir === 'x').map((g) => g.a.y);
+  const yFront = Math.max(...ys);
+  const yBack = Math.min(...ys);
+  const monoHeight = (y: number) =>
+    yFront - yBack < EPS ? input.frontBackWallHeight : input.roofHeight + ((y - yBack) / (yFront - yBack)) * (input.frontBackWallHeight - input.roofHeight);
+
+  return geo.map((g): WallSpec => {
+    const L = g.length;
+    let rows: WallRow[];
+    if (gable && g.dir === 'x') {
+      rows = rectRows(L, input.frontBackWallHeight, true, false);
       rows.push(...triangleRows(input.frontBackWallHeight));
-      return { id, length: W, rows, openings: openings.filter((o) => o.wall === id) };
-    };
-    const side = (id: WallId): WallSpec => {
-      const rows = rectRows(D, input.sideWallHeight, false, true);
-      extendTop(rows, D);
-      return { id, length: D, rows, openings: openings.filter((o) => o.wall === id) };
-    };
-    walls.push(fb('1'), fb('2'), side('A'), side('B'));
-  } else {
-    const fb = (id: WallId, h: number): WallSpec => {
-      const rows = rectRows(W, h, true, false);
-      extendTop(rows, W);
-      return { id, length: W, rows, openings: openings.filter((o) => o.wall === id) };
-    };
-    const side = (id: WallId): WallSpec => {
+    } else if (gable) {
+      rows = rectRows(L, input.sideWallHeight, false, true);
+      extendTop(rows, L);
+    } else if (g.dir === 'x') {
+      rows = rectRows(L, monoHeight(g.a.y), true, false);
+      extendTop(rows, L);
+    } else {
       const n = Math.floor((input.roofHeight - p / 2) / p + 1e-9);
-      const rows: WallRow[] = Array.from({ length: n }, (_, i) => ({ y0: i * p, y1: (i + 1) * p, length: D, kind: 'log' as const }));
+      rows = Array.from({ length: n }, (_, i) => ({ y0: i * p, y1: (i + 1) * p, length: L, kind: 'log' as const }));
       rows.push(...triangleRows(n * p));
-      return { id, length: D, rows, openings: openings.filter((o) => o.wall === id) };
-    };
-    walls.push(fb('1', input.frontBackWallHeight), fb('2', input.roofHeight), side('A'), side('B'));
-  }
-  return walls;
+    }
+    return { id: g.id, length: L, rows, openings: openings.filter((o) => o.wall === g.id), joints: g.joints.map((k) => k.x) };
+  });
 }
 
-/** Ühe seina lõikenimekiri. */
+/** Ühe seina lõikenimekiri: iga rida miinus tühjad alad -> tükid; sälkude arv = liidete arv tükis. */
 export function wallCutList(wall: WallSpec, log: { thickness: number; height: number }): WallCutList {
   const t = Math.round(log.thickness);
   const p = log.height;
   const groups = new Map<string, Omit<CutPiece, 'mark'>>();
+  const voids: WallVoid[] = [
+    ...wall.openings.map((o): WallVoid => ({ x0: o.offset, x1: o.offset + o.width, y0: o.sill, y1: o.sill + o.height, kind: o.kind })),
+    ...(wall.voids ?? []),
+  ];
 
   for (const row of wall.rows) {
-    // ava lõikab rea, kui see ulatub rea kõrgusesse (ka osaliselt)
-    const cuts = wall.openings
-      .filter((o) => o.sill < row.y1 - EPS && o.sill + o.height > row.y0 + EPS)
-      .map((o) => [o.offset, o.offset + o.width] as const)
-      .sort((a, b) => a[0] - b[0]);
-    // pikem ülemine palk: avad paiknevad tavalise palgi koordinaatides, pikendus on otstes
-    const ext = (row.length - wall.length) / 2;
-    let segs: [number, number][] = [[-Math.max(ext, 0), wall.length + Math.max(ext, 0)]];
+    // pikem ülemine palk: avad paiknevad tavalise palgi koordinaatides, pikendus otstes (või x0 järgi)
+    const x0 = row.x0 ?? -(row.length - wall.length) / 2;
+    let segs: [number, number][] = [[x0, x0 + row.length]];
     if (row.kind !== 'gable') {
+      // tühi ala lõikab rea, kui see ulatub rea kõrgusesse (ka osaliselt)
+      const cuts = voids
+        .filter((v) => v.y0 < row.y1 - EPS && v.y1 > row.y0 + EPS)
+        .map((v) => [v.x0, v.x1] as const)
+        .sort((a, b) => a[0] - b[0]);
       for (const [a, b] of cuts) {
         segs = segs.flatMap(([s, e]): [number, number][] => {
           if (b <= s + EPS || a >= e - EPS) return [[s, e]];
@@ -240,13 +261,10 @@ export function wallCutList(wall: WallSpec, log: { thickness: number; height: nu
     }
     const height = row.kind === 'half' ? Math.round(p / 2) : Math.round(p);
     const profile = `${t}x${height}`;
-    const L = row.kind === 'gable' ? row.length : null;
     for (const [s, e] of segs) {
-      const length = Math.round(L ?? e - s);
-      const notchStart = row.kind === 'gable' ? false : s <= EPS - Math.max(ext, 0);
-      const notchEnd = row.kind === 'gable' ? false : e >= wall.length + Math.max(ext, 0) - EPS;
+      const length = Math.round(e - s);
       // ühe sälguga tükk on ümberpööratav -> algus- ja lõpuotsa tükid on sama detail (nagu Revitis)
-      const notches = (Number(notchStart) + Number(notchEnd)) as 0 | 1 | 2;
+      const notches = row.kind === 'gable' ? 0 : wall.joints.filter((x) => x > s + EPS && x < e - EPS).length;
       const key = `${row.kind}|${profile}|${length}|${notches}`;
       const g = groups.get(key);
       if (g) g.count++;

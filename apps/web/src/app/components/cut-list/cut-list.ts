@@ -29,6 +29,6 @@ export class CutList {
   }
 
   protected notchLabel(p: CutPiece): string {
-    return p.kind === 'gable' ? 'viil' : p.notches === 2 ? '2 otsa' : p.notches === 1 ? '1 ots' : '–';
+    return p.kind === 'gable' ? 'viil' : p.notches >= 3 ? `${p.notches} sälku` : p.notches === 2 ? '2 otsa' : p.notches === 1 ? '1 ots' : '–';
   }
 }

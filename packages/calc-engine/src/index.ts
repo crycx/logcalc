@@ -15,4 +15,15 @@ export {
   type WallId,
   type WallRow,
   type WallSpec,
+  type WallVoid,
 } from './wall-model.js';
+export {
+  planGeometry,
+  planBounds,
+  rectanglePlan,
+  PlanError,
+  type HousePlan,
+  type PlanNode,
+  type PlanWall,
+  type WallGeometry,
+} from './plan.js';

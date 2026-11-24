@@ -163,7 +163,7 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
 
-  const wallModel = buildWalls(input, dimensions, tri, c, placedOpenings);
+  const wallModel = buildWalls(input, dimensions, tri, c, placedOpenings, input.plan);
   const cutList = wallModel.map((w) => wallCutList(w, input.log));
 
   return { dimensions, cutList, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
@@ -172,7 +172,9 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 /** „sein A“, „seinad 1, A“, „seinad A ×2, B“ – seinte järjekord 1, 2, A, B */
 function wallsText(walls: WallId[]): string {
   if (!walls.length) return '';
-  const order: WallId[] = ['1', '2', 'A', 'B'];
+  // järjekord: 1, 2, A, B, siis ülejäänud (plaani seinad) tähestiku järgi
+  const base: WallId[] = ['1', '2', 'A', 'B'];
+  const order = [...base, ...[...new Set(walls)].filter((w) => !base.includes(w)).sort((a, b) => a.localeCompare(b, 'et', { numeric: true }))];
   const counts = order.map((w) => [w, walls.filter((x) => x === w).length] as const).filter(([, c]) => c > 0);
   const parts = counts.map(([w, c]) => (c > 1 ? `${w} ×${c}` : w));
   return `${counts.length === 1 && counts[0]![1] === 1 ? 'sein' : 'seinad'} ${parts.join(', ')}`;
