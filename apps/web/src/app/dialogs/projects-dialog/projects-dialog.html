@@ -1,0 +1,50 @@
+<h2 mat-dialog-title>Majad</h2>
+<mat-dialog-content class="body">
+  <mat-form-field class="search" subscriptSizing="dynamic">
+    <mat-icon matPrefix>search</mat-icon>
+    <mat-label>Otsi</mat-label>
+    <input matInput [(ngModel)]="query" name="q" />
+  </mat-form-field>
+  @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+  @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
+  @for (g of groups(); track g.title) {
+    <h3 class="group">{{ g.title }} <span class="count">{{ g.items.length }}</span></h3>
+    <ul class="list">
+      @for (p of g.items; track p.id) {
+        <li>
+          <button type="button" class="open" (click)="open(p)">
+            <span class="name">
+              {{ p.name }}
+              @if (p.shareCount > 0 && p.access.manage) {
+                <mat-icon class="tiny" [matTooltip]="'Jagatud ' + p.shareCount + ' kasutajaga'">group</mat-icon>
+              }
+              @if (p.access.via === 'shared' && !p.access.edit) { <span class="badge">vaatab</span> }
+            </span>
+            <span class="meta">
+              {{ date(p.updatedAt) | date: 'dd.MM.yyyy HH:mm' }}
+              @if (p.access.via !== 'owner' && p.owner) { · {{ p.owner.name || p.owner.email }} }
+            </span>
+          </button>
+          @if (p.access.manage) {
+            <button mat-icon-button type="button" (click)="share(p)" matTooltip="Jaga" [attr.aria-label]="'Jaga ' + p.name">
+              <mat-icon>share</mat-icon>
+            </button>
+            @if (confirmId() === p.id) {
+              <button mat-flat-button class="danger" type="button" (click)="remove(p)">Kustuta?</button>
+            } @else {
+              <button mat-icon-button type="button" (click)="confirmId.set(p.id)" matTooltip="Kustuta" [attr.aria-label]="'Kustuta ' + p.name">
+                <mat-icon>delete</mat-icon>
+              </button>
+            }
+          }
+        </li>
+      }
+    </ul>
+  } @empty {
+    @if (!loading()) { <p class="empty">Salvestatud maju pole.</p> }
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="null">Sulge</button>
+</mat-dialog-actions>
+

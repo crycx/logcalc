@@ -1,6 +1,8 @@
 # LogCalc (Angular SPA)
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # /api -> PHP backend (api/.htaccess)
+  RewriteRule ^api(/|$) - [L]
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]

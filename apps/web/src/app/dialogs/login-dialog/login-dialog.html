@@ -1,0 +1,22 @@
+<h2 mat-dialog-title>Logi sisse</h2>
+<form (ngSubmit)="submit()" #f="ngForm">
+  <mat-dialog-content class="body">
+    <mat-form-field>
+      <mat-label>E-post</mat-label>
+      <input matInput type="email" name="email" autocomplete="username" required [(ngModel)]="email" cdkFocusInitial />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Parool</mat-label>
+      <input matInput type="password" name="password" autocomplete="current-password" required [(ngModel)]="password" />
+    </mat-form-field>
+    @if (error()) {
+      <p class="err" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  @if (busy()) { <mat-progress-bar mode="indeterminate" /> }
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="null">Loobu</button>
+    <button mat-flat-button type="submit" [disabled]="busy() || !f.valid">Logi sisse</button>
+  </mat-dialog-actions>
+</form>
+

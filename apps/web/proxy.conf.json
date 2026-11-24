@@ -1,0 +1,11 @@
+{
+  "/api": {
+    "target": "https://uuslogcalc.sinpal.ee",
+    "secure": true,
+    "changeOrigin": true,
+    "headers": {
+      "Origin": "https://uuslogcalc.sinpal.ee"
+    },
+    "logLevel": "warn"
+  }
+}

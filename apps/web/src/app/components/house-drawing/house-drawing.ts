@@ -1,8 +1,8 @@
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { DEFAULT_CONSTANTS, type CalcResult } from '@logcalc/calc-engine';
-import { DimLines, type Dim } from './dim-lines';
-import type { HouseFormValue, RowValue } from './house-form';
+import { DimLines, type Dim } from '../dim-lines/dim-lines';
+import type { HouseFormValue, RowValue } from '../../core/house-form';
 
 export type DrawingView = 'overview' | 'floor' | 'foundation';
 
@@ -26,129 +26,8 @@ let uid = 0;
   selector: 'app-house-drawing',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, NgTemplateOutlet, DimLines],
-  template: `
-    @let p = plan();
-    @switch (view()) {
-      @case ('overview') {
-        <figure class="view">
-          <figcaption>Plaan</figcaption>
-          <svg [attr.viewBox]="p.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Maja plaan">
-            <ng-container *ngTemplateOutlet="walls" />
-            <text class="area" [attr.x]="p.W / 2" [attr.y]="p.D / 2" [attr.font-size]="p.fs * 1.3">
-              {{ r().walls.footprintArea | number: '1.2-2' }} m²
-            </text>
-            <ng-container *ngTemplateOutlet="axes" />
-          </svg>
-        </figure>
-
-        @let e = elev();
-        <figure class="view">
-          <figcaption>{{ e.caption }}</figcaption>
-          <svg [attr.viewBox]="e.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="e.caption">
-            <defs>
-              <clipPath [attr.id]="clipId"><polygon [attr.points]="e.clip" /></clipPath>
-            </defs>
-            <g [attr.clip-path]="'url(#' + clipId + ')'">
-              <rect class="log" [attr.x]="e.body.x" [attr.y]="e.body.y" [attr.width]="e.body.w" [attr.height]="e.body.h" />
-              @for (y of e.lines; track $index) {
-                <line class="course" [attr.x1]="e.body.x" [attr.x2]="e.body.x + e.body.w" [attr.y1]="y" [attr.y2]="y" />
-              }
-              @for (c of e.courses; track $index) {
-                <rect class="log" [attr.x]="c.x" [attr.y]="c.y" [attr.width]="c.w" [attr.height]="c.h" />
-              }
-            </g>
-            @for (o of e.openings; track $index) {
-              <rect [class]="o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
-            }
-            <polyline class="roof" [attr.points]="e.roof" />
-            <line class="ground" [attr.x1]="e.groundX1" [attr.x2]="e.groundX2" [attr.y1]="e.groundY" [attr.y2]="e.groundY" />
-            <g lcDims [dims]="e.dims" [fs]="e.fs * 0.8"></g>
-          </svg>
-        </figure>
-      }
-
-      @case ('floor') {
-        @let f = floorPlan();
-        <figure class="view single">
-          <figcaption>Põrandaplaan @if (f) { · {{ f.label }} }</figcaption>
-          <svg [attr.viewBox]="p.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Põrandaplaan">
-            @if (f) {
-              <defs>
-                <clipPath [attr.id]="clipId"><rect [attr.x]="f.inner.x" [attr.y]="f.inner.y" [attr.width]="f.inner.w" [attr.height]="f.inner.h" /></clipPath>
-              </defs>
-              <g [attr.clip-path]="'url(#' + clipId + ')'">
-                @for (b of f.boards; track $index) {
-                  <rect class="board" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h" />
-                }
-              </g>
-              <g lcDims [dims]="f.dims" [fs]="p.fs * 0.8"></g>
-            }
-            <ng-container *ngTemplateOutlet="walls" />
-            <ng-container *ngTemplateOutlet="axes" />
-            @if (!f) {
-              <text class="area" [attr.x]="p.W / 2" [attr.y]="p.D / 2" [attr.font-size]="p.fs">Põrandalauad pole sisse lülitatud</text>
-            }
-          </svg>
-        </figure>
-      }
-
-      @case ('foundation') {
-        @let fd = foundationPlan();
-        <figure class="view single">
-          <figcaption>Vundamendiplaan @if (fd) { · {{ fd.label }} }</figcaption>
-          <svg [attr.viewBox]="p.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vundamendiplaan">
-            <rect class="outline" [attr.x]="p.o" [attr.y]="p.o" [attr.width]="p.W - 2 * p.o" [attr.height]="p.D - 2 * p.o" />
-            @if (fd) {
-              @for (j of fd.joists; track $index) {
-                <rect class="joist" [attr.x]="j.x" [attr.y]="j.y" [attr.width]="j.w" [attr.height]="j.h" />
-              }
-              @for (j of fd.ring; track $index) {
-                <rect class="joist ring" [attr.x]="j.x" [attr.y]="j.y" [attr.width]="j.w" [attr.height]="j.h" />
-              }
-              <g lcDims [dims]="fd.dims" [fs]="p.fs * 0.8"></g>
-            } @else {
-              <text class="area" [attr.x]="p.W / 2" [attr.y]="p.D / 2" [attr.font-size]="p.fs">Vundament pole sisse lülitatud</text>
-            }
-            <ng-container *ngTemplateOutlet="axes" />
-          </svg>
-        </figure>
-      }
-    }
-
-    <!-- Ühised osad -->
-    <ng-template #walls>
-      @for (w of p.walls; track $index) {
-        <svg:rect class="log" [attr.x]="w.x" [attr.y]="w.y" [attr.width]="w.w" [attr.height]="w.h" />
-      }
-    </ng-template>
-    <ng-template #axes>
-      @for (l of p.labels; track l.t) {
-        <svg:circle class="axis" [attr.cx]="l.x" [attr.cy]="l.y" [attr.r]="p.fs * 0.8" />
-        <svg:text class="axis-t" [attr.x]="l.x" [attr.y]="l.y" [attr.font-size]="p.fs">{{ l.t }}</svg:text>
-      }
-      <svg:g lcDims [dims]="p.dims" [fs]="p.fs * 0.8"></svg:g>
-    </ng-template>
-  `,
-  styles: `
-    :host { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-    .view { margin: 0; display: flex; flex-direction: column; min-height: 0; }
-    .view.single { grid-column: 1 / -1; }
-    figcaption { font: var(--mat-sys-label-large); color: var(--mat-sys-on-surface-variant); margin-bottom: 4px; }
-    svg { width: 100%; height: 100%; max-height: 440px; overflow: visible; }
-    .log { fill: #e2c79b; stroke: #8a6a3d; stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .course { stroke: #8a6a3d; stroke-opacity: 0.35; stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .board { fill: #efdcb8; stroke: #a07d4a; stroke-width: 0.75; vector-effect: non-scaling-stroke; }
-    .joist { fill: #c9a46c; stroke: #6f5330; stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .joist.ring { fill: #b88f55; }
-    .outline { fill: none; stroke: var(--mat-sys-outline); stroke-dasharray: 6 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .door { fill: #f7f2ea; stroke: #5b4a32; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-    .window { fill: #cfe3f3; stroke: #3d6a8a; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-    .roof { fill: none; stroke: var(--mat-sys-primary); stroke-width: 4; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-    .ground, .dim { stroke: var(--mat-sys-outline); stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .dim-t, .axis-t, .area { fill: var(--mat-sys-on-surface); font-family: Roboto, sans-serif; text-anchor: middle; dominant-baseline: middle; }
-    .area { fill: var(--mat-sys-on-surface-variant); }
-    .axis { fill: var(--mat-sys-surface); stroke: var(--mat-sys-outline); stroke-width: 1; vector-effect: non-scaling-stroke; }
-  `,
+  templateUrl: './house-drawing.html',
+  styleUrl: './house-drawing.scss',
 })
 export class HouseDrawing {
   readonly v = input.required<HouseFormValue>();
@@ -357,6 +236,11 @@ export class HouseDrawing {
     const d2 = df * 4.6;
     const Y0 = Y(0);
     const dims: Dim[] = [{ x1: 0, y1: Y0, x2: L, y2: Y0, offset: d1 }];
+    // ukse- ja aknaavade laiused (ava alumise serva kohal, ava sees)
+    for (const o of openings) {
+      const yb = o.y + o.h;
+      dims.push({ x1: o.x, y1: yb, x2: o.x + o.w, y2: yb, offset: -df * 1.3 });
+    }
     let xL: number;
     let xR: number;
     if (gable) {

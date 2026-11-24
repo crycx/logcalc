@@ -1,0 +1,8 @@
+# Kõik tekstifailid LF reavahetusega (shell-skriptid ja PHP jooksevad Linuxi serveris)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.psd binary
+*.mp4 binary
+*.svg text eol=lf

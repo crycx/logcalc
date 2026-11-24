@@ -1,0 +1,363 @@
+<mat-toolbar class="topbar">
+  <span class="brand">LogCalc</span>
+  <span class="tag" matTooltip="Arvutus kontrollitud Revit-projektidega (Placas I 40, Bente IV 28).">beeta</span>
+
+  @if (session.user()) {
+    <div class="project">
+      @if (project(); as p) {
+        <button mat-button class="project-name" (click)="rename()" matTooltip="Nimeta ümber">
+          {{ p.name }}
+          @if (dirty()) { <span class="dirty" aria-label="salvestamata muudatused">●</span> }
+        </button>
+        @if (!canOverwrite()) {
+          <span class="badge" matTooltip="Sinuga jagatud ainult vaatamiseks – muudatused saad salvestada uue majana">vaatab</span>
+        }
+        @if (canShare()) {
+          <button mat-icon-button (click)="shareProject()" matTooltip="Jaga teise kasutajaga" aria-label="Jaga maja"><mat-icon>share</mat-icon></button>
+        }
+      } @else {
+        <span class="project-none">Salvestamata maja</span>
+      }
+    </div>
+  }
+
+  <span class="spacer"></span>
+
+  @if (session.user()) {
+    <button mat-button (click)="newHouse()" matTooltip="Uus maja"><mat-icon>note_add</mat-icon> Uus</button>
+    <button mat-button (click)="openProjects()" matTooltip="Ava salvestatud maja"><mat-icon>folder_open</mat-icon> Ava</button>
+    <button mat-flat-button class="save" (click)="save()" [disabled]="saving()"
+      [matTooltip]="canOverwrite() ? 'Salvesta serverisse' : 'Vaatamisõigus – salvestatakse uue majana'">
+      <mat-icon>save</mat-icon> Salvesta
+    </button>
+    <button mat-icon-button [matMenuTriggerFor]="saveMenu" aria-label="Rohkem salvestamise valikuid"><mat-icon>arrow_drop_down</mat-icon></button>
+    <mat-menu #saveMenu="matMenu">
+      <button mat-menu-item (click)="save(true)"><mat-icon>content_copy</mat-icon> Salvesta uue majana</button>
+      @if (project()) {
+        <button mat-menu-item (click)="rename()"><mat-icon>edit</mat-icon> Nimeta ümber</button>
+      }
+    </mat-menu>
+  }
+
+  @if (session.user(); as u) {
+    <button mat-button [matMenuTriggerFor]="userMenu" class="user-btn">
+      <mat-icon>account_circle</mat-icon> {{ u.name || u.email }}
+    </button>
+    <mat-menu #userMenu="matMenu">
+      <div class="user-info" mat-menu-item disabled>
+        <span>{{ u.email }}</span>
+        <span class="menu-note">{{ u.tenant.name }} · {{ u.role }}</span>
+      </div>
+      <mat-divider />
+      <button mat-menu-item (click)="logout()"><mat-icon>logout</mat-icon> Logi välja</button>
+    </mat-menu>
+  } @else if (session.ready()) {
+    <button mat-flat-button (click)="openLogin()"><mat-icon>login</mat-icon> Logi sisse</button>
+  }
+</mat-toolbar>
+
+<div class="app" [formGroup]="form">
+  <!-- Mõõdud ühes reas -->
+  <section class="dims">
+    <mat-button-toggle-group formControlName="roofType" aria-label="Katuse tüüp" hideSingleSelectionIndicator>
+      <mat-button-toggle value="gable">Viilkatus</mat-button-toggle>
+      <mat-button-toggle value="mono">Ühekalle</mat-button-toggle>
+    </mat-button-toggle-group>
+    <mat-form-field class="f-scenario">
+      <mat-label>Mõõdud</mat-label>
+      <mat-select formControlName="lengthScenario">
+        <mat-option value="log">Palgi pikkus</mat-option>
+        <mat-option value="outer">Välisseinast välisseinani</mat-option>
+        <mat-option value="inner">Siseseinast siseseinani</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field class="f-num">
+      <mat-label>Laius</mat-label>
+      <input matInput type="number" min="0" formControlName="width" />
+    </mat-form-field>
+    <mat-form-field class="f-num">
+      <mat-label>Pikkus</mat-label>
+      <input matInput type="number" min="0" formControlName="depth" />
+    </mat-form-field>
+    @if (isGable()) {
+      <mat-form-field class="f-num">
+        <mat-label>Küljesein h</mat-label>
+        <input matInput type="number" min="0" formControlName="sideWallHeight" />
+      </mat-form-field>
+    }
+    <mat-form-field class="f-num">
+      <mat-label>{{ isGable() ? 'Esi/taga h' : 'Esisein h' }}</mat-label>
+      <input matInput type="number" min="0" formControlName="frontBackWallHeight" />
+    </mat-form-field>
+    <mat-form-field class="f-num">
+      <mat-label>{{ isGable() ? 'Hari h' : 'Tagasein h' }}</mat-label>
+      <input matInput type="number" min="0" formControlName="roofHeight" />
+    </mat-form-field>
+    <mat-form-field class="f-num">
+      <mat-label>Palgi paksus</mat-label>
+      <input matInput type="number" min="0" formControlName="logThickness" />
+    </mat-form-field>
+    <mat-form-field class="f-num">
+      <mat-label>Palgi kõrgus</mat-label>
+      <input matInput type="number" min="0" formControlName="logHeight" />
+    </mat-form-field>
+    <span class="unit-note">mm</span>
+  </section>
+
+  <div class="work">
+    <!-- Vasak: elemendid vahelehtedena -->
+    <section class="col left">
+      @if (readonly()) {
+        <div class="cta">
+          <span class="cta-tag">Näidismaja</span>
+          <h2>Bente IV 28</h2>
+          <p>
+            LogCalc arvutab palkmaja materjalikulu otse mõõtudest: seinalauad, viilud, uksed ja aknad, vundament,
+            põrand, katus ja pärlinid – ilma Revitis modelleerimata.
+          </p>
+          <ul>
+            <li>Oma majade arvutamine ja salvestamine</li>
+            <li>Detailne materjalinimekiri tükkide ja pikkustega</li>
+            <li>Ettevõtte hinnakiri ja maksumus</li>
+            <li>Majade jagamine kolleegide ja klientidega</li>
+          </ul>
+          @if (session.ready()) {
+            <button mat-flat-button (click)="openLogin()"><mat-icon>login</mat-icon> Logi sisse</button>
+          }
+        </div>
+      } @else {
+      <mat-tab-group mat-stretch-tabs animationDuration="0ms" class="tabs">
+        <mat-tab label="Seinad">
+          <div class="tab-body">
+            <h3>Pikemad lauad <span class="count">{{ form.controls.longBoards.length }}</span></h3>
+            <app-rows-editor [rows]="form.controls.longBoards" aLabel="Pikkus" bLabel="Kõrgus" addLabel="Pikem laud" />
+            <h3>Uksed <span class="count">{{ form.controls.doors.length }}</span></h3>
+            <app-rows-editor [rows]="form.controls.doors" addLabel="Uks" />
+            <h3>Aknad <span class="count">{{ form.controls.windows.length }}</span></h3>
+            <app-rows-editor [rows]="form.controls.windows" addLabel="Aken" />
+          </div>
+        </mat-tab>
+
+        <mat-tab label="Alus">
+          <div class="tab-body">
+            <mat-form-field class="full">
+              <mat-label>Põranda suund</mat-label>
+              <mat-select formControlName="floorDirection">
+                <mat-option value="AB">A → B (põrandalauad laiuse suunas)</mat-option>
+                <mat-option value="12">1 → 2 (põrandalauad pikkuse suunas)</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-slide-toggle formControlName="foundationOn">Vundamendi prussid</mat-slide-toggle>
+            @if (form.controls.foundationOn.value) {
+              <div class="pair">
+                <mat-form-field><mat-label>Prussi laius</mat-label><input matInput type="number" min="0" formControlName="joistWidth" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Prussi kõrgus</mat-label><input matInput type="number" min="0" formControlName="joistHeight" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Arv (0 = auto)</mat-label><input matInput type="number" min="0" formControlName="joistCount" /><span matTextSuffix>tk</span></mat-form-field>
+                <mat-form-field><mat-label>Max vahe</mat-label><input matInput type="number" min="0" formControlName="joistMaxSpacing" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Kaugus 1–2</mat-label><input matInput type="number" min="0" formControlName="dist12" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Kaugus A–B</mat-label><input matInput type="number" min="0" formControlName="distAB" /><span matTextSuffix>mm</span></mat-form-field>
+              </div>
+              <mat-checkbox formControlName="ring">Vundamendi ring (2 ristprussi)</mat-checkbox>
+            }
+
+            <mat-slide-toggle formControlName="floorOn">Põrandalauad</mat-slide-toggle>
+            @if (form.controls.floorOn.value) {
+              <div class="pair">
+                <mat-form-field><mat-label>Laua laius</mat-label><input matInput type="number" min="0" formControlName="floorBoardWidth" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Kaugus seinast</mat-label><input matInput type="number" min="0" formControlName="floorGap" /><span matTextSuffix>mm</span></mat-form-field>
+              </div>
+            }
+          </div>
+        </mat-tab>
+
+        <mat-tab label="Katus">
+          <div class="tab-body">
+            <mat-slide-toggle formControlName="roofOn">Katuselauad ja räästalauad</mat-slide-toggle>
+            @if (form.controls.roofOn.value) {
+              <div class="pair">
+                <mat-form-field><mat-label>Laua pikkus (0 = auto)</mat-label><input matInput type="number" min="0" formControlName="roofBoardLength" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Üleulatus</mat-label><input matInput type="number" min="0" formControlName="roofOverhang" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Laua laius</mat-label><input matInput type="number" min="0" formControlName="roofBoardWidth" /><span matTextSuffix>mm</span></mat-form-field>
+              </div>
+            }
+            <mat-slide-toggle formControlName="purlinsOn">Pärlinid</mat-slide-toggle>
+            @if (form.controls.purlinsOn.value) {
+              <div class="pair">
+                <mat-form-field><mat-label>Ühel poolel (0 = auto)</mat-label><input matInput type="number" min="0" formControlName="purlinCount" /><span matTextSuffix>tk</span></mat-form-field>
+              </div>
+              @if (isGable()) {
+                <mat-checkbox formControlName="ridgeOnly">Ainult tipupärlin</mat-checkbox>
+              }
+            }
+          </div>
+        </mat-tab>
+
+        <mat-tab label="Hinnad">
+          <div class="tab-body">
+            @if (session.tenant(); as t) {
+              <p class="note">Hinnakiri: <b>{{ t.name }}</b>{{ session.isAdmin() ? '' : ' (muuta saab admin)' }}</p>
+            } @else {
+              <p class="note">Logi sisse, et kasutada oma ettevõtte hinnakirja.</p>
+            }
+            <div class="pair" formGroupName="prices">
+              @for (p of priceKeys; track p.key) {
+                <mat-form-field>
+                  <mat-label>{{ p.label }}</mat-label>
+                  <input matInput type="number" min="0" step="0.01" [formControlName]="p.key" />
+                  <span matTextSuffix>€/jm</span>
+                </mat-form-field>
+              }
+            </div>
+            @if (session.isAdmin()) {
+              <button mat-stroked-button type="button" (click)="saveTenantPrices()">
+                <mat-icon>cloud_upload</mat-icon> Salvesta ettevõtte hinnakirjaks
+              </button>
+            }
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+      }
+    </section>
+
+    <!-- Kesk: joonis + detailid -->
+    <section class="col center">
+      @if (result(); as r) {
+        <div class="panel drawing">
+          <div class="view-bar">
+            <mat-button-toggle-group [value]="view()" (change)="view.set($event.value)" aria-label="Joonise vaade" hideSingleSelectionIndicator>
+              <mat-button-toggle value="overview">Ülevaade</mat-button-toggle>
+              <mat-button-toggle value="floor">Põrand</mat-button-toggle>
+              <mat-button-toggle value="foundation">Vundament</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+          <app-house-drawing [v]="formValue()" [r]="r" [view]="view()" />
+        </div>
+        @if (!readonly()) {
+        <div class="panel details">
+          <mat-tab-group animationDuration="0ms">
+            <mat-tab label="Seinte jaotus">
+              <dl class="kv">
+                @if (r.walls.breakdown.frontBack != null) {
+                  <dt>Esi- ja tagasein</dt><dd>{{ r.walls.breakdown.frontBack | number: '1.2-2' }} jm</dd>
+                  <dt class="indent">sh pool palki</dt><dd>{{ r.walls.breakdown.frontBackPartial | number: '1.2-2' }} jm</dd>
+                }
+                @if (r.walls.breakdown.front != null) {
+                  <dt>Esisein</dt><dd>{{ r.walls.breakdown.front | number: '1.2-2' }} jm</dd>
+                  <dt>Tagasein</dt><dd>{{ r.walls.breakdown.back | number: '1.2-2' }} jm</dd>
+                }
+                <dt>Küljeseinad</dt><dd>{{ r.walls.breakdown.sides | number: '1.2-2' }} jm</dd>
+                <dt>{{ isGable() ? 'Viilud' : 'Kolmnurgad' }}</dt><dd>{{ r.walls.gableJm | number: '1.2-2' }} jm</dd>
+                @if (r.walls.breakdown.longBoards > 0) {
+                  <dt>Pikemad lauad</dt><dd>{{ r.walls.breakdown.longBoards | number: '1.2-2' }} jm</dd>
+                }
+                <dt>Uksed (maha)</dt><dd>−{{ r.openings.doorsJm | number: '1.2-2' }} jm</dd>
+                <dt>Aknad (maha)</dt><dd>−{{ r.openings.windowsJm | number: '1.2-2' }} jm</dd>
+              </dl>
+            </mat-tab>
+            <mat-tab [label]="(isGable() ? 'Viilupalgid' : 'Kolmnurga palgid') + ' (' + r.walls.gableCourses.length + ' × 2)'">
+              <dl class="kv cols">
+                @for (c of r.walls.gableCourses; track c.index) {
+                  <dt>{{ c.index }}. palk <span class="muted-inline">{{ c.distanceFromTop | number: '1.0-0' }} mm tipust</span></dt>
+                  <dd>{{ c.length | number: '1.0-0' }} mm</dd>
+                }
+              </dl>
+            </mat-tab>
+            @if (r.foundation || r.purlins || r.roof) {
+              <mat-tab label="Alus ja katus">
+                <dl class="kv">
+                  @if (r.foundation; as f) {
+                    <dt>Vundamendi prussid</dt><dd>{{ f.joistCount }} tk × {{ f.joistLength | number: '1.0-0' }} mm</dd>
+                    <dt class="indent">kesktelgede vahe</dt><dd>{{ f.spacing | number: '1.0-0' }} mm</dd>
+                  }
+                  @if (r.floor; as fl) {
+                    <dt>Põrandalauad</dt><dd>{{ fl.boardCount }} tk × {{ fl.boardLength | number: '1.0-0' }} mm</dd>
+                  }
+                  @if (r.roof; as rf) {
+                    <dt>Katuselauad</dt><dd>{{ rf.boardCount }} tk × {{ rf.boardLength | number: '1.0-0' }} mm</dd>
+                    @if (rf.computedOverhang != null) {
+                      <dt class="indent">tegelik üleulatus</dt><dd>{{ rf.computedOverhang | number: '1.0-0' }} mm</dd>
+                    }
+                  }
+                  @if (r.purlins; as pu) {
+                    <dt>Pärlinid</dt><dd>{{ pu.pieces }} tk{{ pu.hasRidge ? ' (sh tipp)' : '' }} × {{ pu.length | number: '1.0-0' }} mm</dd>
+                    @if (pu.spacing != null) {
+                      <dt class="indent">vahe</dt><dd>{{ pu.spacing | number: '1.0-0' }} mm</dd>
+                    }
+                  }
+                </dl>
+              </mat-tab>
+            }
+          </mat-tab-group>
+        </div>
+        }
+      }
+    </section>
+
+    <!-- Parem: kokkuvõte -->
+    <aside class="col right" aria-live="polite">
+      @if (!calc().ok) {
+        <div class="error"><mat-icon>error</mat-icon> {{ errorMessage() }}</div>
+      }
+      @if (result(); as r) {
+        <div class="hero">
+          <span class="label">Seinalauad</span>
+          <span class="value">{{ r.walls.netJm | number: '1.2-2' }} <small>jm</small></span>
+          <span class="sub">ilma avadeta {{ r.walls.totalJm | number: '1.2-2' }} jm</span>
+        </div>
+        <div class="mini">
+          <div><span>Pindala</span><b>{{ r.walls.footprintArea | number: '1.2-2' }} m²</b></div>
+          <div><span>Ruumala</span><b>{{ r.walls.volume | number: '1.2-2' }} m³</b></div>
+          @if (r.roof) {
+            <div><span>Katuse nurk</span><b>{{ r.roof.angle | number: '1.1-1' }}°</b></div>
+          }
+        </div>
+
+        @for (w of r.warnings; track w.code) {
+          <div class="warning"><mat-icon>warning</mat-icon> {{ w.message }}</div>
+        }
+
+        <div class="panel bom-panel">
+          <table class="bom">
+            <thead>
+              <tr>
+                <th>Materjal</th><th class="num">Kogus</th>
+                @if (!readonly()) { <th class="num">Summa</th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (l of r.bom; track l.key) {
+                <tr>
+                  <td>
+                    {{ l.label }}
+                    @if (!readonly() && (l.profile || l.pieces?.length)) {
+                      <span class="muted">{{ l.profile }}{{ l.profile && l.pieces?.length ? ' · ' : '' }}{{ pieces(l.pieces) }}</span>
+                    }
+                  </td>
+                  <td class="num">{{ l.quantity | number: '1.2-2' }} jm</td>
+                  @if (!readonly()) {
+                    <td class="num">{{ l.total != null ? (l.total | number: '1.2-2') + ' €' : '–' }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+            @if (!readonly()) {
+              <tfoot>
+                <tr>
+                  <td>Kokku</td>
+                  <td></td>
+                  <td class="num">{{ hasPrices() ? (r.totalPrice | number: '1.2-2') + ' €' : '–' }}</td>
+                </tr>
+              </tfoot>
+            }
+          </table>
+          @if (readonly()) {
+            <p class="hint">Tükkide pikkused, hinnad ja detailid on nähtavad pärast sisselogimist.</p>
+          } @else if (!hasPrices()) {
+            <p class="hint">Hinnad lisa vasakul vahelehel „Hinnad“.</p>
+          }
+        </div>
+      }
+    </aside>
+  </div>
+</div>

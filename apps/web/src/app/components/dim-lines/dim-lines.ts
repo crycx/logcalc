@@ -43,23 +43,8 @@ interface DrawnDim {
   selector: 'g[lcDims]',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe],
-  template: `
-    @for (d of drawn(); track $index) {
-      <svg:line class="ext" [attr.x1]="d.ext1[0]" [attr.y1]="d.ext1[1]" [attr.x2]="d.ext1[2]" [attr.y2]="d.ext1[3]" />
-      <svg:line class="ext" [attr.x1]="d.ext2[0]" [attr.y1]="d.ext2[1]" [attr.x2]="d.ext2[2]" [attr.y2]="d.ext2[3]" />
-      <svg:line class="dl" [attr.x1]="d.line[0]" [attr.y1]="d.line[1]" [attr.x2]="d.line[2]" [attr.y2]="d.line[3]" />
-      <svg:line class="tick" [attr.x1]="d.tick1[0]" [attr.y1]="d.tick1[1]" [attr.x2]="d.tick1[2]" [attr.y2]="d.tick1[3]" />
-      <svg:line class="tick" [attr.x1]="d.tick2[0]" [attr.y1]="d.tick2[1]" [attr.x2]="d.tick2[2]" [attr.y2]="d.tick2[3]" />
-      <svg:text class="dt" [attr.x]="d.tx" [attr.y]="d.ty" [attr.font-size]="fs()"
-        [attr.transform]="'rotate(' + d.angle + ' ' + d.tx + ' ' + d.ty + ')'">{{ d.value !== null ? (d.value | number: '1.0-0') : d.text }}</svg:text>
-    }
-  `,
-  styles: `
-    .ext, .dl { stroke: var(--mat-sys-on-surface-variant); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
-    .ext { stroke-opacity: 0.7; }
-    .tick { stroke: var(--mat-sys-on-surface); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
-    .dt { fill: var(--mat-sys-on-surface); font-family: Roboto, sans-serif; text-anchor: middle; dominant-baseline: auto; }
-  `,
+  templateUrl: './dim-lines.html',
+  styleUrl: './dim-lines.scss',
 })
 export class DimLines {
   readonly dims = input.required<Dim[]>();

@@ -1,15 +1,7 @@
 <?php
-// required headers
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: POST");
-header("Access-Control-Max-Age: 3600");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+// Turvavärav: CORS, lubatud päringud, admini kontroll, sisendi puhastus (vt guard.php)
+$data = require __DIR__ . '/guard.php';
 
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS' ) {
-    die ('OK');
-}
- 
 // required to encode json web token
 include_once 'config/core.php';
 include_once 'vendor/firebase/php-jwt/src/BeforeValidException.php';
@@ -38,7 +30,7 @@ $hinnad = new Hinnad($db);
 
  
 // get posted data
-$data = json_decode(file_get_contents("php://input"));
+// $data tuleb guard.php-st (puhastatud)
  
 // get jwt
 // $jwt=isset($data->jwt) ? $data->jwt : "";
@@ -110,7 +102,7 @@ if(/* $jwt ||  */true ){
                         }else{
                             
                             http_response_code(200);
-                            echo json_encode(array("message"=>"Create user successful", "id"=>$db->lastInsertId(), "hash"=>$user->token, "debug"=> $database->pdo_debugStrParams($stmt)));
+                            echo json_encode(array("message"=>"Create user successful", "id"=>$db->lastInsertId(), "hash"=>$user->token));
 
                         }
                     }                  
@@ -133,7 +125,7 @@ if(/* $jwt ||  */true ){
                     if(!empty($user->id)&&
                     $stmt= $user->update()){ 
                         http_response_code(200);
-                        echo json_encode(array("message"=>"User updated", "id"=>$user->id, "debug"=> $database->pdo_debugStrParams($stmt)));
+                        echo json_encode(array("message"=>"User updated", "id"=>$user->id));
                     }                  
                     // message if unable to create user
                     else{
@@ -180,7 +172,7 @@ if(/* $jwt ||  */true ){
                     $user->object = $data->object;
                     if($stmt = $user->editUserObject()){
                         http_response_code(200);
-                        echo json_encode(array("message"=>"Object updated", "id"=>$user->id, "debug"=> $database->pdo_debugStrParams($stmt)));
+                        echo json_encode(array("message"=>"Object updated", "id"=>$user->id));
                     }                  
                     // message if unable to create user
                     else{
@@ -300,7 +292,7 @@ if(/* $jwt ||  */true ){
 
                                 
                                 http_response_code(200);
-                                echo json_encode(array("message"=>"Create sadul successful", "id"=>$db->lastInsertId(), "debug"=> $database->pdo_debugStrParams($stmt)));
+                                echo json_encode(array("message"=>"Create sadul successful", "id"=>$db->lastInsertId()));
     
                             
                         }                  
@@ -334,7 +326,7 @@ if(/* $jwt ||  */true ){
                         if(!empty($sadul->id)&&
                         $stmt= $sadul->update()){ 
                             http_response_code(200);
-                            echo json_encode(array("message"=>"Sadul updated", "id"=>$sadul->id, "debug"=> $database->pdo_debugStrParams($stmt)));
+                            echo json_encode(array("message"=>"Sadul updated", "id"=>$sadul->id));
                         }                  
                         // message if unable to create user
                         else{
@@ -460,7 +452,7 @@ if(/* $jwt ||  */true ){
 
                                 
                                 http_response_code(200);
-                                echo json_encode(array("message"=>"Create kaldu successful", "id"=>$db->lastInsertId(), "debug"=> $database->pdo_debugStrParams($stmt)));
+                                echo json_encode(array("message"=>"Create kaldu successful", "id"=>$db->lastInsertId()));
     
                             
                         }                  
@@ -493,7 +485,7 @@ if(/* $jwt ||  */true ){
                         if(!empty($kaldu->id)&&
                         $stmt= $kaldu->update()){ 
                             http_response_code(200);
-                            echo json_encode(array("message"=>"Kaldu updated", "id"=>$kaldu->id, "debug"=> $database->pdo_debugStrParams($stmt)));
+                            echo json_encode(array("message"=>"Kaldu updated", "id"=>$kaldu->id));
                         }                  
                         // message if unable to create user
                         else{
@@ -606,7 +598,7 @@ if(/* $jwt ||  */true ){
 
                                 
                                 http_response_code(200);
-                                echo json_encode(array("message"=>"Create hind successful", "id"=>$db->lastInsertId(), "debug"=> $database->pdo_debugStrParams($stmt)));
+                                echo json_encode(array("message"=>"Create hind successful", "id"=>$db->lastInsertId()));
     
                             
                         }                  
@@ -627,7 +619,7 @@ if(/* $jwt ||  */true ){
                         if(!empty($hinnad->id)&&
                         $stmt= $hinnad->update()){ 
                             http_response_code(200);
-                            echo json_encode(array("message"=>"Hind updated", "id"=>$hinnad->id, "debug"=> $database->pdo_debugStrParams($stmt)));
+                            echo json_encode(array("message"=>"Hind updated", "id"=>$hinnad->id));
                         }                  
                         // message if unable to create user
                         else{

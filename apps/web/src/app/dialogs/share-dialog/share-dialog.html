@@ -1,0 +1,47 @@
+<h2 mat-dialog-title>Jaga: {{ data.name }}</h2>
+<mat-dialog-content class="body">
+  <form class="add" (ngSubmit)="add()" #f="ngForm">
+    <mat-form-field class="email">
+      <mat-label>Kasutaja e-post</mat-label>
+      <input matInput type="email" name="email" required email [(ngModel)]="email" />
+    </mat-form-field>
+    <mat-form-field class="perm">
+      <mat-label>Õigus</mat-label>
+      <mat-select name="perm" [(ngModel)]="permission">
+        <mat-option value="view">Vaatab</mat-option>
+        <mat-option value="edit">Muudab</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <button mat-flat-button type="submit" [disabled]="busy() || !f.valid">Jaga</button>
+  </form>
+  <p class="hint">Jagada saab LogCalci kasutajaga, ka teisest ettevõttest.</p>
+  @if (busy()) { <mat-progress-bar mode="indeterminate" /> }
+  @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
+
+  <h3>Ligipääs</h3>
+  <ul class="list">
+    @for (s of shares(); track s.userId) {
+      <li>
+        <div class="who">
+          <span>{{ s.name || s.email }}</span>
+          <span class="meta">{{ s.email }} · {{ s.tenant }}</span>
+        </div>
+        <mat-form-field class="perm" subscriptSizing="dynamic">
+          <mat-select [value]="s.permission" (selectionChange)="change(s, $event.value)" [attr.aria-label]="'Õigus: ' + s.email">
+            <mat-option value="view">Vaatab</mat-option>
+            <mat-option value="edit">Muudab</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button mat-icon-button type="button" (click)="remove(s)" matTooltip="Eemalda ligipääs" [attr.aria-label]="'Eemalda ' + s.email">
+          <mat-icon>person_remove</mat-icon>
+        </button>
+      </li>
+    } @empty {
+      <li class="empty">Pole veel kellegagi jagatud.</li>
+    }
+  </ul>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="null">Valmis</button>
+</mat-dialog-actions>
+

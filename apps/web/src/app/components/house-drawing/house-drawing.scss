@@ -1,0 +1,19 @@
+:host { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.view { margin: 0; display: flex; flex-direction: column; min-height: 0; }
+.view.single { grid-column: 1 / -1; }
+figcaption { font: var(--mat-sys-label-large); color: var(--mat-sys-on-surface-variant); margin-bottom: 4px; }
+svg { width: 100%; height: 100%; max-height: 440px; overflow: visible; }
+.log { fill: #e2c79b; stroke: #8a6a3d; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.course { stroke: #8a6a3d; stroke-opacity: 0.35; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.board { fill: #efdcb8; stroke: #a07d4a; stroke-width: 0.75; vector-effect: non-scaling-stroke; }
+.joist { fill: #c9a46c; stroke: #6f5330; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.joist.ring { fill: #b88f55; }
+.outline { fill: none; stroke: var(--mat-sys-outline); stroke-dasharray: 6 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.door { fill: #f7f2ea; stroke: #5b4a32; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.window { fill: #cfe3f3; stroke: #3d6a8a; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.roof { fill: none; stroke: var(--mat-sys-primary); stroke-width: 4; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.ground, .dim { stroke: var(--mat-sys-outline); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.dim-t, .axis-t, .area { fill: var(--mat-sys-on-surface); font-family: Roboto, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+.area { fill: var(--mat-sys-on-surface-variant); }
+.axis { fill: var(--mat-sys-surface); stroke: var(--mat-sys-outline); stroke-width: 1; vector-effect: non-scaling-stroke; }
+
