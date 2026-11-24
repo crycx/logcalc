@@ -55,6 +55,12 @@ export interface Opening {
   offset?: number;
   /** Alumine serv seina alusest (mm). Uks vaikimisi 0, aken ülaservaga ukse ülaservas. */
   sill?: number;
+  /** Uks: tiibade arv (1 = ühepoolne, 2 = topelt). Puudub = laius ≥ 1200 → topelt. */
+  leaves?: 1 | 2;
+  /** Uks: avaneb ruumi sisse (vaikimisi) või välja */
+  swing?: 'in' | 'out';
+  /** Ühepoolne uks: hinged seina alguse (vaikimisi) või lõpu pool (seina vaates vasakul / paremal) */
+  hinge?: 'start' | 'end';
 }
 
 export interface FoundationInput {

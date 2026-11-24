@@ -56,6 +56,36 @@
           <input matInput type="number" min="0" [formControl]="row.controls.sill" [placeholder]="auto ? 'auto ' + (auto.sill | number: '1.0-0') : 'auto'" />
         </mat-form-field>
       </div>
+      @if (doors()) {
+        @let double = row.controls.leaves.value === 2 || (row.controls.leaves.value === 0 && row.controls.a.value >= doubleWidth);
+        <div class="place door">
+          <mat-form-field floatLabel="always" [matTooltip]="'Automaatne: alates ' + doubleWidth + ' mm laiusest topeltuks'">
+            <mat-label>Tiivad</mat-label>
+            <mat-select [formControl]="row.controls.leaves" aria-label="Ühe- või kahepoolne uks">
+              <mat-select-trigger>{{ row.controls.leaves.value === 0 ? 'Auto · ' + (double ? 2 : 1) : row.controls.leaves.value }}</mat-select-trigger>
+              <mat-option [value]="0">Auto ({{ row.controls.a.value >= doubleWidth ? 'topelt' : 'ühepoolne' }})</mat-option>
+              <mat-option [value]="1">1 – ühepoolne</mat-option>
+              <mat-option [value]="2">2 – topeltuks</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field floatLabel="always">
+            <mat-label>Avaneb</mat-label>
+            <mat-select [formControl]="row.controls.swing" aria-label="Ukse avanemise suund">
+              <mat-option value="in">Sisse</mat-option>
+              <mat-option value="out">Välja</mat-option>
+            </mat-select>
+          </mat-form-field>
+          @if (!double) {
+            <mat-form-field floatLabel="always" matTooltip="Seina vaates (Seinad): vasakul = seina alguse pool">
+              <mat-label>Hinged</mat-label>
+              <mat-select [formControl]="row.controls.hinge" aria-label="Ukse hingede pool">
+                <mat-option value="start">Vasakul</mat-option>
+                <mat-option value="end">Paremal</mat-option>
+              </mat-select>
+            </mat-form-field>
+          }
+        </div>
+      }
     }
   </div>
 } @empty {

@@ -145,7 +145,7 @@
             <h3>Pikemad lauad <span class="count">{{ form.controls.longBoards.length }}</span></h3>
             <app-rows-editor [rows]="form.controls.longBoards" aLabel="Pikkus" bLabel="Kõrgus" addLabel="Pikem laud" />
             <h3>Uksed <span class="count">{{ form.controls.doors.length }}</span></h3>
-            <app-rows-editor [rows]="form.controls.doors" [catalog]="formValue().catalog.doors" [placement]="true" [placed]="placedDoors()" [wallIds]="wallIds()" addLabel="Uks" />
+            <app-rows-editor [rows]="form.controls.doors" [catalog]="formValue().catalog.doors" [placement]="true" [placed]="placedDoors()" [wallIds]="wallIds()" [doors]="true" addLabel="Uks" />
             <h3>Aknad <span class="count">{{ form.controls.windows.length }}</span></h3>
             <app-rows-editor [rows]="form.controls.windows" [catalog]="formValue().catalog.windows" [placement]="true" [placed]="placedWindows()" [wallIds]="wallIds()" addLabel="Aken" />
           </div>

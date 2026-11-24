@@ -53,7 +53,18 @@ export class WallView {
       .filter((s) => !s.poly)
       .map((s) => ({ x: s.rect.x0, y: Y(s.rect.y1), w: s.rect.x1 - s.rect.x0, h: s.rect.y1 - s.rect.y0, kind: s.kind }));
     const polys = shapes.filter((s) => s.poly).map((s) => ({ kind: s.kind, points: s.poly!.map(([x, y]) => `${x},${Y(y)}`).join(' ') }));
-    const openings = w.openings.map((o) => ({ x: o.offset, y: Y(o.sill + o.height), w: o.width, h: o.height, kind: o.kind }));
+    const openings = w.openings.map((o) => {
+      const x = o.offset;
+      // uks: tiivad (topelt = kaks poolt, käepidemed keskel), ühepoolsel käepide hingede vastas
+      const n = o.kind === 'door' ? (o.leaves ?? 1) : 0;
+      const lw = n ? o.width / n : 0;
+      const leaves = Array.from({ length: n }, (_, i) => {
+        const lx = x + i * lw;
+        const handleLeft = n === 2 ? i === 1 : o.hinge === 'end';
+        return { x: lx, w: lw, hx: handleLeft ? lx + lw * 0.14 : lx + lw * 0.86 };
+      });
+      return { x, y: Y(o.sill + o.height), w: o.width, h: o.height, kind: o.kind, leaves };
+    });
     const joints = w.joints.map((j) => ({ x: j.x, wall: j.wall ?? '' }));
     const splices = shapes.filter((s) => s.spliceEnd).map((s) => ({ x: s.rect.x1, y: Y(s.rect.y1), h: s.rect.y1 - s.rect.y0 }));
 

@@ -4,7 +4,7 @@
  * Lund – tuba + terrass eraldi, vundament seina 2 all topeltpruss.
  */
 import { describe, expect, it } from 'vitest';
-import { calculateHouse, planTemplate, rectanglePlan, type HouseInput } from '../src/index.js';
+import { calculateHouse, insideSide, planGeometry, planTemplate, rectanglePlan, type HouseInput } from '../src/index.js';
 import { BODEN, LUND } from './graph-fixtures.js';
 
 const C = { cornerOverhang: 100 };
@@ -134,5 +134,39 @@ describe('ava lahtises osas (terrassi sissepääs) – hoiatus', () => {
     expect(on1.warnings.some((w) => w.code === 'opening.inOpen')).toBe(true);
     const on2 = calculateHouse({ ...base, doors: [{ width: 1440, height: 1995, count: 1, wall: '2' }] });
     expect(on2.warnings.some((w) => w.code === 'opening.inOpen')).toBe(false);
+  });
+});
+
+describe('uks: tiivad ja avanemise pool', () => {
+  const plan = planTemplate('terrace', 4000, 5950, 40, C);
+  const base: HouseInput = {
+    roofType: 'gable', lengthScenario: 'log', width: 4000, depth: 5950, sideWallHeight: 2166, frontBackWallHeight: 2109, roofHeight: 2678,
+    log: { thickness: 40, height: 114 }, plan,
+  };
+  it('laius >= 1200 -> topelt, muidu ühepoolne; antud väärtus jääb', () => {
+    const r = calculateHouse({
+      ...base,
+      doors: [
+        { width: 1440, height: 1995, count: 1, wall: '2' },
+        { width: 900, height: 1995, count: 1, wall: '3' },
+        { width: 1440, height: 1995, count: 1, wall: 'A', leaves: 1, swing: 'out', hinge: 'end' },
+      ],
+    });
+    expect(r.placedOpenings.map((o) => [o.leaves, o.swing, o.hinge])).toEqual([
+      [2, 'in', 'start'],
+      [1, 'in', 'start'],
+      [1, 'out', 'end'],
+    ]);
+  });
+  it('sisemine pool: toa esisein (2) ja tagasein (3) -> tuppa, terrassi raam (1) -> terrassile', () => {
+    const geo = planGeometry(plan, 40, C);
+    const side = insideSide(plan, geo);
+    const y = (id: string) => geo.find((g) => g.id === id)!.a.y;
+    const mid = (id: string) => geo.find((g) => g.id === id)!.length / 2;
+    // tuba on seinte 3 (taga) ja 2 vahel, terrass 2 ja 1 vahel
+    expect(y('3')).toBeLessThan(y('2'));
+    expect(side('2', mid('2'))).toBe(-1);
+    expect(side('3', mid('3'))).toBe(1);
+    expect(side('1', mid('1'))).toBe(-1);
   });
 });

@@ -71,6 +71,9 @@
             }
             @for (o of w.openings; track $index) {
               <rect [class]="'opening ' + o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
+              @if (o.swing) {
+                <path class="swing" [attr.d]="o.swing" />
+              }
             }
             <!-- laiem nähtamatu ala valimiseks -->
             <line class="hit" [attr.x1]="w.hit.x1" [attr.y1]="w.hit.y1" [attr.x2]="w.hit.x2" [attr.y2]="w.hit.y2" />

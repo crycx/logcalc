@@ -36,3 +36,13 @@
   min-width: 0;
 }
 
+
+/* uks: tiivad, avanemine, hinged (asukoha väljade all) */
+.place.door {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 0;
+}
+.place:has(+ .place.door) {
+  border-bottom: none;
+  padding-bottom: 0;
+}

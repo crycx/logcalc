@@ -8,6 +8,7 @@ export { computeRoof, computePurlins } from './roof.js';
 export {
   buildWalls,
   placeOpenings,
+  DOUBLE_DOOR_WIDTH,
   wallCutList,
   wallPieces,
   type CutPiece,
@@ -46,7 +47,7 @@ export {
   type WallLine,
 } from './plan-edit.js';
 export { roofVolumes, gableEnds, pitchRatio, volumeSpan, type RoofVolume, type RoofGableEnd } from './roof-volumes.js';
-export { planGrid, planRooms, greedyRects, outerArea, outlineCorners, type PlanGrid, type PlanRoom, type PlanRect } from './plan-regions.js';
+export { planGrid, planRooms, insideSide, greedyRects, outerArea, outlineCorners, type PlanGrid, type PlanRoom, type PlanRect } from './plan-regions.js';
 export { planFloor, planFoundation } from './floor-plan.js';
 export { houseModel3d, type HouseModel3D, type Wall3D, type RoofPlane3D, type Vec3 } from './model3d.js';
 export { planTemplate, PLAN_TEMPLATES, type PlanTemplateKind, type PlanTemplateInfo, type PlanTemplateOptions } from './plan-templates.js';

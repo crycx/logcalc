@@ -30,7 +30,14 @@ export interface PlacedOpening {
   name?: string;
   /** true, kui asukoht on arvutatud (kasutaja ei andnud) */
   autoPlaced: boolean;
+  /** uks: tiivad (1/2), avanemine (sisse/välja), hinged (seina alguse/lõpu pool) */
+  leaves?: 1 | 2;
+  swing?: 'in' | 'out';
+  hinge?: 'start' | 'end';
 }
+
+/** Sellest laiusest alates on uks vaikimisi topelt (kahe tiivaga) */
+export const DOUBLE_DOOR_WIDTH = 1200;
 
 export interface WallRow {
   /** rea alumine ja ülemine serv seina alusest (mm) */
@@ -148,6 +155,13 @@ export function placeOpenings(input: HouseInput, dims: Dimensions, c: EngineCons
       height: a.o.height,
       ...(a.o.name ? { name: a.o.name } : {}),
       autoPlaced: a.o.offset === undefined,
+      ...(a.kind === 'door'
+        ? {
+            leaves: a.o.leaves ?? (a.o.width >= DOUBLE_DOOR_WIDTH ? 2 : 1),
+            swing: a.o.swing ?? 'in',
+            hinge: a.o.hinge ?? 'start',
+          }
+        : {}),
     };
   });
 }

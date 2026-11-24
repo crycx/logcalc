@@ -184,6 +184,20 @@
     vector-effect: non-scaling-stroke;
   }
 
+  /* uks: ava seinas valge, tiib ja avanemiskaar */
+  .opening.door {
+    fill: var(--mat-sys-surface);
+    stroke: #8a6a40;
+  }
+
+  .swing {
+    fill: none;
+    stroke: #8a6a40;
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+  }
+
   .hit {
     stroke: transparent;
     stroke-width: 16px;

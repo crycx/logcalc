@@ -25,6 +25,10 @@ export type RowForm = FormGroup<{
   wall: FormControl<WallId>;
   offset: FormControl<number | null>;
   sill: FormControl<number | null>;
+  /** uksed: tiivad (0 = automaatne: laius >= 1200 -> topelt), avanemine, hinged */
+  leaves: FormControl<number>;
+  swing: FormControl<'in' | 'out'>;
+  hinge: FormControl<'start' | 'end'>;
 }>;
 
 export interface RowValue {
@@ -36,6 +40,9 @@ export interface RowValue {
   wall?: WallId;
   offset?: number | null;
   sill?: number | null;
+  leaves?: number;
+  swing?: 'in' | 'out';
+  hinge?: 'start' | 'end';
 }
 
 /** Ettevõtte uste/akende kataloogi rida */
@@ -176,6 +183,9 @@ const normRow = (r: RowValue): Required<RowValue> => ({
   wall: r.wall ?? '1',
   offset: r.offset ?? null,
   sill: r.sill ?? null,
+  leaves: r.leaves ?? 0,
+  swing: r.swing ?? 'in',
+  hinge: r.hinge ?? 'start',
 });
 
 /**
@@ -221,6 +231,9 @@ export function buildRow(fb: NonNullableFormBuilder, v: RowValue = { a: 0, b: 0,
     wall: fb.control<WallId>(r.wall),
     offset: fb.control<number | null>(r.offset),
     sill: fb.control<number | null>(r.sill),
+    leaves: fb.control(r.leaves),
+    swing: fb.control<'in' | 'out'>(r.swing),
+    hinge: fb.control<'start' | 'end'>(r.hinge),
   });
 }
 
@@ -322,6 +335,9 @@ const opening = (r: RowValue) => ({
   ...(r.wall ? { wall: r.wall } : {}),
   ...(isNum(r.offset) ? { offset: r.offset } : {}),
   ...(isNum(r.sill) ? { sill: r.sill } : {}),
+  ...(r.leaves === 1 || r.leaves === 2 ? { leaves: r.leaves as 1 | 2 } : {}),
+  ...(r.swing === 'out' ? { swing: 'out' as const } : {}),
+  ...(r.hinge === 'end' ? { hinge: 'end' as const } : {}),
 });
 
 /** Vormi väärtus -> arvutusmootori sisend. */

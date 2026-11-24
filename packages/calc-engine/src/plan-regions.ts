@@ -252,3 +252,38 @@ export function outlineCorners(grid: PlanGrid): number {
     }
   return n;
 }
+
+/**
+ * Seina „sisemine“ pool (uks avaneb vaikimisi sinna): funktsioon (sein, kaugus palgi otsast) → +1/−1 =
+ * risti seinaga plaani telje suunas (x-seinal +y, y-seinal +x). Eelistus: suletud ruum > lahtine osa
+ * (terrass) > väljas; vaheseinal (mõlemal pool ruum) suurema ruumi pool.
+ */
+export function insideSide(plan: HousePlan, geo: WallGeometry[]): (wall: string, along: number) => 1 | -1 {
+  const grid = planGrid(plan, geo, solidBelow);
+  const rooms = grid ? planRooms(plan, geo, grid) : [];
+  const gById = new Map(geo.map((g) => [g.id, g]));
+  const cellAt = (x: number, y: number): [number, number] | null => {
+    if (!grid) return null;
+    const i = grid.xs.findIndex((v, k) => k < grid.nx && x > v && x < grid.xs[k + 1]!);
+    const j = grid.ys.findIndex((v, k) => k < grid.ny && y > v && y < grid.ys[k + 1]!);
+    return i < 0 || j < 0 ? null : [i, j];
+  };
+  const score = (x: number, y: number) => {
+    const c = cellAt(x, y);
+    if (!c) return 0;
+    const room = rooms.find((r) => r.cells[c[0]]![c[1]]);
+    return !room ? 0 : room.open ? 1 : 2 + room.area / 1e3;
+  };
+  return (wall, along) => {
+    const g = gById.get(wall);
+    if (!g) return 1;
+    const ux = (g.b.x - g.a.x) / g.span;
+    const uy = (g.b.y - g.a.y) / g.span;
+    const px = g.a.x + ux * (along - g.startExt);
+    const py = g.a.y + uy * (along - g.startExt);
+    const d = 1;
+    const plus = g.dir === 'x' ? score(px, py + d) : score(px + d, py);
+    const minus = g.dir === 'x' ? score(px, py - d) : score(px - d, py);
+    return minus > plus ? -1 : 1;
+  };
+}

@@ -16,9 +16,14 @@
     <rect [class]="'opening ' + o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
     @if (o.kind === 'door') {
       <!-- uks: puit, paneelid, käepide -->
-      <rect class="door-panel" [attr.x]="o.x + o.w * 0.12" [attr.y]="o.y + o.h * 0.08" [attr.width]="o.w * 0.76" [attr.height]="o.h * 0.36" />
-      <rect class="door-panel" [attr.x]="o.x + o.w * 0.12" [attr.y]="o.y + o.h * 0.52" [attr.width]="o.w * 0.76" [attr.height]="o.h * 0.4" />
-      <circle class="door-handle" [attr.cx]="o.x + o.w * 0.86" [attr.cy]="o.y + o.h * 0.5" [attr.r]="Math.min(o.w, o.h) * 0.035" />
+      @for (l of o.leaves; track $index) {
+        @if ($index > 0) {
+          <line class="door-split" [attr.x1]="l.x" [attr.x2]="l.x" [attr.y1]="o.y" [attr.y2]="o.y + o.h" />
+        }
+        <rect class="door-panel" [attr.x]="l.x + l.w * 0.2" [attr.y]="o.y + o.h * 0.08" [attr.width]="l.w * 0.6" [attr.height]="o.h * 0.36" />
+        <rect class="door-panel" [attr.x]="l.x + l.w * 0.2" [attr.y]="o.y + o.h * 0.52" [attr.width]="l.w * 0.6" [attr.height]="o.h * 0.4" />
+        <circle class="door-handle" [attr.cx]="l.hx" [attr.cy]="o.y + o.h * 0.5" [attr.r]="Math.min(l.w, o.h) * 0.04" />
+      }
     } @else {
       <!-- aken: klaas, rist -->
       <line class="mullion" [attr.x1]="o.x + o.w / 2" [attr.x2]="o.x + o.w / 2" [attr.y1]="o.y" [attr.y2]="o.y + o.h" />

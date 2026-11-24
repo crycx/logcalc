@@ -15,6 +15,7 @@ import {
   PLAN_TEMPLATES,
   addWall,
   deleteWall,
+  insideSide,
   moveWall,
   planBounds,
   planGeometry,
@@ -35,6 +36,7 @@ import {
   type WallSpec,
 } from '@logcalc/calc-engine';
 import { confirmDialog } from '../../dialogs/confirm-dialog/confirm-dialog';
+import { doorSwingPath } from '../../helpers/door-swing';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 import { WallView } from '../wall-view/wall-view';
 
@@ -144,6 +146,17 @@ export class PlanEditor {
     const pad = m * 0.17;
     const tv = Math.max(t, m * 0.012); // nähtav paksus
     const sel = this.selected();
+    // uste avanemiskaared: vaikimisi ruumi poole (suletud ruum > terrass > väljas)
+    let side: ((wall: string, along: number) => 1 | -1) | null = null;
+    if (p && geo.length) {
+      try {
+        side = insideSide(p, geo);
+      } catch {
+        side = null;
+      }
+    }
+    // ukse kaared võivad ulatuda plaanist välja (avaneb välja) – vaateala laiendus
+    const ext = { x0: b.x0 - pad, y0: b.y0 - pad, x1: b.x1 + pad, y1: b.y1 + pad };
     const walls = geo.map((g) => {
       const ux = (g.b.x - g.a.x) / g.span;
       const uy = (g.b.y - g.a.y) / g.span;
@@ -169,7 +182,27 @@ export class PlanEditor {
         railings: (pw.railings ?? []).map((r) => seg(r.x0, r.x1)),
         openings: this.openings()
           .filter((o) => o.wall === g.id)
-          .map((o) => ({ ...seg(o.offset, o.offset + o.width), kind: o.kind })),
+          .map((o) => {
+            let swing: string | null = null;
+            if (o.kind === 'door') {
+              const sg = (side?.(g.id, o.offset + o.width / 2) ?? 1) * (o.swing === 'out' ? -1 : 1);
+              const n = g.dir === 'x' ? { x: 0, y: sg } : { x: sg, y: 0 };
+              const face = (x: number) => {
+                const q = at(x);
+                return { x: q.x + (n.x * tv) / 2, y: q.y + (n.y * tv) / 2 };
+              };
+              swing = doorSwingPath(face(o.offset), face(o.offset + o.width), n, o.leaves ?? 1, o.hinge ?? 'start');
+              const reach = o.width / (o.leaves ?? 1);
+              for (const q of [face(o.offset), face(o.offset + o.width)]) {
+                const tip = { x: q.x + n.x * reach, y: q.y + n.y * reach };
+                ext.x0 = Math.min(ext.x0, tip.x - fs);
+                ext.y0 = Math.min(ext.y0, tip.y - fs);
+                ext.x1 = Math.max(ext.x1, tip.x + fs);
+                ext.y1 = Math.max(ext.y1, tip.y + fs);
+              }
+            }
+            return { ...seg(o.offset, o.offset + o.width), kind: o.kind, swing };
+          }),
         partial: pw.topOnly !== undefined || pw.height !== undefined,
         label,
         anchor: g.dir === 'x' ? 'middle' : 'end',
@@ -223,7 +256,7 @@ export class PlanEditor {
       }
     }
     return {
-      viewBox: `${b.x0 - pad} ${b.y0 - pad} ${W + 2 * pad} ${D + 2 * pad}`,
+      viewBox: `${ext.x0} ${ext.y0} ${ext.x1 - ext.x0} ${ext.y1 - ext.y0}`,
       ridges,
       walls,
       nodes: pts,

@@ -5,6 +5,7 @@ import { DimLines, type Dim } from '../dim-lines/dim-lines';
 import { PlanEditor } from '../plan-editor/plan-editor';
 import { WallView } from '../wall-view/wall-view';
 import type { HouseFormValue } from '../../core/house-form';
+import { doorSwingPath } from '../../helpers/door-swing';
 
 export type DrawingView = 'overview' | 'side' | 'walls' | 'floor' | 'foundation';
 
@@ -343,13 +344,13 @@ export class HouseDrawing {
       const gap = horiz
         ? { x: a, y: Math.min(inner, outer), w: u.width, h: t }
         : { x: Math.min(inner, outer), y: a, w: t, h: u.width };
-      const leaf = inner + dir * u.width;
-      const swing =
-        u.kind !== 'door'
-          ? null
-          : horiz
-            ? `M${a},${inner} L${a},${leaf} A${u.width},${u.width} 0 0 ${dir < 0 ? 1 : 0} ${b},${inner}`
-            : `M${inner},${a} L${leaf},${a} A${u.width},${u.width} 0 0 ${dir > 0 ? 1 : 0} ${inner},${b}`;
+      // uks: tiib(ad) ja kaar sisse (sisepinnalt) või välja (välispinnalt)
+      const out = u.swing === 'out';
+      const face = out ? outer : inner;
+      const sg = out ? -dir : dir;
+      const n = horiz ? { x: 0, y: sg } : { x: sg, y: 0 };
+      const pt = (x: number) => (horiz ? { x, y: face } : { x: face, y: x });
+      const swing = u.kind !== 'door' ? null : doorSwingPath(pt(a), pt(b), n, u.leaves ?? 1, u.hinge ?? 'start');
       const q1 = inner + (outer - inner) / 3;
       const q2 = inner + ((outer - inner) * 2) / 3;
       const glass =

@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import type { PlacedOpening, WallId } from '@logcalc/calc-engine';
+import { DOUBLE_DOOR_WIDTH, type PlacedOpening, type WallId } from '@logcalc/calc-engine';
 import { buildRow, type CatalogItem, type RowForm } from '../../core/house-form';
 
 /** Korduvate ridade (pikemad lauad, uksed, aknad) muutmine; uste/akende puhul valik kataloogist. */
@@ -34,6 +34,9 @@ export class RowsEditor {
   readonly placed = input<PlacedOpening[]>([]);
   /** valitavad seinad (plaanist või ristküliku 4 seina) */
   readonly wallIds = input<WallId[]>(['1', '2', 'A', 'B']);
+  /** Uksed: tiivad (ühe-/kahepoolne), avanemine, hinged */
+  readonly doors = input(false);
+  protected readonly doubleWidth = DOUBLE_DOOR_WIDTH;
 
   constructor() {
     // FormArray on sama objekt ka siis, kui read asendatakse (maja avamine) – OnPush vajab märguannet
