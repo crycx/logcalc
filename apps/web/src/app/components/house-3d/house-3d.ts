@@ -207,15 +207,13 @@ export class House3d {
     for (const p of w.pieces) {
       const material = p.kind === 'half' ? mat.half : p.kind === 'gable' ? mat.gable : mat.log;
       let geo: THREE_NS.BufferGeometry;
-      if (p.kind === 'gable' && w.roofLine) {
-        // viilupalk: ülemine serv katuse alumise pinnani (murdepunktid katuse joonelt)
-        const xs = [p.x0, ...w.roofLine.map((q) => q[0]).filter((x) => x > p.x0 + 1e-6 && x < p.x1 - 1e-6), p.x1];
-        const top = xs.map((x) => [x, Math.min(p.y1, Math.max(p.y0, roofAt(x)))] as const);
-        if (top.every(([, z]) => z <= p.y0 + 1)) continue;
+      const cut = w.roofLine ? underRoof(p, w.roofLine, roofAt) : null;
+      if (cut === 'none') continue;
+      if (cut) {
+        // palk katusejoone all: otsad kaldu (viilupalgid, viilu täisrea otsad nurkades)
         const shape = new THREE.Shape();
-        shape.moveTo(p.x0, p.y0);
-        shape.lineTo(p.x1, p.y0);
-        for (let i = top.length - 1; i >= 0; i--) shape.lineTo(top[i]![0], top[i]![1]);
+        shape.moveTo(cut[0]![0], cut[0]![1]);
+        for (const [x, z] of cut.slice(1)) shape.lineTo(x, z);
         shape.closePath();
         geo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
         geo.translate(0, 0, -t / 2);
@@ -287,6 +285,40 @@ export class House3d {
     this.renderer?.dispose();
     this.renderer?.domElement.remove();
   }
+}
+
+/**
+ * Palgi ristkülik [x0,x1]×[y0,y1] katusejoone all (z ≤ katus(x)): hulknurk (alumine serv, siis ülemine
+ * murdjoon paremalt vasakule) või null, kui katus palki ei lõika, 'none', kui palk on täielikult katuse kohal.
+ * Murdepunktid: palgi otsad, katusejoone tipud ning kohad, kus katus lõikab palgi alumist/ülemist serva.
+ */
+function underRoof(
+  p: { x0: number; x1: number; y0: number; y1: number },
+  line: [number, number][],
+  roofAt: (x: number) => number,
+): [number, number][] | null | 'none' {
+  const xs = new Set<number>([p.x0, p.x1]);
+  for (const [x] of line) if (x > p.x0 && x < p.x1) xs.add(x);
+  for (let i = 1; i < line.length; i++) {
+    const [xa, za] = line[i - 1]!;
+    const [xb, zb] = line[i]!;
+    if (Math.abs(zb - za) < 1e-9) continue;
+    for (const lvl of [p.y0, p.y1]) {
+      const f = (lvl - za) / (zb - za);
+      if (f > 0 && f < 1) {
+        const x = xa + f * (xb - xa);
+        if (x > p.x0 && x < p.x1) xs.add(x);
+      }
+    }
+  }
+  const pts = [...xs].sort((a, b) => a - b).map((x) => [x, roofAt(x)] as const);
+  if (pts.every(([, z]) => z >= p.y1 - 0.5)) return null;
+  const inside = pts.filter(([, z]) => z >= p.y0 - 0.5);
+  if (inside.length < 2 || inside[inside.length - 1]![0] - inside[0]![0] < 1) return 'none';
+  const xa = inside[0]![0];
+  const xb = inside[inside.length - 1]![0];
+  const top = inside.map(([x, z]) => [x, Math.min(p.y1, Math.max(p.y0, z))] as [number, number]).reverse();
+  return [[xa, p.y0], [xb, p.y0], ...top];
 }
 
 function disposeGroup(g: THREE_NS.Object3D): void {

@@ -137,7 +137,7 @@ export const DEFAULT_VALUE: HouseFormValue = {
   roofHeight: 2223,
   logThickness: 28,
   logHeight: 114,
-  longBoards: [{ a: 4000, b: 115, count: 2 }],
+  longBoards: [{ a: 4000, b: 114, count: 2 }],
   doors: [{ a: 1440, b: 1824, count: 1 }],
   windows: [],
   floorDirection: '12',

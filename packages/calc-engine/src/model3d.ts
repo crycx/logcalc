@@ -131,17 +131,10 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
     const vols = roofVolumes(plan, geo);
     const ratio = pitchRatio(vols, input);
     const slope = 2 * ratio; // tõus / horisontaal (ratio = kõrgus / sisemine laius)
-    // katuse alumine pind toetub räästaseinte ülemise palgi siseservale (välisserv lõigatakse kaldu – faas);
-    // kõigil mahtudel sama räästa kõrgus, et orud klapiksid
-    let eaveTop = input.sideWallHeight;
-    for (const w of walls) {
-      const g = byId.get(w.id)!;
-      const line = g.dir === 'x' ? g.a.y : g.a.x;
-      const isEave = vols.some((v) => v.ridge === g.dir && (v.ridge === 'y' ? [v.x0, v.x1] : [v.y0, v.y1]).some((e) => Math.abs(e - line) < EPS));
-      if (!isEave) continue;
-      for (const p of w.pieces) if (p.kind !== 'gable') eaveTop = Math.max(eaveTop, p.y1);
-    }
-    const zOf = (d: number) => eaveTop + slope * (d - t / 2);
+    // katuse alumine pind maja kõrgustest: räästaseina siseservas küljeseina kõrgus, harjal Hari h
+    // (Viktra: viilupalkide tipp = Hari h). Kõik palgid, mis ulatuvad kõrgemale, lõigatakse katuse järgi:
+    // räästaseina ülemine palk kaldu (faas), viilupalgid ja viilu täisrea otsad katusejoone järgi.
+    const zOf = (d: number) => input.sideWallHeight + slope * (d - t / 2);
     // räästaseinte ristlõike katusejoon (ülemise palgi faas)
     for (const w of walls) {
       const g = byId.get(w.id)!;
@@ -175,11 +168,16 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
         roofs.push({ pts, part: k });
       }
     });
+    // katusepind ka räästa üleulatuse ja otste kohal (palgi otsad nurkades lõigatakse kalde järgi)
+    const outA = t / 2 + ov + EPS;
+    const outL = t / 2 + c.cornerOverhang + EPS;
     roofZ = (x, y) => {
       let best: number | null = null;
       for (const v of vols) {
-        if (x < v.x0 - EPS || x > v.x1 + EPS || y < v.y0 - EPS || y > v.y1 + EPS) continue;
-        const d = v.ridge === 'y' ? Math.min(x - v.x0, v.x1 - x) : Math.min(y - v.y0, v.y1 - y);
+        const [a, a0, a1, l, l0, l1] = v.ridge === 'y' ? [x, v.x0, v.x1, y, v.y0, v.y1] : [y, v.y0, v.y1, x, v.x0, v.x1];
+        if (l < l0 - outL || l > l1 + outL) continue;
+        const d = Math.min(a - a0, a1 - a);
+        if (d < -outA) continue;
         const zz = zOf(d);
         if (best === null || zz > best) best = zz;
       }
@@ -196,11 +194,19 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
     const yb = yFront + t / 2 + ov;
     roofs.push({ pts: [[bx0, yb, zAt(yb)], [bx1, yb, zAt(yb)], [bx1, ya, zAt(ya)], [bx0, ya, zAt(ya)]], part: 0 });
     roofZ = (_x, y) => zAt(y);
+    // esi-/tagasein: katus kaldu üle seina paksuse
+    const k = yFront - yBack < EPS ? 0 : (input.frontBackWallHeight - input.roofHeight) / (yFront - yBack);
+    for (const w of walls) {
+      const g = byId.get(w.id)!;
+      if (g.dir === 'x') w.roofCross = { z0: zAt(g.a.y), k: k * w.u.x };
+    }
   }
 
-  // katuse joon igal seinal (viilupalkide lõikamiseks): murdepunktid seina otstes, sõlmedes ja harjal
+  // katuse joon piki seina (kõik seinad, mis pole räästaseinad): murdepunktid seina otstes, sõlmedes,
+  // mahtude servades ja harjal
+  const volsAll = input.roofType === 'gable' ? roofVolumes(plan, geo) : [];
   for (const w of walls) {
-    if (!w.pieces.some((p) => p.kind === 'gable')) continue;
+    if (w.roofCross) continue;
     const xsW = new Set<number>([0, w.length]);
     const g = byId.get(w.id)!;
     const toW = (pos: number) => {
@@ -209,11 +215,9 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       return (pos - p0) * uu;
     };
     for (const n of plan.nodes) xsW.add(toW(g.dir === 'x' ? n.x : n.y));
-    if (input.roofType === 'gable') {
-      for (const v of roofVolumes(plan, geo)) {
-        if (v.ridge === g.dir) continue;
-        xsW.add(toW(g.dir === 'x' ? (v.x0 + v.x1) / 2 : (v.y0 + v.y1) / 2));
-      }
+    for (const v of volsAll) {
+      const [a0, a1] = g.dir === 'x' ? [v.x0, v.x1] : [v.y0, v.y1];
+      for (const pos of [a0, a1, (a0 + a1) / 2]) xsW.add(toW(pos));
     }
     const line: [number, number][] = [];
     for (const X of [...xsW].filter((x) => x >= -EPS && x <= w.length + EPS).sort((a, b) => a - b)) {

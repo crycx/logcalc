@@ -39,7 +39,7 @@ describe('CalculatorPage', () => {
   describe('sisse logimata (avaleht)', () => {
     it('näitab näidismaja Bente IV ainult vaatamiseks ja vähendatud infoga', async () => {
       const el: HTMLElement = (await create()).nativeElement;
-      expect(el.querySelector('.hero .value')?.textContent).toContain('216,10');
+      expect(el.querySelector('.hero .value')?.textContent).toContain('208,50');
       // mõõdud lukus, vahelehtede asemel kutse sisse logida
       expect((el.querySelector('input[formcontrolname="width"]') as HTMLInputElement).disabled).toBe(true);
       expect(el.querySelector('.cta')).not.toBeNull();
@@ -83,7 +83,7 @@ describe('CalculatorPage', () => {
     it('ettevõtte hinnakiri jõuab arvutusse', async () => {
       const el: HTMLElement = (await create(ADMIN, { seinaLauad: 2 })).nativeElement;
       // 216,097 jm * 2 €/jm = 432,19 €
-      expect(bomRows(el).find((t) => t.includes('Seinalauad'))).toContain('432,19');
+      expect(bomRows(el).find((t) => t.includes('Seinalauad'))).toContain('416,99');
     });
 
     it('K5: esi/tagaseina kõrgus = küljesein − ½ palki, lülitiga käsitsi', async () => {

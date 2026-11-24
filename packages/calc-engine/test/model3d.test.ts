@@ -58,6 +58,42 @@ describe('3D: ristkülik viilkatusega', () => {
   });
 });
 
+describe('3D: viilupalgid katuse järgi (Revit Bente IV 28: 15 + faasitud ülemine palk = 1824, hari 2223)', () => {
+  const input: HouseInput = {
+    roofType: 'gable', lengthScenario: 'log', width: 2950, depth: 3800, sideWallHeight: 1824, frontBackWallHeight: 1767,
+    roofHeight: 2223, log: { thickness: 28, height: 114 }, longBoards: [{ length: 4000, height: 114, count: 2 }], roof: {}, purlins: {},
+  };
+  const m = houseModel3d(input, calculateHouse(input), C);
+  const w1 = m.walls.find((w) => w.id === '1')!;
+  const roofAt = (X: number) => {
+    const l = w1.roofLine!;
+    for (let i = 1; i < l.length; i++) {
+      const [x0, z0] = l[i - 1]!;
+      const [x1, z1] = l[i]!;
+      if (X >= x0 - 1e-6 && X <= x1 + 1e-6) return z0 + ((X - x0) / (x1 - x0 || 1)) * (z1 - z0);
+    }
+    return NaN;
+  };
+
+  it('viilupalgi alumised nurgad katusejoonel (lõikenimekirja pikkus = alumine serv), tipp Hari h', () => {
+    const gable = w1.pieces.filter((p) => p.kind === 'gable' && p.x1 - p.x0 < 2950 - 1);
+    // Revit 2313 / 1544 / 774 (mudel paar mm lühem, vt graph-houses ±15)
+    expect(gable.length).toBe(3);
+    gable.forEach((p, i) => expect(Math.abs(p.x1 - p.x0 - [2313, 1544, 774][i]!)).toBeLessThanOrEqual(6));
+    for (const p of gable) {
+      expect(roofAt(p.x0)).toBeCloseTo(p.y0, 0);
+      expect(roofAt(p.x1)).toBeCloseTo(p.y0, 0);
+    }
+    expect(Math.max(...w1.roofLine!.map((q) => q[1]))).toBeCloseTo(2223, 6);
+  });
+
+  it('räästasein: ülemine palk (4000) siseservas 1824, välisserv faasitud', () => {
+    const wa = m.walls.find((w) => w.id === 'A')!;
+    expect(Math.max(...wa.pieces.map((p) => p.y1))).toBe(1824);
+    expect(wa.roofCross!.z0 - wa.roofCross!.k * 14).toBeCloseTo(1824, 6);
+  });
+});
+
 describe('3D: L-maja', () => {
   const model = (W: number, D: number) => {
     const input = { ...base, width: W, depth: D, plan: planTemplate('lshape', W, D, 40, C) };
