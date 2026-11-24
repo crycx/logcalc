@@ -52,6 +52,26 @@ final class AuthApi
             throw new HttpException(403, 'Praegune parool on vale.');
         }
         $this->auth->setPassword($u['id'], $new);
+        $this->auth->log()->record('password_changed', $u['id'], $u['tenant_id'], (string) $u['email'], $u['id']);
         return ['ok' => true];
+    }
+
+    /** Minu viimased sisselogimised ja kontosündmused */
+    public function myEvents(Request $req): array
+    {
+        $u = $this->auth->requireUser();
+        $limit = min(max($req->queryInt('limit', 50) ?? 50, 1), 200);
+        $st = $this->db->prepare(
+            'SELECT id, type, ip, user_agent, detail, at FROM auth_events WHERE user_id = ? ORDER BY at DESC, id DESC LIMIT ' . $limit
+        );
+        $st->execute([$u['id']]);
+        return ['events' => array_map(static fn (array $r) => [
+            'id' => (int) $r['id'],
+            'type' => $r['type'],
+            'at' => $r['at'],
+            'ip' => $r['ip'],
+            'userAgent' => $r['user_agent'],
+            'detail' => $r['detail'],
+        ], $st->fetchAll())];
     }
 }

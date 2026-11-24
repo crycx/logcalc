@@ -22,6 +22,8 @@ final class Request
         private readonly string $rawBody,
         private readonly array $headers,
         public readonly string $ip,
+        /** @var array<string, string> päringu parameetrid (?a=b) */
+        public readonly array $query = [],
     ) {
     }
 
@@ -49,7 +51,15 @@ final class Request
             (string) file_get_contents('php://input', false, null, 0, self::MAX_BODY + 1),
             $headers,
             (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
+            array_map('strval', array_filter($_GET, 'is_scalar')),
         );
+    }
+
+    /** Täisarvuline päringu parameeter (puudub/vigane -> $default) */
+    public function queryInt(string $name, ?int $default = null): ?int
+    {
+        $v = $this->query[$name] ?? null;
+        return $v !== null && preg_match('/^\d{1,10}$/', $v) ? (int) $v : $default;
     }
 
     public function header(string $name): ?string

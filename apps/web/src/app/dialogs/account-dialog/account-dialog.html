@@ -1,0 +1,66 @@
+@let u = session.user();
+<h2 mat-dialog-title>Minu konto</h2>
+<mat-dialog-content class="body">
+  @if (u) {
+    <p class="who">
+      <span class="name">{{ u.name || u.email }}</span>
+      <span class="meta">{{ u.email }} · {{ u.tenant.name }} · {{ roleLabels[u.role] }}</span>
+    </p>
+  }
+  <mat-tab-group animationDuration="0ms" mat-stretch-tabs="false">
+    <mat-tab label="Muuda parooli">
+      <form class="pw" (ngSubmit)="changePassword()" #f="ngForm">
+        <!-- peidetud kasutajanimi aitab paroolihalduril õige konto leida -->
+        <input type="email" name="username" autocomplete="username" [value]="u?.email ?? ''" hidden />
+        <mat-form-field>
+          <mat-label>Praegune parool</mat-label>
+          <input matInput type="password" name="current" autocomplete="current-password" required [(ngModel)]="current" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Uus parool</mat-label>
+          <input matInput type="password" name="next" autocomplete="new-password" required minlength="10" [(ngModel)]="next" />
+          <mat-hint>Vähemalt 10 märki</mat-hint>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Uus parool uuesti</mat-label>
+          <input matInput type="password" name="repeat" autocomplete="new-password" required [(ngModel)]="repeat" />
+        </mat-form-field>
+        @if (error()) {
+          <p class="err" role="alert">{{ error() }}</p>
+        }
+        @if (done()) {
+          <p class="ok" role="status"><mat-icon>check_circle</mat-icon> Parool on muudetud.</p>
+        }
+        @if (busy()) { <mat-progress-bar mode="indeterminate" /> }
+        <div class="actions">
+          <button mat-flat-button type="submit" [disabled]="busy() || !f.valid">Muuda parooli</button>
+        </div>
+      </form>
+    </mat-tab>
+    <mat-tab label="Viimased sisselogimised">
+      @if (eventsError()) {
+        <p class="err" role="alert">{{ eventsError() }}</p>
+      } @else if (events() === null) {
+        <mat-progress-bar mode="indeterminate" />
+      } @else {
+        <ul class="events">
+          @for (e of events(); track e.id) {
+            <li [class]="'tone-' + info[e.type].tone">
+              <mat-icon>{{ info[e.type].icon }}</mat-icon>
+              <div class="ev">
+                <span class="label">{{ info[e.type].label }}@if (e.detail) { <span class="detail"> · {{ e.detail }}</span> }</span>
+                <span class="meta">{{ date(e.at) | date: 'dd.MM.yyyy HH:mm' }} · {{ e.ip }}@if (ua(e.userAgent)) { · {{ ua(e.userAgent) }} }</span>
+              </div>
+            </li>
+          } @empty {
+            <li class="empty">Sündmusi pole veel.</li>
+          }
+        </ul>
+        <p class="hint">Kui näed sisselogimist, mida sina ei teinud, muuda kohe parooli ja anna adminile teada.</p>
+      }
+    </mat-tab>
+  </mat-tab-group>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="null">Sulge</button>
+</mat-dialog-actions>

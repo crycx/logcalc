@@ -20,7 +20,7 @@ final class Auth
     private array|null|false $current = false;
 
     /** @param array<string, mixed> $cfg session seadistus */
-    public function __construct(private readonly PDO $db, private readonly array $cfg)
+    public function __construct(private readonly PDO $db, private readonly array $cfg, private readonly AuthLog $log)
     {
     }
 
@@ -80,23 +80,30 @@ final class Auth
     /** @return array<string, mixed> */
     public function login(string $email, string $password, string $ip): array
     {
+        $st = $this->db->prepare('SELECT id, tenant_id, password_hash, active FROM users WHERE email = ?');
+        $st->execute([$email]);
+        $row = $st->fetch() ?: null;
+        $uid = $row ? (int) $row['id'] : null;
+        $tid = $row ? (int) $row['tenant_id'] : null;
+
         $since = gmdate('Y-m-d H:i:s', time() - self::FAIL_WINDOW_MIN * 60);
         $st = $this->db->prepare('SELECT COUNT(*) FROM login_attempts WHERE success = 0 AND at > ? AND (email = ? OR ip = ?)');
         $st->execute([$since, $email, $ip]);
         if ((int) $st->fetchColumn() >= self::MAX_FAILS) {
+            $this->log->record('login_blocked', $uid, $tid, $email, null, 'liiga palju katseid');
             throw new HttpException(429, 'Liiga palju ebaõnnestunud katseid. Proovi ' . self::FAIL_WINDOW_MIN . ' minuti pärast uuesti.');
         }
 
-        $st = $this->db->prepare('SELECT id, password_hash, active FROM users WHERE email = ?');
-        $st->execute([$email]);
-        $row = $st->fetch() ?: null;
         $hash = $row['password_hash'] ?? null;
-        $ok = password_verify($password, is_string($hash) && $hash !== '' ? $hash : self::DUMMY_HASH)
-            && $row !== null && (int) $row['active'] === 1 && is_string($hash) && $hash !== '';
+        $hasHash = is_string($hash) && $hash !== '';
+        $pwOk = password_verify($password, $hasHash ? $hash : self::DUMMY_HASH) && $hasHash;
+        $ok = $pwOk && $row !== null && (int) $row['active'] === 1;
 
         $this->db->prepare('INSERT INTO login_attempts (email, ip, success, at) VALUES (?, ?, ?, ?)')
             ->execute([$email, $ip, $ok ? 1 : 0, gmdate('Y-m-d H:i:s')]);
         if (!$ok) {
+            $why = $row === null ? 'tundmatu e-post' : (!$hasHash ? 'parool määramata' : (!$pwOk ? 'vale parool' : 'kasutaja välja lülitatud'));
+            $this->log->record('login_failed', $uid, $tid, $email, null, $why);
             throw new HttpException(401, 'Vale e-post või parool.');
         }
 
@@ -107,6 +114,8 @@ final class Auth
         $this->db->prepare('UPDATE users SET last_login_at = ? WHERE id = ?')->execute([gmdate('Y-m-d H:i:s'), $id]);
         // vanad katsed ära (hoiab tabeli väikese)
         $this->db->prepare('DELETE FROM login_attempts WHERE at < ?')->execute([gmdate('Y-m-d H:i:s', time() - 86400)]);
+        $this->log->record('login', $id, $tid, $email);
+        $this->log->prune();
 
         session_regenerate_id(true);
         $_SESSION['uid'] = $id;
@@ -116,6 +125,10 @@ final class Auth
 
     public function logout(): void
     {
+        $u = $this->user();
+        if ($u) {
+            $this->log->record('logout', $u['id'], $u['tenant_id'], (string) $u['email']);
+        }
         $_SESSION = [];
         if (session_status() === PHP_SESSION_ACTIVE) {
             $p = session_get_cookie_params();
@@ -129,6 +142,11 @@ final class Auth
             session_destroy();
         }
         $this->current = null;
+    }
+
+    public function log(): AuthLog
+    {
+        return $this->log;
     }
 
     public function verifyPassword(int $userId, string $password): bool

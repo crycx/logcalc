@@ -30,5 +30,8 @@ return [
         'https://uuslogcalc.sinpal.ee',
     ],
 
+    // Sisselogimiste logi (IP, brauser) säilitusaeg päevades; 0 = ei kustutata
+    'auth_log_days' => 365,
+
     'debug' => false,
 ];

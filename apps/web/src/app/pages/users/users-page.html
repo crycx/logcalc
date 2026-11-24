@@ -1,0 +1,182 @@
+<mat-toolbar class="topbar">
+  <a mat-button routerLink="/" class="back" matTooltip="Tagasi kalkulaatorisse"><mat-icon>arrow_back</mat-icon> LogCalc</a>
+  <span class="title">Kasutajad</span>
+  <span class="spacer"></span>
+  @if (session.user(); as u) {
+    <button mat-button [matMenuTriggerFor]="userMenu" class="user-btn">
+      <mat-icon>account_circle</mat-icon> {{ u.name || u.email }}
+    </button>
+    <mat-menu #userMenu="matMenu">
+      <div class="user-info" mat-menu-item disabled>
+        <span>{{ u.email }}</span>
+        <span class="menu-note">{{ u.tenant.name }} · {{ roleLabels[u.role] }}</span>
+      </div>
+      <mat-divider />
+      <button mat-menu-item (click)="openAccount()"><mat-icon>manage_accounts</mat-icon> Minu konto</button>
+      <button mat-menu-item (click)="logout()"><mat-icon>logout</mat-icon> Logi välja</button>
+    </mat-menu>
+  }
+</mat-toolbar>
+
+<main class="page">
+  <mat-tab-group [selectedIndex]="tab()" (selectedIndexChange)="tab.set($event)" animationDuration="0ms" mat-stretch-tabs="false">
+    <!-- ======================================================== Kasutajad -->
+    <mat-tab>
+      <ng-template mat-tab-label>Kasutajad <span class="count">{{ activeCount() }}</span></ng-template>
+      <section class="bar">
+        <mat-form-field class="search" subscriptSizing="dynamic">
+          <mat-icon matPrefix>search</mat-icon>
+          <mat-label>Otsi</mat-label>
+          <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Nimi, e-post või ettevõte" />
+        </mat-form-field>
+        <mat-slide-toggle [checked]="showInactive()" (change)="showInactive.set($event.checked)">Näita välja lülitatuid</mat-slide-toggle>
+        <span class="spacer"></span>
+        <button mat-flat-button (click)="addUser()"><mat-icon>person_add</mat-icon> Lisa kasutaja</button>
+      </section>
+
+      @if (usersLoading()) { <mat-progress-bar mode="indeterminate" /> }
+      @if (usersError()) { <p class="err" role="alert">{{ usersError() }}</p> }
+
+      <div class="table-wrap">
+        <table class="grid users">
+          <thead>
+            <tr>
+              <th>Kasutaja</th>
+              @if (multiTenant()) { <th>Ettevõte</th> }
+              <th>Roll</th>
+              <th>Olek</th>
+              <th>Viimati sees</th>
+              <th class="num">Maju</th>
+              <th class="actions"><span class="sr-only">Tegevused</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of filtered(); track u.id) {
+              <tr [class.inactive]="!u.active">
+                <td>
+                  <div class="who">
+                    <span class="name">{{ u.name || '—' }} @if (isMe(u)) { <span class="me">sina</span> }</span>
+                    <span class="email">{{ u.email }}</span>
+                  </div>
+                </td>
+                @if (multiTenant()) { <td>{{ u.tenant.name }}</td> }
+                <td><span class="role" [class]="'role role-' + u.role">{{ roleLabels[u.role] }}</span></td>
+                <td>
+                  @if (u.active) {
+                    <span class="state on"><mat-icon>check_circle</mat-icon> Aktiivne</span>
+                  } @else {
+                    <span class="state off"><mat-icon>block</mat-icon> Välja lülitatud</span>
+                  }
+                </td>
+                <td class="when">
+                  @if (u.lastLoginAt) {
+                    {{ date(u.lastLoginAt) | date: 'dd.MM.yyyy HH:mm' }}
+                  } @else {
+                    <span class="muted">pole sisse loginud</span>
+                  }
+                </td>
+                <td class="num">{{ u.projectCount }}</td>
+                <td class="actions">
+                  @if (canManage(u)) {
+                    <button mat-icon-button (click)="edit(u)" matTooltip="Muuda nime ja rolli" [attr.aria-label]="'Muuda: ' + u.email"><mat-icon>edit</mat-icon></button>
+                    <button mat-icon-button [matMenuTriggerFor]="rowMenu" [attr.aria-label]="'Rohkem: ' + u.email"><mat-icon>more_vert</mat-icon></button>
+                    <mat-menu #rowMenu="matMenu">
+                      <button mat-menu-item (click)="resetPassword(u)"><mat-icon>lock_reset</mat-icon> Määra uus parool</button>
+                      <button mat-menu-item (click)="showLog(u)"><mat-icon>history</mat-icon> Vaata logi</button>
+                      @if (!isMe(u)) {
+                        <mat-divider />
+                        @if (u.active) {
+                          <button mat-menu-item (click)="toggleActive(u)" class="danger"><mat-icon>person_off</mat-icon> Lülita välja</button>
+                        } @else {
+                          <button mat-menu-item (click)="toggleActive(u)"><mat-icon>person_check</mat-icon> Aktiveeri</button>
+                        }
+                      }
+                    </mat-menu>
+                  } @else {
+                    <button mat-icon-button (click)="showLog(u)" matTooltip="Vaata logi" [attr.aria-label]="'Logi: ' + u.email"><mat-icon>history</mat-icon></button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              @if (!usersLoading()) {
+                <tr><td [attr.colspan]="multiTenant() ? 7 : 6" class="empty">Kasutajaid ei leitud.</td></tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </mat-tab>
+
+    <!-- ======================================================== Logi -->
+    <mat-tab label="Sisselogimiste logi">
+      <section class="bar">
+        <mat-button-toggle-group [value]="eventType()" (change)="setEventType($event.value)" aria-label="Sündmuste filter" hideSingleSelectionIndicator>
+          <mat-button-toggle value="">Kõik</mat-button-toggle>
+          <mat-button-toggle value="login">Sisselogimised</mat-button-toggle>
+          <mat-button-toggle value="failed">Ebaõnnestunud</mat-button-toggle>
+          <mat-button-toggle value="admin">Haldus</mat-button-toggle>
+        </mat-button-toggle-group>
+        <mat-form-field class="who-filter" subscriptSizing="dynamic">
+          <mat-label>Kasutaja</mat-label>
+          <mat-select [value]="eventUser()" (selectionChange)="setEventUser($event.value)">
+            <mat-option [value]="null">Kõik kasutajad</mat-option>
+            @for (u of users(); track u.id) {
+              <mat-option [value]="u.id">{{ u.name || u.email }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <span class="spacer"></span>
+        <button mat-icon-button (click)="loadEvents()" matTooltip="Värskenda" aria-label="Värskenda logi"><mat-icon>refresh</mat-icon></button>
+      </section>
+
+      @if (eventsLoading()) { <mat-progress-bar mode="indeterminate" /> }
+      @if (eventsError()) { <p class="err" role="alert">{{ eventsError() }}</p> }
+
+      <div class="table-wrap">
+        <table class="grid events">
+          <thead>
+            <tr>
+              <th>Aeg</th>
+              <th>Kasutaja</th>
+              <th>Sündmus</th>
+              <th>IP</th>
+              <th>Brauser</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of events(); track e.id) {
+              <tr [class]="'tone-' + info[e.type].tone">
+                <td class="when">{{ date(e.at) | date: 'dd.MM.yyyy HH:mm:ss' }}</td>
+                <td>
+                  <div class="who">
+                    <span class="name">{{ e.user?.name || e.user?.email || e.email }}</span>
+                    @if (e.user?.name || !e.user) {
+                      <span class="email">{{ e.user ? e.user.email : 'tundmatu kasutaja' }}@if (multiTenant() && e.tenant) { · {{ e.tenant }} }</span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <span class="ev"><mat-icon>{{ info[e.type].icon }}</mat-icon> {{ info[e.type].label }}</span>
+                  @let d = eventDetail(e);
+                  @if (d) { <span class="detail">{{ d }}</span> }
+                </td>
+                <td class="ip">{{ e.ip }}</td>
+                <td class="ua" [matTooltip]="e.userAgent" matTooltipShowDelay="400">{{ ua(e.userAgent) || '—' }}</td>
+              </tr>
+            } @empty {
+              @if (!eventsLoading()) {
+                <tr><td colspan="5" class="empty">Sündmusi ei leitud{{ eventUser() ? ': ' + userLabel(eventUser()) : '' }}.</td></tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (eventsMore()) {
+        <div class="more">
+          <button mat-stroked-button (click)="loadEvents(true)" [disabled]="eventsLoading()">Näita vanemaid</button>
+        </div>
+      }
+      <p class="hint">Logi hoitakse 12 kuud. IP-aadress ja brauser aitavad tuvastada võõraid sisselogimisi.</p>
+    </mat-tab>
+  </mat-tab-group>
+</main>

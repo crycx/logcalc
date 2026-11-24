@@ -11,16 +11,18 @@ Eesmärk: palkmaja materjalikulu ja tootmisandmed otse mõõtudest, ilma Revitis
 - Veebirakendus (`apps/web`, Angular Material): kalkulaator, joonised mõõtjoontega, sisselogimine,
   majade salvestamine ja jagamine, ettevõtte hinnakiri, uste/akende kataloog ja arvutuse seaded.
 - Backend (`apps/api`, PHP 8 + MySQL): kliendid (tenant), kasutajad, rollid, majad, jagamine.
+- Seinamudel kasutajaliideses: avade sein/kaugus/kõrgus põrandast, kopeerimine, külgvaated B/A, lõikenimekiri.
+- **Kasutajate haldus** (`/kasutajad`, admin/superadmin): lisamine juhusliku algparooliga, nimi/roll,
+  uus parool, välja lülitamine (seanss lõpeb kohe). **Sisselogimiste logi** (`auth_events`): sisse/välja,
+  ebaõnnestunud (põhjusega), blokeeritud, halduse muudatused koos tegijaga, IP ja brauser; hoitakse 12 kuud
+  (`auth_log_days`). „Minu konto“: parooli muutmine ja oma viimased sisselogimised. Test: `apps/api/tests/users.sh`.
 
 ## Järgmised sammud
 
-1. **Seinamudel kasutajaliideses** – avade sein/kaugus/aknalaua kõrgus, joonis mudelist, vaheleht „Lõikenimekiri“ (prinditav).
-2. **Vabakujuline plaan** – seinte graaf: vaheseinad, L-kuju, terrass/veranda, mitu viilu.
+1. **Vabakujuline plaan** – seinte graaf: vaheseinad, L-kuju, terrass/veranda, mitu viilu.
    Testjuhtumid Revit-joonistest: Nora I (garaaž, keskviil), Boden II (veranda, magamislava), Lund (terrass, viiluga vahesein).
-3. **Kasutajate haldus (admin)** – kasutajate lisamine, rollid, parooli lähtestamine, välja lülitamine
-   (backend `/api/users` olemas, puudub kasutajaliides) + **sisselogimiste logi** (kes, millal, IP, brauser).
-4. **3D vaade** samast mudelist (Three.js).
-5. Google'i sisselogimine; PDF-pakkumised.
+2. **3D vaade** samast mudelist (Three.js).
+3. Google'i sisselogimine; PDF-pakkumised; parooli taastamine e-postiga (vajab e-posti saatmist serverist).
 
 ## Pikaajaline eesmärk: CNC-/masinafailid
 

@@ -1,0 +1,62 @@
+<h2 mat-dialog-title>{{ isNew ? 'Uus kasutaja' : 'Muuda kasutajat' }}</h2>
+<form (ngSubmit)="submit()" #f="ngForm">
+  <mat-dialog-content class="body">
+    <mat-form-field>
+      <mat-label>E-post</mat-label>
+      <input matInput type="email" name="email" autocomplete="off" required email [(ngModel)]="email" [disabled]="!isNew" cdkFocusInitial />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Nimi</mat-label>
+      <input matInput name="name" maxlength="120" autocomplete="off" [(ngModel)]="name" />
+    </mat-form-field>
+    <div class="pair">
+      <mat-form-field>
+        <mat-label>Roll</mat-label>
+        <mat-select name="role" [(ngModel)]="role">
+          @for (r of data.roles; track r) {
+            <mat-option [value]="r">{{ roleLabels[r] }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>{{ role === 'user' ? 'Arvutab ja salvestab oma maju' : role === 'admin' ? 'Lisaks: kasutajad, hinnad, kataloog' : 'Kõik ettevõtted' }}</mat-hint>
+      </mat-form-field>
+      @if (isNew && data.tenants?.length) {
+        <mat-form-field>
+          <mat-label>Ettevõte</mat-label>
+          <mat-select name="tenant" [(ngModel)]="tenantId">
+            @for (t of data.tenants; track t.id) {
+              <mat-option [value]="t.id">{{ t.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+    </div>
+
+    @if (isNew) {
+      <mat-form-field class="pw">
+        <mat-label>Algne parool</mat-label>
+        <input matInput name="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password" required minlength="10"
+          [(ngModel)]="password" (ngModelChange)="copied.set(false)" />
+        <button mat-icon-button matSuffix type="button" (click)="showPassword.set(!showPassword())" [matTooltip]="showPassword() ? 'Peida' : 'Näita'"
+          [attr.aria-label]="showPassword() ? 'Peida parool' : 'Näita parooli'">
+          <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <button mat-icon-button matSuffix type="button" (click)="copy()" [matTooltip]="copied() ? 'Kopeeritud' : 'Kopeeri'" aria-label="Kopeeri parool">
+          <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+        </button>
+        <button mat-icon-button matSuffix type="button" (click)="regenerate()" matTooltip="Uus juhuslik parool" aria-label="Genereeri uus parool">
+          <mat-icon>autorenew</mat-icon>
+        </button>
+        <mat-hint>Vähemalt 10 märki. Anna see kasutajale turvaliselt edasi – kasutaja saab selle hiljem ise muuta.</mat-hint>
+      </mat-form-field>
+    }
+
+    @if (error()) {
+      <p class="err" role="alert">{{ error() }}</p>
+    }
+  </mat-dialog-content>
+  @if (busy()) { <mat-progress-bar mode="indeterminate" /> }
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" [mat-dialog-close]="null">Loobu</button>
+    <button mat-flat-button type="submit" [disabled]="busy() || !f.valid">{{ isNew ? 'Lisa kasutaja' : 'Salvesta' }}</button>
+  </mat-dialog-actions>
+</form>

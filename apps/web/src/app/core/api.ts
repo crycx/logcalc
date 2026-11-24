@@ -68,6 +68,65 @@ export interface Tenant {
   settings: TenantSettings;
 }
 
+/** Kasutajahalduse vaade kasutajast */
+export interface ManagedUser {
+  id: number;
+  email: string;
+  name: string;
+  role: Role;
+  active: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  tenant: { id: number; name: string };
+  projectCount: number;
+}
+
+export interface NewUser {
+  email: string;
+  name: string;
+  role: Role;
+  password: string;
+  tenantId?: number;
+}
+
+export type UserPatch = Partial<{ name: string; role: Role; active: boolean; password: string }>;
+
+export type AuthEventType =
+  | 'login'
+  | 'login_failed'
+  | 'login_blocked'
+  | 'logout'
+  | 'password_changed'
+  | 'password_reset'
+  | 'user_created'
+  | 'user_updated';
+
+/** Sisselogimise või kasutajahalduse sündmus */
+export interface AuthEvent {
+  id: number;
+  type: AuthEventType;
+  at: string;
+  ip: string;
+  userAgent: string;
+  detail: string;
+  /** sisestatud e-post (ka tundmatu kasutaja korral) – ainult halduse logis */
+  email?: string;
+  user?: { id: number; name: string; email: string } | null;
+  /** kes muudatuse tegi (admin) */
+  actor?: { id: number; name: string; email: string } | null;
+  tenant?: string | null;
+}
+
+/** Logi filter: üks tüüp või rühm */
+export type AuthEventFilter = '' | 'failed' | 'admin' | AuthEventType;
+
+export interface TenantSummary {
+  id: number;
+  slug: string;
+  name: string;
+  users: number;
+}
+
 /** CSRF: kõik /api päringud saavad X-Requested-With päise (server nõuab seda muutvatel päringutel). */
 export const apiInterceptor: HttpInterceptorFn = (req, next) =>
   req.url.startsWith('/api/') ? next(req.clone({ setHeaders: { 'X-Requested-With': 'logcalc' } })) : next(req);
@@ -115,6 +174,30 @@ export class Api {
     return (await firstValueFrom(this.http.delete<{ shares: Share[] }>(`/api/projects/${projectId}/shares/${userId}`))).shares;
   }
 
+  async users(): Promise<ManagedUser[]> {
+    return (await firstValueFrom(this.http.get<{ users: ManagedUser[] }>('/api/users'))).users;
+  }
+  async createUser(u: NewUser): Promise<ManagedUser> {
+    return (await firstValueFrom(this.http.post<{ user: ManagedUser }>('/api/users', u))).user;
+  }
+  async updateUser(id: number, patch: UserPatch): Promise<ManagedUser> {
+    return (await firstValueFrom(this.http.patch<{ user: ManagedUser }>(`/api/users/${id}`, patch))).user;
+  }
+  async authEvents(q: { type?: AuthEventFilter; userId?: number | null; before?: number; limit?: number } = {}): Promise<{ events: AuthEvent[]; more: boolean }> {
+    const params: Record<string, string> = {};
+    if (q.type) params['type'] = q.type;
+    if (q.userId) params['userId'] = String(q.userId);
+    if (q.before) params['before'] = String(q.before);
+    if (q.limit) params['limit'] = String(q.limit);
+    return firstValueFrom(this.http.get<{ events: AuthEvent[]; more: boolean }>('/api/auth-events', { params }));
+  }
+  async myEvents(limit = 20): Promise<AuthEvent[]> {
+    return (await firstValueFrom(this.http.get<{ events: AuthEvent[] }>('/api/auth/events', { params: { limit: String(limit) } }))).events;
+  }
+  async tenants(): Promise<TenantSummary[]> {
+    return (await firstValueFrom(this.http.get<{ tenants: TenantSummary[] }>('/api/tenants'))).tenants;
+  }
+
   async tenant(): Promise<Tenant> {
     return (await firstValueFrom(this.http.get<{ tenant: Tenant }>('/api/tenant'))).tenant;
   }
@@ -133,8 +216,15 @@ export class Session {
   /** true kui /auth/me on vastanud (või serveriga ei saanud ühendust) */
   readonly ready = signal(false);
   readonly isAdmin = computed(() => ['admin', 'superadmin'].includes(this.user()?.role ?? ''));
+  readonly isSuperadmin = computed(() => this.user()?.role === 'superadmin');
+  private loading: Promise<void> | null = null;
 
-  async init(): Promise<void> {
+  /** Laeb seansi üks kord (korduv kutse ootab sama päringut) */
+  init(): Promise<void> {
+    return (this.loading ??= this.load());
+  }
+
+  private async load(): Promise<void> {
     try {
       const u = await this.api.me();
       this.user.set(u);

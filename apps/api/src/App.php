@@ -23,7 +23,7 @@ final class App
             self::guardCsrf($req, $cfg);
 
             $db = Db::connect($cfg['db']);
-            $auth = new Auth($db, $cfg['session'] ?? []);
+            $auth = new Auth($db, $cfg['session'] ?? [], AuthLog::fromRequest($db, $req, (int) ($cfg['auth_log_days'] ?? 365)));
             $auth->startSession();
 
             $authApi = new AuthApi($db, $auth);
@@ -38,6 +38,7 @@ final class App
                 ['POST', '/auth/login', $authApi->login(...)],
                 ['POST', '/auth/logout', $authApi->logout(...)],
                 ['POST', '/auth/password', $authApi->changePassword(...)],
+                ['GET', '/auth/events', $authApi->myEvents(...)],
                 ['GET', '/projects', $projects->list(...)],
                 ['POST', '/projects', $projects->create(...)],
                 ['GET', '/projects/{id}', $projects->get(...)],
@@ -53,6 +54,7 @@ final class App
                 ['GET', '/users', $users->list(...)],
                 ['POST', '/users', $users->create(...)],
                 ['PATCH', '/users/{id}', $users->update(...)],
+                ['GET', '/auth-events', $users->events(...)],
             ];
 
             $pathMatched = false;

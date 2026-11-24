@@ -17,6 +17,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { RouterLink } from '@angular/router';
 import { CalcInputError, DEFAULT_CONSTANTS, calculateHouse, type CalcResult, type PriceList } from '@logcalc/calc-engine';
 import { firstValueFrom, map } from 'rxjs';
 import { Api, Session, type ProjectAccess, type TenantConstants } from '../../core/api';
@@ -24,7 +25,9 @@ import { formatPieces } from '../../helpers/format';
 import { apiError } from '../../helpers/http';
 import { stableStringify } from '../../helpers/json';
 import { storageGet, storageSet } from '../../helpers/storage';
+import { AccountDialog } from '../../dialogs/account-dialog/account-dialog';
 import { confirmDialog } from '../../dialogs/confirm-dialog/confirm-dialog';
+import { ROLE_LABELS } from '../../helpers/auth-events';
 import { LoginDialog } from '../../dialogs/login-dialog/login-dialog';
 import { NameDialog, type NameDialogData } from '../../dialogs/name-dialog/name-dialog';
 import { ProjectsDialog } from '../../dialogs/projects-dialog/projects-dialog';
@@ -81,6 +84,7 @@ function houseData(v: HouseFormValue): HouseData {
   selector: 'app-calculator-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    RouterLink,
     DecimalPipe,
     ReactiveFormsModule,
     MatToolbarModule,
@@ -276,6 +280,12 @@ export class CalculatorPage {
   }
 
   // ------------------------------------------------------------ sisselogimine
+  protected readonly roleLabels = ROLE_LABELS;
+
+  protected openAccount(): void {
+    this.dialog.open(AccountDialog, { width: '560px', maxWidth: '94vw', autoFocus: 'dialog' });
+  }
+
   protected async openLogin(): Promise<void> {
     const ok = await firstValueFrom(this.dialog.open(LoginDialog, { width: '420px', maxWidth: '94vw', autoFocus: 'first-tabbable' }).afterClosed());
     if (ok) {
