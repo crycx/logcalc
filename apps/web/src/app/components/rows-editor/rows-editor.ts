@@ -47,6 +47,12 @@ export class RowsEditor {
     this.rows().push(buildRow(this.fb));
   }
 
+  /** Rea koopia kohe selle alla: samad mõõdud, mudel, sein ja kõrgus; kaugus automaatne (muuda seina) */
+  duplicate(i: number): void {
+    const v = this.rows().at(i).getRawValue();
+    this.rows().insert(i + 1, buildRow(this.fb, { ...v, offset: null }));
+  }
+
   remove(i: number): void {
     this.rows().removeAt(i);
   }

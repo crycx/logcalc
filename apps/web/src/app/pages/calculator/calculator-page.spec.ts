@@ -199,6 +199,28 @@ describe('CalculatorPage', () => {
       expect(el.querySelectorAll('app-house-drawing rect.window').length).toBe(1);
     });
 
+    it('akna kopeerimine: koopia rea alla, kaugus automaatne; teisele seinale -> materjalides 2 akna rida', async () => {
+      const fixture = await create(ADMIN);
+      const page = fixture.componentInstance as unknown as { form: HouseForm };
+      const fb = TestBed.inject(NonNullableFormBuilder);
+      setFormValue(fb, page.form, normalizeHouse({
+        roofType: 'mono', width: 3553, depth: 2943, frontBackWallHeight: 2223, roofHeight: 1881, logThickness: 28,
+        doors: [{ a: 1440, b: 1995, count: 1 }], windows: [{ a: 920, b: 456, count: 1, wall: 'A', offset: 1000, sill: 1368 }],
+      }));
+      await fixture.whenStable();
+      const el: HTMLElement = fixture.nativeElement;
+      const copies = Array.from(el.querySelectorAll('app-rows-editor button.copy')) as HTMLButtonElement[];
+      expect(copies.length).toBe(2); // uks + aken
+      copies[1]!.click();
+      await fixture.whenStable();
+      const w = page.form.controls.windows.getRawValue();
+      expect(w.length).toBe(2);
+      expect(w[1]).toMatchObject({ a: 920, b: 456, count: 1, wall: 'A', offset: null, sill: 1368 });
+      page.form.controls.windows.at(1).controls.wall.setValue('B');
+      await fixture.whenStable();
+      expect(bomRows(el).filter((t) => t.includes('Aken 920') && t.includes('1 tk')).length).toBe(2);
+    });
+
     it('arvutab ümber ja näitab viga vigase sisendi korral', async () => {
       const fixture = await create(ADMIN);
       const input = fixture.nativeElement.querySelector('input[formcontrolname="logHeight"]') as HTMLInputElement;

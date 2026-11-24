@@ -50,6 +50,9 @@
           <mat-label>Põrandast, mm</mat-label>
           <input matInput type="number" min="0" [formControl]="row.controls.sill" [placeholder]="auto ? 'auto ' + (auto.sill | number: '1.0-0') : 'auto'" />
         </mat-form-field>
+        <button mat-icon-button type="button" class="copy" (click)="duplicate(i)" [disabled]="row.disabled" matTooltip="Kopeeri (nt teisele seinale)" [attr.aria-label]="'Kopeeri rida ' + (i + 1)">
+          <mat-icon>content_copy</mat-icon>
+        </button>
       </div>
     }
   </div>
