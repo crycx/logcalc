@@ -60,6 +60,11 @@ export interface Railing {
 export interface HousePlan {
   nodes: PlanNode[];
   walls: PlanWall[];
+  /**
+   * Mis suunas seinad algavad poole palgiga (BL): 'x' = laiuse suunas (Nora, Lund, Boden; vaikimisi),
+   * 'y' = sügavuse suunas (Gable Sauna 3). Ristuvad seinad algavad täispalgiga.
+   */
+  halfStart?: 'x' | 'y';
 }
 
 /** Seina asend ja palgi geomeetria graafist */

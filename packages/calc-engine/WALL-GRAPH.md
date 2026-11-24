@@ -16,7 +16,11 @@ ainult täisnurgad (x- või y-suunas). Seina kõrvalt vaadates kulgeb x sõlmest
   vahesein välisseina ja ulatub 100 välja (kinnitatud). Sälk tekib ainult ridades, kus ristuval seinal
   liite kohal palk on (nt keskviil sälgub külgseina ainult ülemistes ridades).
 - **Pikk sein**: palk max 6 m (`maxLogLength`); pikem jätkatakse vaheseina kohalt, read vaheliti eri
-  vaheseintes (kinnitatud).
+  vaheseintes (kinnitatud). Viktra Gable Sauna 3 (250x760, viktra.ee joonis 92503059): 7800 külgsein
+  jätkatud otsapidi vaheseinte **kesktelgedel** (2580 / 4580), BL ja paaris read keskele lähemas
+  vaheseinas, paaritud read ja TL teises – mudel annab täpselt samad tükid.
+- **Poole palgiga algus**: plaani valik `halfStart` – tavaliselt x-suunas seinad (Nora, Lund, Boden),
+  Gable Sauna 3-l hoopis pikad seinad A/B.
 - **Seina vaade (elevation)** = palgiread alt üles miinus **tühjad alad** (ristkülikud seina koordinaatides):
   uksed, aknad, lahtine osa (terrass/veranda), piirde vahed, „ainult viil“ alumine osa.
   Lõikenimekiri: iga rida lõigatakse tühjade aladega tükkideks; tüki **sälkude arv** = liidete arv tüki sees

@@ -172,8 +172,8 @@ export function buildWalls(
     }
     let n: number;
     if (sideRule) {
-      // külgsein: floor(h/p) − (murdosa ? 1 : 0)  (QUESTIONS.md K2)
-      const cs = splitCourses(height, p);
+      // külgsein: floor(h/p) − (murdosa ? 1 : 0)  (QUESTIONS.md K2); poole palgiga algus arvestatud
+      const cs = splitCourses(height - y, p);
       n = cs.full - (cs.frac > 0 ? 1 : 0);
     } else {
       // esi/tagasein: read kuni kõrguseni, osaline rida = terve rida (D1)
@@ -242,8 +242,11 @@ export function buildWalls(
   const monoHeight = (y: number) =>
     yFront - yBack < EPS ? input.frontBackWallHeight : input.roofHeight + ((y - yBack) / (yFront - yBack)) * (input.frontBackWallHeight - input.roofHeight);
   // viiluta x-suunas vahesein ulatub külgseinte täisridade peale + ½ palki (Boden 2: 19 rida + ½ = 2223)
-  const sideCs = splitCourses(input.sideWallHeight, p);
-  const sideTop = (sideCs.full - (sideCs.frac > 0 ? 1 : 0)) * p;
+  // poole palgiga algavad x-suunas seinad (Nora, Lund, Boden) või y-suunas (Gable Sauna 3)
+  const halfX = (plan.halfStart ?? 'x') === 'x';
+  const sideBase = halfX ? 0 : p / 2;
+  const sideCs = splitCourses(input.sideWallHeight - sideBase, p);
+  const sideTop = sideBase + (sideCs.full - (sideCs.frac > 0 ? 1 : 0)) * p;
 
   const specs = geo.map((g): WallSpec => {
     const w = planWalls.get(g.id)!;
@@ -253,17 +256,17 @@ export function buildWalls(
     const fullSpan = g.startExt > 0 && g.endExt > 0;
     let rows: WallRow[];
     if (w.height !== undefined) {
-      rows = heightRows(L, w.height, g.dir === 'x');
+      rows = heightRows(L, w.height, (g.dir === 'x') === halfX);
     } else if (gable && g.dir === 'x') {
       const carries = w.gable ?? (outerX && fullSpan);
       if (carries) {
-        rows = rectRows(L, input.frontBackWallHeight, true, false);
+        rows = rectRows(L, input.frontBackWallHeight, halfX, false);
         rows.push(...triangleRows(input.frontBackWallHeight));
       } else {
-        rows = rectRows(L, sideTop + p / 2, true, false);
+        rows = rectRows(L, sideTop + p / 2, halfX, false);
       }
     } else if (gable) {
-      rows = rectRows(L, input.sideWallHeight, false, true);
+      rows = rectRows(L, input.sideWallHeight, !halfX, true);
       if (outerY) extendTop(rows, L);
     } else if (g.dir === 'x') {
       rows = rectRows(L, monoHeight(g.a.y), true, false);

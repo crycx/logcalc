@@ -242,3 +242,40 @@ describe('pikk sein: max 6 m, jätk vaheseina kohalt, read vaheliti', () => {
     expect(r2.warnings.find((w) => w.code === 'wall.logTooLong')?.message).toContain('pikemad kui 6000');
   });
 });
+
+describe('Gable Sauna 3 40 (250x760, viktra.ee): 7,8 m külgsein jätkatud vaheseinte kohal', () => {
+  // Revit (Gable_Sauna_3_250x760_92503059_S_260212.pdf): seinad 2 ja 3 kesktelg 2580 / 4580 seina 1 otsast.
+  // A/B algavad poole palgiga; jätk: BL ja paaris read seinas 3, paaritud read ja TL seinas 2.
+  const D = 7800;
+  const p = plan(2700, D, [
+    { id: '4', y: J },
+    { id: '3', y: D - 4580, extra: { gable: true } },
+    { id: '2', y: D - 2580, extra: { gable: true } },
+    { id: '1', y: D - J },
+  ]);
+  p.halfStart = 'y';
+  const r = calculateHouse({
+    roofType: 'gable', lengthScenario: 'log', width: 2700, depth: D,
+    sideWallHeight: 2244, frontBackWallHeight: 2166, roofHeight: 2846, log: { thickness: 40, height: 114 },
+    longBoards: [{ length: 8000, height: 135, count: 2 }],
+    plan: p,
+  });
+
+  it('sein A: samad tükid mis Revitis', () => {
+    const A = r.cutList.find((c) => c.wall === 'A')!;
+    const exp = expand([
+      { profile: '40x57', count: 1, length: 4580 }, { profile: '40x57', count: 1, length: 3220 },
+      { profile: '40x114', count: 9, length: 2580 }, { profile: '40x114', count: 9, length: 5220 },
+      { profile: '40x114', count: 9, length: 4580 }, { profile: '40x114', count: 9, length: 3220 },
+      { profile: '40x135', count: 1, length: 2680 }, { profile: '40x135', count: 1, length: 5320 },
+    ]);
+    expect([...expand(A.pieces).entries()]).toEqual([...exp.entries()]);
+    expect(r.warnings.some((w) => w.code === 'wall.logTooLong')).toBe(false);
+  });
+
+  it('otsaseinad algavad täispalgiga (19 rida), A/B poole palgiga', () => {
+    const w1 = r.cutList.find((c) => c.wall === '1')!;
+    expect(w1.pieces.some((x) => x.profile === '40x57')).toBe(false);
+    expect(w1.pieces.find((x) => x.kind === 'log' && x.length === 2700)!.count).toBe(19);
+  });
+});
