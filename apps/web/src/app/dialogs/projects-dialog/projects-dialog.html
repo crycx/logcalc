@@ -13,6 +13,9 @@
       @for (p of g.items; track p.id) {
         <li>
           <button type="button" class="open" (click)="open(p)">
+            <app-roof-icon class="roof" [roofType]="p.roofType" [size]="28"
+              [matTooltip]="p.roofType === 'mono' ? 'Ühekaldeline' : p.roofType === 'gable' ? 'Viilkatus' : ''" />
+            <span class="text">
             <span class="name">
               {{ p.name }}
               @if (p.shareCount > 0 && p.access.manage) {
@@ -22,7 +25,9 @@
             </span>
             <span class="meta">
               {{ date(p.updatedAt) | date: 'dd.MM.yyyy HH:mm' }}
+              @if (p.size) { · {{ p.size.width }} × {{ p.size.depth }} }
               @if (p.access.via !== 'owner' && p.owner) { · {{ p.owner.name || p.owner.email }} }
+            </span>
             </span>
           </button>
           @if (p.access.manage) {

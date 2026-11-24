@@ -1,0 +1,13 @@
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  @if (roofType() === 'mono') {
+    <!-- ühekalle: kõrgem esisein vasakul, katus langeb paremale -->
+    <path class="wall" d="M5 9.5 V20 H19 V13" />
+    <path class="roof" d="M2.5 8.2 L21.5 13.8" />
+  } @else if (roofType() === 'gable') {
+    <!-- viilkatus -->
+    <path class="wall" d="M5 12 V20 H19 V12" />
+    <path class="roof" d="M2.5 13 L12 4.5 L21.5 13" />
+  } @else {
+    <path class="wall" d="M5 11 V20 H19 V11" />
+  }
+</svg>

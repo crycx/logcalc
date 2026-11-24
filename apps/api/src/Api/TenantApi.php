@@ -46,6 +46,9 @@ final class TenantApi
         if (array_key_exists('constants', $d)) {
             $settings['constants'] = self::numbers($d['constants'], self::CONSTANT_KEYS, 'constants');
         }
+        if (array_key_exists('catalog', $d)) {
+            $settings['catalog'] = self::catalog($d['catalog']);
+        }
         $this->db->prepare('UPDATE tenants SET settings = ? WHERE id = ?')
             ->execute([json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $u['tenant_id']]);
         return ['tenant' => $this->load($u['tenant_id'])];
@@ -89,6 +92,40 @@ final class TenantApi
         $r = $st->fetch() ?: throw new HttpException(404, 'Klienti ei leitud.');
         $settings = json_decode((string) $r['settings'], true);
         return ['id' => (int) $r['id'], 'slug' => $r['slug'], 'name' => $r['name'], 'settings' => is_array($settings) ? $settings : []];
+    }
+
+    /**
+     * Uste ja akende kataloog: { doors: [{name, width, height, price}], windows: [...] }
+     * @return array{doors: list<array<string, mixed>>, windows: list<array<string, mixed>>}
+     */
+    private static function catalog(mixed $v): array
+    {
+        if (!is_array($v)) {
+            throw new HttpException(422, "Väli 'catalog' peab olema objekt.");
+        }
+        $out = ['doors' => [], 'windows' => []];
+        foreach (['doors', 'windows'] as $kind) {
+            $list = $v[$kind] ?? [];
+            if (!is_array($list) || count($list) > 200) {
+                throw new HttpException(422, "Väli 'catalog.$kind' peab olema loend (max 200).");
+            }
+            foreach ($list as $i => $item) {
+                $name = is_array($item) ? trim((string) ($item['name'] ?? '')) : '';
+                if ($name === '' || mb_strlen($name) > 80) {
+                    throw new HttpException(422, "Kataloogi rida $kind.$i: nimi on kohustuslik (max 80 märki).");
+                }
+                $nums = [];
+                foreach (['width' => 20000, 'height' => 20000, 'price' => 1_000_000] as $k => $max) {
+                    $n = $item[$k] ?? 0;
+                    if ((!is_int($n) && !is_float($n)) || $n < 0 || $n > $max) {
+                        throw new HttpException(422, "Kataloogi rida $kind.$i: '$k' peab olema arv 0…$max.");
+                    }
+                    $nums[$k] = $k === 'price' ? round((float) $n, 2) : (int) round((float) $n);
+                }
+                $out[$kind][] = ['name' => $name] + $nums;
+            }
+        }
+        return $out;
     }
 
     /**

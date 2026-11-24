@@ -4,7 +4,7 @@ import { DEFAULT_CONSTANTS, type CalcResult } from '@logcalc/calc-engine';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 import type { HouseFormValue, RowValue } from '../../core/house-form';
 
-export type DrawingView = 'overview' | 'floor' | 'foundation';
+export type DrawingView = 'overview' | 'side' | 'floor' | 'foundation';
 
 interface Rect {
   x: number;
@@ -161,35 +161,83 @@ export class HouseDrawing {
     return { joists, ring, dims, label: `${f.joistCount} × ${Math.round(f.joistLength)} mm${ringNote}, vahe ${Math.round(f.spacing)} mm` };
   });
 
-  protected readonly elev = computed(() => {
+  /**
+   * Uksed ja aknad seinal 1 (esisein, laius W). Mudel asukohti veel ei tea –
+   * jaotatakse ühtlaselt; sama paigutust kasutavad plaan ja eestvaade.
+   */
+  protected readonly frontOpenings = computed(() => {
+    const v = this.v();
+    const W = this.r().dimensions.width;
+    const o = DEFAULT_CONSTANTS.cornerOverhang;
+    const units: { kind: 'door' | 'window'; w: number; h: number }[] = [];
+    const push = (kind: 'door' | 'window', list: RowValue[]) =>
+      list.forEach((x) => {
+        for (let i = 0; i < Math.min(x.count, 6); i++) if (x.a > 0 && x.b > 0) units.push({ kind, w: x.a, h: x.b });
+      });
+    push('door', v.doors);
+    push('window', v.windows);
+    const inner0 = o + v.logThickness;
+    const innerW = W - 2 * inner0;
+    const gap = units.length ? Math.max((innerW - units.reduce((sum, u) => sum + u.w, 0)) / (units.length + 1), 0) : 0;
+    let x = inner0 + gap;
+    return units.map((u) => {
+      const res = { ...u, x };
+      x += u.w + gap;
+      return res;
+    });
+  });
+
+  /** Plaan: avad seinal 1 (uks: ava + avanemiskaar, aken: topeltjoon) */
+  protected readonly planOpenings = computed(() => {
+    const { D, o, t } = this.plan();
+    const yIn = D - o - t; // siseserv
+    const yOut = D - o; // välisserv
+    return this.frontOpenings().map((u) => ({
+      kind: u.kind,
+      gap: { x: u.x, y: yIn, w: u.w, h: t },
+      // uks avaneb sissepoole: hing vasakul, leht + veerandkaar
+      swing: u.kind === 'door' ? `M${u.x},${yIn} L${u.x},${yIn - u.w} A${u.w},${u.w} 0 0 1 ${u.x + u.w},${yIn}` : null,
+      glass: u.kind === 'window' ? { x1: u.x, x2: u.x + u.w, y1: yIn + t / 3, y2: yOut - t / 3 } : null,
+    }));
+  });
+
+  /** Eestvaade: sein 1 (viilkatusel koos viiluga, ühekaldelisel kõrge esisein) */
+  protected readonly elev = computed(() => this.elevation('front'));
+  /** Külgvaade (ühekaldelise kolmnurk) */
+  protected readonly elevSide = computed(() => this.elevation('side'));
+
+  private elevation(kind: 'front' | 'side') {
     const v = this.v();
     const r = this.r();
     const gable = v.roofType === 'gable';
+    const side = kind === 'side' && !gable;
     const { width: W, depth: D } = r.dimensions;
     const p = Math.max(v.logHeight, 1);
     const t = v.logThickness;
     const o = DEFAULT_CONSTANTS.cornerOverhang;
     const ov = v.roofOn && v.roofOverhang > 0 ? v.roofOverhang : DEFAULT_CONSTANTS.defaultRoofOverhang;
-    const L = gable ? W : D; // joonise laius
-    const wallH = gable ? v.frontBackWallHeight : v.roofHeight - p / 2;
+    const L = side ? D : W; // joonise laius
+    const wallH = gable ? v.frontBackWallHeight : side ? v.roofHeight - p / 2 : v.frontBackWallHeight;
     const top = Math.max(v.roofHeight, v.frontBackWallHeight) + p;
     const Y = (h: number) => top - h;
-    const pad = Math.max(L, top) * 0.1;
     const fs = Math.max(L, top) * 0.04;
 
     const lines: number[] = [];
-    // viilu / kolmnurga palgid mootorist
-    const courses: Rect[] = r.walls.gableCourses.map((c) => {
-      const bottom = wallH + (c.index - 1) * p;
-      return gable
-        ? { x: L / 2 - c.length / 2, y: Y(bottom + p), w: c.length, h: p }
-        : { x: 0, y: Y(bottom + p), w: c.length, h: p };
-    });
-    const highest = Math.max(wallH, ...r.walls.gableCourses.map((c) => wallH + c.index * p));
-    for (let h = gable ? p / 2 : p; h < wallH - 1; h += p) lines.push(Y(h));
+    // viilu / kolmnurga palgid mootorist (ühekalde eestvaates neid pole)
+    const courses: Rect[] = gable || side
+      ? r.walls.gableCourses.map((c) => {
+          const bottom = wallH + (c.index - 1) * p;
+          return gable
+            ? { x: L / 2 - c.length / 2, y: Y(bottom + p), w: c.length, h: p }
+            : { x: 0, y: Y(bottom + p), w: c.length, h: p };
+        })
+      : [];
+    const highest = Math.max(wallH, ...courses.map((c) => top - c.y));
+    // esi/tagasein algab poole palgiga; külgsein täispalgiga
+    for (let h = side ? p : p / 2; h < wallH - 1; h += p) lines.push(Y(h));
     const body: Rect = { x: 0, y: Y(wallH), w: L, h: Math.max(wallH, 0) };
 
-    // katusejoon (palgi ülaserv siseseina kohal) + lõikeala selle all
+    // katusejoon + lõikeala selle all
     let roof: string;
     let clip: string;
     const big = top * 2;
@@ -199,36 +247,28 @@ export class HouseDrawing {
       const yAt = (x: number) => v.roofHeight - slope * Math.abs(W / 2 - x);
       const xe = o - ov;
       roof = `${xe},${Y(yAt(xe))} ${W / 2},${Y(v.roofHeight)} ${W - xe},${Y(yAt(W - xe))}`;
-      const xl = -big;
-      const xr = W + big;
-      clip = `${xl},${Y(yAt(xl))} ${W / 2},${Y(v.roofHeight)} ${xr},${Y(yAt(xr))} ${xr},${Y(-big)} ${xl},${Y(-big)}`;
-    } else {
+      clip = `${-big},${Y(yAt(-big))} ${W / 2},${Y(v.roofHeight)} ${W + big},${Y(yAt(W + big))} ${W + big},${Y(-big)} ${-big},${Y(-big)}`;
+    } else if (side) {
       const x1 = o + t;
       const x2 = D - o - t;
       const slope = (v.frontBackWallHeight - v.roofHeight) / Math.max(x2 - x1, 1);
       const yAt = (x: number) => v.frontBackWallHeight - slope * (x - x1);
       roof = `${-ov},${Y(yAt(-ov))} ${D + ov},${Y(yAt(D + ov))}`;
       clip = `${-big},${Y(yAt(-big))} ${D + big},${Y(yAt(D + big))} ${D + big},${Y(-big)} ${-big},${Y(-big)}`;
+    } else {
+      // ühekalle eestvaates: katuseserv horisontaalselt esiseina kohal
+      const xe = o - ov;
+      roof = `${xe},${Y(v.frontBackWallHeight)} ${W - xe},${Y(v.frontBackWallHeight)}`;
+      clip = `${-big},${Y(v.frontBackWallHeight)} ${W + big},${Y(v.frontBackWallHeight)} ${W + big},${Y(-big)} ${-big},${Y(-big)}`;
     }
 
-    // uksed ja aknad (skeem: ühtlaselt esiseinal)
-    const units: { kind: 'door' | 'window'; w: number; h: number }[] = [];
-    const push = (kind: 'door' | 'window', list: RowValue[]) =>
-      list.forEach((x) => {
-        for (let i = 0; i < Math.min(x.count, 6); i++) if (x.a > 0 && x.b > 0) units.push({ kind, w: x.a, h: x.b });
-      });
-    push('door', v.doors);
-    push('window', v.windows);
-    const inner0 = o + t;
-    const innerW = L - 2 * inner0;
-    const gap = units.length ? Math.max((innerW - units.reduce((s, u) => s + u.w, 0)) / (units.length + 1), 0) : 0;
-    let x = inner0 + gap;
-    const openings = units.map((u) => {
-      const sill = u.kind === 'door' ? 0 : Math.max(Math.min(900, wallH - u.h - p), 0);
-      const rect = { kind: u.kind, x, y: Y(sill + u.h), w: u.w, h: Math.min(u.h, wallH) };
-      x += u.w + gap;
-      return rect;
-    });
+    // uksed ja aknad – ainult eestvaates (sein 1)
+    const openings = side
+      ? []
+      : this.frontOpenings().map((u) => {
+          const sill = u.kind === 'door' ? 0 : Math.max(Math.min(900, wallH - u.h - p), 0);
+          return { kind: u.kind, x: u.x, y: Y(sill + u.h), w: u.w, h: Math.min(u.h, wallH) };
+        });
 
     // Mõõtjooned
     const df = fs * 0.8;
@@ -236,10 +276,9 @@ export class HouseDrawing {
     const d2 = df * 4.6;
     const Y0 = Y(0);
     const dims: Dim[] = [{ x1: 0, y1: Y0, x2: L, y2: Y0, offset: d1 }];
-    // ukse- ja aknaavade laiused (ava alumise serva kohal, ava sees)
-    for (const o of openings) {
-      const yb = o.y + o.h;
-      dims.push({ x1: o.x, y1: yb, x2: o.x + o.w, y2: yb, offset: -df * 1.3 });
+    for (const op of openings) {
+      const yb = op.y + op.h;
+      dims.push({ x1: op.x, y1: yb, x2: op.x + op.w, y2: yb, offset: -df * 1.3 });
     }
     let xL: number;
     let xR: number;
@@ -255,21 +294,29 @@ export class HouseDrawing {
         { x1: xL, y1: Y0, x2: xL, y2: Y(hR), offset: -d2, from1: [0, Y0], from2: [W / 2, Y(hR)] },
         { x1: xR, y1: Y0, x2: xR, y2: Y(hS), offset: d1, from1: [W, Y0], from2: [W - o - t, Y(hS)] },
       );
-    } else {
+    } else if (side) {
       xL = -ov;
       xR = D + ov;
       dims.push(
         { x1: xL, y1: Y0, x2: xL, y2: Y(v.frontBackWallHeight), offset: -d1, from1: [0, Y0], from2: [o + t, Y(v.frontBackWallHeight)] },
         { x1: xR, y1: Y0, x2: xR, y2: Y(v.roofHeight), offset: d1, from1: [D, Y0], from2: [D - o - t, Y(v.roofHeight)] },
       );
+    } else {
+      xL = o - ov;
+      xR = W - xL;
+      dims.push({ x1: xL, y1: Y0, x2: xL, y2: Y(v.frontBackWallHeight), offset: -d1, from1: [0, Y0], from2: [0, Y(v.frontBackWallHeight)] });
     }
     const left = xL - (gable ? d2 : d1) - df * 2;
     const right = xR + d1 + df * 2;
     const bottom = Y0 + d1 + df * 2;
-    const topY = Y(Math.max(v.roofHeight, highest)) - df * 2;
+    const topY = Y(Math.max(gable || side ? v.roofHeight : v.frontBackWallHeight, highest)) - df * 2;
 
     return {
-      caption: gable ? 'Eestvaade (esi-/tagasein ja viil)' : 'Külgvaade (kolmnurk)',
+      caption: gable
+        ? 'Eestvaade – sein 1 (esisein ja viil)'
+        : side
+          ? 'Külgvaade – sein A (kolmnurk)'
+          : 'Eestvaade – sein 1 (kõrge esisein)',
       viewBox: `${left} ${topY} ${right - left} ${bottom - topY}`,
       fs,
       body,
@@ -283,5 +330,5 @@ export class HouseDrawing {
       groundX2: L + ov,
       groundY: Y(0),
     };
-  });
+  }
 }

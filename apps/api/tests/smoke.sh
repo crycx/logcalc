@@ -31,6 +31,9 @@ check "me" 200 "$(req GET /auth/me)"
 check "tenant" 200 "$(req GET /tenant)"
 check "hinnakiri (admin)" 200 "$(req PUT /tenant/settings '{"prices":{"seinaLauad":1.33,"katuseLauad":0.69}}')"
 grep -q '"seinaLauad":1.33' /tmp/lc_body || { echo "  FAIL hind ei salvestunud"; FAILS=$((FAILS+1)); }
+check "kataloog (admin)" 200 "$(req PUT /tenant/settings '{"catalog":{"doors":[{"name":"Test uks","width":900,"height":1900,"price":250}],"windows":[]}}')"
+grep -q '"Test uks"' /tmp/lc_body && grep -q '"seinaLauad":1.33' /tmp/lc_body || { echo "  FAIL kataloog ei salvestunud või kirjutas hinnad üle"; FAILS=$((FAILS+1)); }
+check "kataloog: vigane rida" 422 "$(req PUT /tenant/settings '{"catalog":{"doors":[{"name":"","width":900}]}}')"
 check "projekt: loo" 201 "$(req POST /projects '{"name":"Smoke test maja","data":{"width":3000,"depth":4000}}')"
 PID=$(grep -o '"id":[0-9]*' /tmp/lc_body | head -1 | cut -d: -f2)
 check "projekt: nimekiri" 200 "$(req GET /projects)"

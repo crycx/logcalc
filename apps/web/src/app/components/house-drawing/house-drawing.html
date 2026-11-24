@@ -5,6 +5,7 @@
       <figcaption>Plaan</figcaption>
       <svg [attr.viewBox]="p.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Maja plaan">
         <ng-container *ngTemplateOutlet="walls" />
+        <ng-container *ngTemplateOutlet="planOpeningsTpl" />
         <text class="area" [attr.x]="p.W / 2" [attr.y]="p.D / 2" [attr.font-size]="p.fs * 1.3">
           {{ r().walls.footprintArea | number: '1.2-2' }} m²
         </text>
@@ -12,30 +13,11 @@
       </svg>
     </figure>
 
-    @let e = elev();
-    <figure class="view">
-      <figcaption>{{ e.caption }}</figcaption>
-      <svg [attr.viewBox]="e.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="e.caption">
-        <defs>
-          <clipPath [attr.id]="clipId"><polygon [attr.points]="e.clip" /></clipPath>
-        </defs>
-        <g [attr.clip-path]="'url(#' + clipId + ')'">
-          <rect class="log" [attr.x]="e.body.x" [attr.y]="e.body.y" [attr.width]="e.body.w" [attr.height]="e.body.h" />
-          @for (y of e.lines; track $index) {
-            <line class="course" [attr.x1]="e.body.x" [attr.x2]="e.body.x + e.body.w" [attr.y1]="y" [attr.y2]="y" />
-          }
-          @for (c of e.courses; track $index) {
-            <rect class="log" [attr.x]="c.x" [attr.y]="c.y" [attr.width]="c.w" [attr.height]="c.h" />
-          }
-        </g>
-        @for (o of e.openings; track $index) {
-          <rect [class]="o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
-        }
-        <polyline class="roof" [attr.points]="e.roof" />
-        <line class="ground" [attr.x1]="e.groundX1" [attr.x2]="e.groundX2" [attr.y1]="e.groundY" [attr.y2]="e.groundY" />
-        <g lcDims [dims]="e.dims" [fs]="e.fs * 0.8"></g>
-      </svg>
-    </figure>
+    <ng-container *ngTemplateOutlet="elevTpl; context: { $implicit: elev(), single: false }" />
+  }
+
+  @case ('side') {
+    <ng-container *ngTemplateOutlet="elevTpl; context: { $implicit: elevSide(), single: true }" />
   }
 
   @case ('floor') {
@@ -100,3 +82,41 @@
   <svg:g lcDims [dims]="p.dims" [fs]="p.fs * 0.8"></svg:g>
 </ng-template>
 
+<ng-template #elevTpl let-e let-single="single">
+<figure class="view" [class.single]="single">
+    <figcaption>{{ e.caption }}</figcaption>
+    <svg [attr.viewBox]="e.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="e.caption">
+      <defs>
+        <clipPath [attr.id]="clipId"><polygon [attr.points]="e.clip" /></clipPath>
+      </defs>
+      <g [attr.clip-path]="'url(#' + clipId + ')'">
+        <rect class="log" [attr.x]="e.body.x" [attr.y]="e.body.y" [attr.width]="e.body.w" [attr.height]="e.body.h" />
+        @for (y of e.lines; track $index) {
+          <line class="course" [attr.x1]="e.body.x" [attr.x2]="e.body.x + e.body.w" [attr.y1]="y" [attr.y2]="y" />
+        }
+        @for (c of e.courses; track $index) {
+          <rect class="log" [attr.x]="c.x" [attr.y]="c.y" [attr.width]="c.w" [attr.height]="c.h" />
+        }
+      </g>
+      @for (o of e.openings; track $index) {
+        <rect [class]="o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
+      }
+      <polyline class="roof" [attr.points]="e.roof" />
+      <line class="ground" [attr.x1]="e.groundX1" [attr.x2]="e.groundX2" [attr.y1]="e.groundY" [attr.y2]="e.groundY" />
+      <g lcDims [dims]="e.dims" [fs]="e.fs * 0.8"></g>
+    </svg>
+  </figure>
+</ng-template>
+
+<ng-template #planOpeningsTpl>
+  @for (o of planOpenings(); track $index) {
+    <svg:rect class="plan-gap" [attr.x]="o.gap.x" [attr.y]="o.gap.y" [attr.width]="o.gap.w" [attr.height]="o.gap.h" />
+    @if (o.swing) {
+      <svg:path class="plan-swing" [attr.d]="o.swing" />
+    }
+    @if (o.glass; as g) {
+      <svg:line class="plan-glass" [attr.x1]="g.x1" [attr.x2]="g.x2" [attr.y1]="g.y1" [attr.y2]="g.y1" />
+      <svg:line class="plan-glass" [attr.x1]="g.x1" [attr.x2]="g.x2" [attr.y1]="g.y2" [attr.y2]="g.y2" />
+    }
+  }
+</ng-template>

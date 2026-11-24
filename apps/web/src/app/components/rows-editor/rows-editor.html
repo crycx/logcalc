@@ -1,5 +1,21 @@
 @for (row of rows().controls; track row; let i = $index) {
   <div class="row">
+    @if (catalog().length > 0) {
+      <mat-form-field class="model">
+        <mat-label>Mudel</mat-label>
+        <mat-select [value]="row.controls.name.value" (selectionChange)="pick(row, $event.value)" [disabled]="row.disabled">
+          <mat-option value="">Oma mõõdud</mat-option>
+          @for (c of catalog(); track c.name) {
+            <mat-option [value]="c.name">{{ c.name }} · {{ c.width }} × {{ c.height }}{{ c.price > 0 ? ' · ' + c.price + ' €' : '' }}</mat-option>
+          }
+        </mat-select>
+        @if (isCustomized(row)) {
+          <mat-hint>Mõõdud erinevad mudelist</mat-hint>
+        }
+      </mat-form-field>
+    } @else if (row.controls.name.value) {
+      <span class="model-name">{{ row.controls.name.value }}</span>
+    }
     <mat-form-field>
       <mat-label>{{ aLabel() }}, mm</mat-label>
       <input matInput type="number" min="0" [formControl]="row.controls.a" />
@@ -22,4 +38,3 @@
 <button mat-button type="button" (click)="add()">
   <mat-icon>add</mat-icon> {{ addLabel() }}
 </button>
-

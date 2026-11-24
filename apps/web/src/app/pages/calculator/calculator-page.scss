@@ -458,3 +458,30 @@
     color: var(--mat-sys-on-tertiary-container);
   }
 }
+
+/* K5: automaatse esi/tagaseina kõrguse lüliti */
+.dims .f-auto {
+  width: 140px;
+}
+
+.joist-mode {
+  grid-column: 1 / -1;
+  display: flex;
+
+  mat-button-toggle {
+    flex: 1;
+  }
+}
+
+.auto-btn {
+  --mat-icon-button-state-layer-size: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+}
+
+.roof-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

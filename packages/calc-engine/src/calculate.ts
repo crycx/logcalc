@@ -90,7 +90,18 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   };
 
   add('seinaLauad', walls.netJm);
-  if (walls.netJm > 0) add('tuuleLiist', walls.windStripsJm);
+  if (walls.netJm > 0) {
+    // nurkade vertikaalsed liistud: 4 nurka × seina kõrgus
+    const p = input.log.height;
+    const pieces =
+      input.roofType === 'gable'
+        ? [{ count: 4, length: input.sideWallHeight }]
+        : [
+            { count: 2, length: input.frontBackWallHeight - p },
+            { count: 2, length: input.roofHeight - p },
+          ];
+    add('tuuleLiist', walls.windStripsJm, { pieces });
+  }
   if (foundation) {
     const pieces = [{ count: foundation.joistCount, length: foundation.joistLength }];
     if (foundation.ringPieces) pieces.push(foundation.ringPieces);
@@ -101,12 +112,31 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
     const pf = input.roof?.profiles ?? {};
     add('katuseLauad', roof.boardsJm, { pieces: [{ count: roof.boardCount, length: roof.boardLength }] });
     const e = roof.edgeBoards;
-    add('esiraastalaud', e.fascia.totalJm, { pieces: [{ count: e.fascia.count, length: e.fascia.pieceLength }], profile: pf.fasciaBoard ?? '18x120' });
-    add('papikinnituslaud', e.felt.totalJm, { pieces: [{ count: e.felt.count, length: e.felt.pieceLength }], profile: pf.feltBoard ?? '18x95' });
+    // Järjekord nagu tootja joonisel: toelauad (RR) ees, siis RF ja EE (QUESTIONS.md K9)
     add('toelaud38', e.supportSmall.totalJm, { pieces: [{ count: 2, length: e.supportSmall.pieceLength }], profile: pf.supportSmall ?? '38x38' });
     add('toelaud95', e.supportLarge.totalJm, { pieces: [{ count: 2, length: e.supportLarge.pieceLength }], profile: pf.supportLarge ?? '18x95' });
+    add('esiraastalaud', e.fascia.totalJm, { pieces: [{ count: e.fascia.count, length: e.fascia.pieceLength }], profile: pf.fasciaBoard ?? '18x120' });
+    add('papikinnituslaud', e.felt.totalJm, { pieces: [{ count: e.felt.count, length: e.felt.pieceLength }], profile: pf.feltBoard ?? '18x95' });
   }
   if (purlins) add('parlinid', purlins.totalJm, { pieces: [{ count: purlins.pieces, length: purlins.length }] });
+
+  // Uksed ja aknad tükiridadena (hind tk kohta, kui on antud)
+  const addOpenings = (list: HouseInput['doors'], kind: 'door' | 'window', word: string) =>
+    (list ?? []).forEach((o, i) => {
+      if (!(o.count > 0)) return;
+      const label = `${word} ${o.name?.trim() || `${Math.round(o.width)} × ${Math.round(o.height)}`}`;
+      const priced = o.unitPrice !== undefined && o.unitPrice > 0;
+      bom.push({
+        key: `${kind}:${i}`,
+        label,
+        quantity: o.count,
+        unit: 'tk',
+        ...(o.name ? { profile: `${Math.round(o.width)} × ${Math.round(o.height)} mm` } : {}),
+        ...(priced ? { unitPrice: o.unitPrice, total: o.count * (o.unitPrice as number) } : {}),
+      });
+    });
+  addOpenings(input.doors, 'door', 'Uks');
+  addOpenings(input.windows, 'window', 'Aken');
 
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
 

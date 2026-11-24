@@ -45,6 +45,10 @@ export interface Opening {
   width: number;
   height: number;
   count: number;
+  /** Mudeli nimi (nt kataloogist); materjalide nimekirjas kuvamiseks */
+  name?: string;
+  /** Hind tk kohta (€) */
+  unitPrice?: number;
 }
 
 export interface FoundationInput {
@@ -140,18 +144,24 @@ export interface EngineConstants {
   cornerOverhang: number;
   /** Katuselaua laius, mille järgi lauad loetakse (v2: 110) */
   roofBoardWidth: number;
-  /** Katuse vaikimisi üleulatus (v2: 200) */
+  /** Katuse minimaalne (vaikimisi) üleulatus (v2: 200); laud ümardatakse üles, tegelik üleulatus ≥ see */
   defaultRoofOverhang: number;
-  /** Vundamendi prusside max kesktelgede vahe (v2: 500) */
+  /** Vundamendi prusside max kesktelgede vahe automaatsel arvutusel (Revit 508–593; v2: 500) */
   maxJoistSpacing: number;
-  /** Pärlinite max vahe (v2: 700) */
+  /** Pärlinite max HORISONTAALNE vahe (Revit; v2: 700 kaldpinnal) */
   maxPurlinSpacing: number;
   /** Pikemate laudade "madala" laua piir (v2: 114) */
   longBoardThreshold: number;
   /** Räästalaua tüki pikkuse lisa (v2 kuvas +38) */
   fasciaExtra: number;
-  /** Põrandalaua vaikimisi kaugus seinast (v2: 5) */
+  /** Põrandalaua vaikimisi kaugus seinast laua otsas (v2: 5) */
   defaultFloorGap: number;
+  /** Põrandalaudade vahe seinast külgedel, kummalgi pool (Revit: 20) */
+  floorSideGap: number;
+  /** Vundamendi prussi otsa vahe seinast/ringist, kummaski otsas (Revit: 5) */
+  joistEndGap: number;
+  /** Katuse- ja räästalaudade pikkuse ümardus üles (mm), nt 10 = sentimeetri täpsus */
+  roofBoardRounding: number;
 }
 
 export type Unit = 'jm' | 'tk' | 'm2' | 'm3' | 'deg' | 'mm';
@@ -259,7 +269,7 @@ export interface RoofResult {
   /** Kasutatud katuselaua pikkus (sisestatud või arvutatud) */
   boardLength: number;
   boardLengthIsComputed: boolean;
-  /** Kui laua pikkus anti, siis sellest tulenev üleulatus */
+  /** Tegelik üleulatus (laua pikkusest tagasi arvutatud; arvutatud laua puhul ≥ min üleulatus) */
   computedOverhang: number | null;
   /** Katuse pikkus harja suunas */
   roofLength: number;

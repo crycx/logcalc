@@ -21,7 +21,9 @@ export function computeFoundation(
   // NB: AB suunas kasutab v2 nii vahe kui pikkuse jaoks kaugust k12. Vt QUESTIONS.md (K3).
   const span = dir === 'AB' ? dims.width - 2 * k12 - o2 - jw : dims.depth - 2 * kAB - o2 - jw;
   const baseLength = dir === 'AB' ? dims.depth - 2 * k12 - o2 : dims.width - 2 * kAB - o2;
-  const joistLength = f.ring ? baseLength - 2 * jw : baseLength;
+  // Revit: prussi otstes 5 mm vahe (v2: täispikk). DEVIATIONS.md D11.
+  const gap = 2 * c.joistEndGap;
+  const joistLength = (f.ring ? baseLength - 2 * jw : baseLength) - gap;
 
   let joistCount: number;
   let spacing: number;
@@ -42,7 +44,7 @@ export function computeFoundation(
 
   let ringPieces: FoundationResult['ringPieces'] = null;
   if (f.ring) {
-    const length = dir === 'AB' ? dims.width - 2 * kAB - o2 : dims.depth - 2 * k12 - o2;
+    const length = (dir === 'AB' ? dims.width - 2 * kAB - o2 : dims.depth - 2 * k12 - o2) - gap;
     ringPieces = { count: 2, length };
   }
   const totalJm = (joistCount * joistLength) / 1000 + (ringPieces ? (ringPieces.count * ringPieces.length) / 1000 : 0);
@@ -59,7 +61,8 @@ export function computeFloor(input: HouseInput, dims: Dimensions, c: EngineConst
   const gap = fl.distanceFromWall ?? c.defaultFloorGap;
   const across = dir === 'AB' ? dims.depth : dims.width;
   const along = dir === 'AB' ? dims.width : dims.depth;
-  const boardCount = Math.ceil((across - o2 - t2) / fl.boardWidth) + 1;
+  // Revit: 20 mm vahe seinast kummalgi pool, ilma lisalauata (v2: +1). DEVIATIONS.md D12.
+  const boardCount = Math.ceil((across - o2 - t2 - 2 * c.floorSideGap) / fl.boardWidth - 1e-9);
   const boardLength = along - o2 - t2 - gap;
   return { boardCount, boardLength, totalJm: (boardCount * boardLength) / 1000 };
 }

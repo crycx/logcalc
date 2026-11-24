@@ -1,0 +1,28 @@
+:host {
+  display: inline-flex;
+  width: var(--roof-icon-size, 24px);
+  height: var(--roof-icon-size, 24px);
+  flex: none;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+svg {
+  width: 100%;
+  height: 100%;
+}
+
+path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wall {
+  stroke-width: 1.6;
+}
+
+.roof {
+  stroke-width: 2.4;
+  stroke: var(--mat-sys-primary);
+}

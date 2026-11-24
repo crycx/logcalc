@@ -65,6 +65,24 @@ $examples = [
         'windows' => [$row(765, 990, 1)],
         'floorDirection' => 'AB', 'floorBoardWidth' => 95,
     ],
+    // Ühekaldelised, Revit-joonistega kinnitatud (packages/calc-engine/test/revit-houses.test.ts)
+    'Annika I 28 (ühekalle)' => [
+        'roofType' => 'mono', 'width' => 2900, 'depth' => 2000, 'sideWallHeight' => 0,
+        'frontBackWallHeight' => 2109, 'roofHeight' => 1881, 'fbAuto' => false,
+        'longBoards' => [$row(3100, 114, 2)],
+        'doors' => [$row(1440, 1995, 1)],
+        'floorDirection' => '12', 'joistMode' => 'auto', 'joistMaxSpacing' => 600,
+        'roofOverhang' => 0, 'roofBoardWidth' => 0,
+    ],
+    'Carina 28 (ühekalle)' => [
+        'roofType' => 'mono', 'width' => 3553, 'depth' => 2943, 'sideWallHeight' => 0,
+        'frontBackWallHeight' => 2223, 'roofHeight' => 1881, 'fbAuto' => false,
+        'longBoards' => [$row(3753, 114, 2)],
+        'doors' => [$row(1440, 1995, 1)],
+        'windows' => [$row(920, 456, 1)],
+        'floorDirection' => 'AB', 'ring' => true, 'joistMode' => 'count', 'joistCount' => 10, 'joistMaxSpacing' => 600,
+        'roofOverhang' => 0, 'roofBoardWidth' => 0,
+    ],
 ];
 
 $exists = $pdo->prepare('SELECT COUNT(*) FROM projects WHERE owner_id = ? AND name = ?');

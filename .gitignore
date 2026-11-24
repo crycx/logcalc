@@ -43,3 +43,6 @@ desktop.ini
 # API seadistus ja andmed
 apps/api/config.php
 apps/api/data/
+
+# Vanad Revit-joonised (Viktra materjal, hoitakse Dropboxis)
+Vanad joonised/

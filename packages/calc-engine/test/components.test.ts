@@ -24,27 +24,33 @@ const mono: HouseInput = {
 };
 
 describe('vundament', () => {
-  it('AB: automaatne prusside arv, vahe < 500', () => {
+  it('AB: automaatne prusside arv, vahe < 600; pruss 5 mm otstest lühem', () => {
     const f = calculateHouse({ ...gable, foundation: { joistWidth: 100, joistHeight: 150 } }).foundation!;
-    // ala: 3000-200-100 = 2700 -> 7 prussi, vahe 450
+    // ala: 3000-200-100 = 2700 -> 6 prussi, vahe 540
+    expect(f.joistCount).toBe(6);
+    expect(f.spacing).toBeCloseTo(540, 9);
+    expect(f.joistLength).toBe(3790);
+    expect(f.totalJm).toBeCloseTo(6 * 3.79, 9);
+  });
+
+  it('max vahe käsitsi (vana v2 väärtus 500 -> 7 prussi)', () => {
+    const f = calculateHouse({ ...gable, foundation: { joistWidth: 100, joistHeight: 150, maxSpacing: 500 } }).foundation!;
     expect(f.joistCount).toBe(7);
     expect(f.spacing).toBeCloseTo(450, 9);
-    expect(f.joistLength).toBe(3800);
-    expect(f.totalJm).toBeCloseTo(26.6, 9);
   });
 
   it('AB + ring: prussid lühemad 2 x prussi laiuse võrra + 2 ristprussi', () => {
     const f = calculateHouse({ ...gable, foundation: { joistWidth: 100, joistHeight: 150, ring: true } }).foundation!;
-    expect(f.joistLength).toBe(3600);
-    expect(f.ringPieces).toEqual({ count: 2, length: 2800 });
-    expect(f.totalJm).toBeCloseTo(7 * 3.6 + 5.6, 9);
+    expect(f.joistLength).toBe(3590);
+    expect(f.ringPieces).toEqual({ count: 2, length: 2790 });
+    expect(f.totalJm).toBeCloseTo(6 * 3.59 + 2 * 2.79, 9);
   });
 
   it('suund 12', () => {
     const f = calculateHouse({ ...gable, floorDirection: '12', foundation: { joistWidth: 100, joistHeight: 150 } }).foundation!;
-    expect(f.joistCount).toBe(9); // 3700/8 = 462,5
-    expect(f.spacing).toBeCloseTo(462.5, 9);
-    expect(f.joistLength).toBe(2800);
+    expect(f.joistCount).toBe(8); // 3700/7 = 528,6
+    expect(f.spacing).toBeCloseTo(3700 / 7, 9);
+    expect(f.joistLength).toBe(2790);
   });
 
   it('käsitsi prusside arv', () => {
@@ -55,11 +61,11 @@ describe('vundament', () => {
 });
 
 describe('põrand', () => {
-  it('AB: laudade arv ja pikkus', () => {
+  it('AB: laudade arv (20 mm vahe seinast kummalgi pool) ja pikkus', () => {
     const fl = calculateHouse({ ...gable, floor: { boardWidth: 95 } }).floor!;
-    expect(fl.boardCount).toBe(41); // ceil(3712/95)+1
+    expect(fl.boardCount).toBe(39); // ceil((3712-40)/95)
     expect(fl.boardLength).toBe(2707); // 3000-200-88-5
-    expect(fl.totalJm).toBeCloseTo(41 * 2.707, 9);
+    expect(fl.totalJm).toBeCloseTo(39 * 2.707, 9);
   });
 });
 
@@ -69,12 +75,16 @@ describe('katus', () => {
     const base = 2712 + 2 * (200 + 44);
     const h = (base * 1000) / 2712;
     expect(r.boardLengthIsComputed).toBe(true);
-    expect(r.boardLength).toBeCloseTo(Math.hypot(base / 2, h), 9);
+    // sentimeetri täpsus, ümardatud üles -> tegelik üleulatus >= 200 (K14)
+    expect(r.boardLength).toBe(Math.ceil(Math.hypot(base / 2, h) / 10) * 10);
+    expect(r.boardLength % 10).toBe(0);
+    expect(r.computedOverhang!).toBeGreaterThanOrEqual(200);
+    expect(r.computedOverhang!).toBeLessThan(210);
     expect(r.angle).toBeCloseTo((Math.atan(1000 / 1356) * 180) / Math.PI, 9);
-    expect(r.boardCount).toBe(2 + 2 * Math.round(4000 / 110));
+    expect(r.boardCount).toBe(2 * Math.floor(4000 / 110)); // 72
     expect(r.boardsJm).toBeCloseTo((r.boardCount * r.boardLength) / 1000, 9);
     expect(r.edgeBoards.fascia.count).toBe(4);
-    expect(r.edgeBoards.fascia.pieceLength % 5).toBe(0);
+    expect(r.edgeBoards.fascia.pieceLength % 10).toBe(0);
     expect(r.edgeBoards.supportSmall.totalJm).toBeCloseTo(8, 9);
   });
 
@@ -90,11 +100,11 @@ describe('katus', () => {
     expect(a).toBeCloseTo(b, 12);
   });
 
-  it('ühekalle: 2 räästalauda, laudade arv pool viilkatuse omast', () => {
+  it('ühekalle: 2 räästalauda, laudu alla(L/110)', () => {
     const r = calculateHouse({ ...mono, roof: {} }).roof!;
     expect(r.edgeBoards.fascia.count).toBe(2);
     expect(r.roofLength).toBe(3700);
-    expect(r.boardCount).toBe(2 + 2 * Math.round(3700 / 220));
+    expect(r.boardCount).toBe(Math.floor(3700 / 110)); // 33
   });
 
   it('pikemad lauad määravad katuse pikkuse', () => {
@@ -104,14 +114,14 @@ describe('katus', () => {
 });
 
 describe('pärlinid', () => {
-  const hyp = Math.hypot(1356, 1000);
+  const run = 1356; // horisontaalne ulatus (sisemine laius / 2)
 
-  it('viilkatus automaatselt: vahe < 700, 2 poolt + tipupärlin', () => {
+  it('viilkatus automaatselt: horisontaalne vahe < 900, 1 poole kohta + tipupärlin', () => {
     const p = calculateHouse({ ...gable, purlins: {} }).purlins!;
-    expect(p.perSide).toBe(2);
-    expect(p.spacing).toBeCloseTo(hyp / 3, 9);
-    expect(p.pieces).toBe(5);
-    expect(p.totalJm).toBeCloseTo(20, 9);
+    expect(p.perSide).toBe(1);
+    expect(p.spacing).toBeCloseTo(run / 2, 9);
+    expect(p.pieces).toBe(3);
+    expect(p.totalJm).toBeCloseTo(12, 9);
   });
 
   it('ainult tipupärlin', () => {
@@ -123,14 +133,14 @@ describe('pärlinid', () => {
   it('käsitsi arv', () => {
     const p = calculateHouse({ ...gable, purlins: { count: 3 } }).purlins!;
     expect(p.pieces).toBe(7);
-    expect(p.spacing).toBeCloseTo(hyp / 4, 9);
+    expect(p.spacing).toBeCloseTo(run / 4, 9);
   });
 
   it('ühekalle: tipupärlinit pole, pikkus = laius (K4)', () => {
     const p = calculateHouse({ ...mono, purlins: {} }).purlins!;
     expect(p.hasRidge).toBe(false);
     expect(p.pieces).toBe(p.perSide);
-    expect(p.spacing!).toBeLessThan(700);
+    expect(p.spacing!).toBeLessThan(900);
     expect(p.length).toBe(3700);
   });
 });
@@ -154,6 +164,30 @@ describe('hinnad ja BOM', () => {
     const r = calculateHouse({ ...gable, roof: {} });
     expect(r.bom.length).toBeGreaterThan(0);
     expect(r.totalPrice).toBe(0);
+  });
+});
+
+describe('uksed ja aknad materjalide nimekirjas (K7)', () => {
+  it('tükiread, kataloogi nimi ja hind tk kohta', () => {
+    const r = calculateHouse({
+      ...gable,
+      doors: [{ width: 1440, height: 1824, count: 1, name: 'Topeltuks D2', unitPrice: 450 }],
+      windows: [{ width: 765, height: 990, count: 2 }],
+    });
+    const door = r.bom.find((l) => l.key === 'door:0')!;
+    expect(door).toMatchObject({ label: 'Uks Topeltuks D2', quantity: 1, unit: 'tk', unitPrice: 450, total: 450 });
+    const win = r.bom.find((l) => l.key === 'window:0')!;
+    expect(win).toMatchObject({ label: 'Aken 765 × 990', quantity: 2, unit: 'tk' });
+    expect(win.total).toBeUndefined();
+    expect(r.totalPrice).toBe(450);
+  });
+});
+
+describe('katuse ridade järjekord (K9)', () => {
+  it('toelauad enne esiräästa- ja papikinnituslauda', () => {
+    const keys = calculateHouse({ ...gable, roof: {} }).bom.map((l) => l.key);
+    expect(keys.indexOf('toelaud38')).toBeLessThan(keys.indexOf('esiraastalaud'));
+    expect(keys.indexOf('toelaud95')).toBeLessThan(keys.indexOf('papikinnituslaud'));
   });
 });
 

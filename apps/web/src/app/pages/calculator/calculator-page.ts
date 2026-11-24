@@ -17,9 +17,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { CalcInputError, calculateHouse, type CalcResult, type PriceList } from '@logcalc/calc-engine';
+import { CalcInputError, DEFAULT_CONSTANTS, calculateHouse, type CalcResult, type PriceList } from '@logcalc/calc-engine';
 import { firstValueFrom, map } from 'rxjs';
-import { Api, Session, type ProjectAccess } from '../../core/api';
+import { Api, Session, type ProjectAccess, type TenantConstants } from '../../core/api';
 import { formatPieces } from '../../helpers/format';
 import { apiError } from '../../helpers/http';
 import { stableStringify } from '../../helpers/json';
@@ -33,11 +33,17 @@ import { HouseDrawing, type DrawingView } from '../../components/house-drawing/h
 import {
   DEFAULT_VALUE,
   PRICE_KEYS,
+  buildCatalogItem,
   buildHouseForm,
+  normalizeHouse,
+  resolveAuto,
+  setCatalog,
   setFormValue,
   toEngineInput,
   type HouseFormValue,
 } from '../../core/house-form';
+import { CatalogEditor } from '../../components/catalog-editor/catalog-editor';
+import { RoofIcon } from '../../components/roof-icon/roof-icon';
 import { RowsEditor } from '../../components/rows-editor/rows-editor';
 
 const STORAGE_KEY = 'logcalc.form.v1';
@@ -45,7 +51,7 @@ const PROJECT_KEY = 'logcalc.project.v1';
 
 type CalcState = { ok: true; result: CalcResult } | { ok: false; message: string };
 /** Majaga salvestatakse kõik peale hindade (hinnad tulevad kliendi hinnakirjast). */
-type HouseData = Omit<HouseFormValue, 'prices'>;
+type HouseData = Omit<HouseFormValue, 'prices' | 'catalog'>;
 interface OpenProject {
   id: number;
   name: string;
@@ -57,16 +63,16 @@ const DEMO: HouseFormValue = DEFAULT_VALUE;
 
 function loadStored(): HouseFormValue | null {
   const v = storageGet<Partial<HouseFormValue>>(STORAGE_KEY);
-  return v ? { ...DEFAULT_VALUE, ...v, prices: { ...DEFAULT_VALUE.prices, ...(v.prices ?? {}) } } : null;
+  return v ? normalizeHouse(v) : null;
 }
 
 /** Võrdluseks: vaikeväärtustega täiendatud, võtmete järjekorrast sõltumatu */
 function canon(d: Partial<HouseData>): string {
-  return stableStringify({ ...houseData(DEFAULT_VALUE), ...d });
+  return stableStringify(houseData(normalizeHouse(d)));
 }
 
 function houseData(v: HouseFormValue): HouseData {
-  const { prices: _prices, ...rest } = v;
+  const { prices: _prices, catalog: _catalog, ...rest } = v;
   return rest;
 }
 
@@ -91,6 +97,8 @@ function houseData(v: HouseFormValue): HouseData {
     MatDividerModule,
     RowsEditor,
     HouseDrawing,
+    CatalogEditor,
+    RoofIcon,
   ],
   templateUrl: './calculator-page.html',
   styleUrl: './calculator-page.scss',
@@ -111,6 +119,17 @@ export class CalculatorPage {
     initialValue: this.form.getRawValue() as HouseFormValue,
   });
 
+  /** Ettevõtte arvutuse seaded (admin muudab; mõju on kohe arvutuses näha) */
+  protected readonly tenantForm = this.fb.group({
+    defaultRoofOverhang: this.fb.control(DEFAULT_CONSTANTS.defaultRoofOverhang),
+    roofBoardWidth: this.fb.control(DEFAULT_CONSTANTS.roofBoardWidth),
+    maxJoistSpacing: this.fb.control(DEFAULT_CONSTANTS.maxJoistSpacing),
+    maxPurlinSpacing: this.fb.control(DEFAULT_CONSTANTS.maxPurlinSpacing),
+  });
+  protected readonly tenantConstants = toSignal(this.tenantForm.valueChanges.pipe(map(() => this.tenantForm.getRawValue())), {
+    initialValue: this.tenantForm.getRawValue(),
+  });
+
   /** Avatud (serverisse salvestatud) maja */
   protected readonly project = signal<OpenProject | null>(storageGet<OpenProject>(PROJECT_KEY));
   /** Viimati salvestatud/avatud seis (JSON), et näidata salvestamata muudatusi */
@@ -128,11 +147,15 @@ export class CalculatorPage {
   protected readonly canShare = computed(() => this.project()?.access?.manage ?? false);
 
   protected readonly isGable = computed(() => this.formValue().roofType === 'gable');
+  /** Vormi väärtus koos automaatsete väljadega (joonisele) */
+  protected readonly houseValue = computed(() => resolveAuto(this.formValue()));
 
   protected readonly calc = computed<CalcState>(() => {
     const { input, options } = toEngineInput(this.formValue());
-    const tenantConstants = this.session.tenant()?.settings.constants;
-    if (tenantConstants) options.constants = { ...tenantConstants, ...options.constants };
+    // ettevõtte seaded; maja enda väärtused (nt katuselaua laius) on ülimuslikud
+    const tc = this.tenantConstants();
+    const positive = Object.fromEntries(Object.entries(tc).filter(([, v]) => typeof v === 'number' && v > 0));
+    options.constants = { ...positive, ...options.constants };
     try {
       return { ok: true, result: calculateHouse(input, options) };
     } catch (e) {
@@ -159,12 +182,27 @@ export class CalculatorPage {
       const ro = this.readonly();
       untracked(() => {
         if (ro) {
-          setFormValue(this.fb, this.form, { ...DEMO, prices: this.form.getRawValue().prices });
+          setFormValue(this.fb, this.form, normalizeHouse(DEMO, this.tenantPart()));
           this.form.disable();
         } else {
           this.form.enable();
           const draft = loadStored();
-          if (draft) setFormValue(this.fb, this.form, { ...draft, prices: this.form.getRawValue().prices });
+          if (draft) setFormValue(this.fb, this.form, normalizeHouse(draft, this.tenantPart()));
+        }
+      });
+    });
+    // K5: esi/tagaseina kõrgus automaatselt (küljesein − ½ palki), väli siis lukus
+    effect(() => {
+      const v = this.formValue();
+      const ro = this.readonly();
+      untracked(() => {
+        const c = this.form.controls.frontBackWallHeight;
+        if (v.roofType === 'gable' && v.fbAuto) {
+          const h = resolveAuto(v).frontBackWallHeight;
+          if (c.value !== h) c.setValue(h);
+          if (c.enabled) c.disable({ emitEvent: false });
+        } else if (!ro && c.disabled) {
+          c.enable({ emitEvent: false });
         }
       });
     });
@@ -173,6 +211,10 @@ export class CalculatorPage {
       if (!untracked(this.readonly)) storageSet(STORAGE_KEY, v);
     });
     effect(() => storageSet(PROJECT_KEY, this.project()));
+    // külgvaade on ainult ühekaldelisel
+    effect(() => {
+      if (this.isGable() && untracked(this.view) === 'side') this.view.set('overview');
+    });
     void this.initSession();
   }
 
@@ -182,7 +224,7 @@ export class CalculatorPage {
       this.project.set(null);
       return;
     }
-    this.applyTenantPrices();
+    this.applyTenantSettings();
     const p = this.project();
     if (p) {
       // värskenda avatud maja serverist (kui see on vahepeal kustutatud, unusta)
@@ -196,24 +238,43 @@ export class CalculatorPage {
     }
   }
 
-  /** Kliendi hinnakiri -> vormi hinnad */
-  private applyTenantPrices(): void {
-    const prices = this.session.tenant()?.settings.prices;
-    if (!prices) return;
-    const current = this.form.getRawValue().prices;
-    const next = { ...current };
-    for (const k of Object.keys(next) as (keyof PriceList)[]) {
-      const v = prices[k];
-      if (typeof v === 'number') next[k] = v;
+  /** Ettevõtte osa vormist (hinnad + kataloog), mis majaga kaasa ei käi */
+  private tenantPart(): Pick<HouseFormValue, 'prices' | 'catalog'> {
+    const { prices, catalog } = this.form.getRawValue() as HouseFormValue;
+    return { prices, catalog };
+  }
+
+  /** Ettevõtte hinnakiri ja uste/akende kataloog -> vorm */
+  private applyTenantSettings(): void {
+    const s = this.session.tenant()?.settings;
+    if (!s) return;
+    if (s.prices) {
+      const next = { ...this.form.getRawValue().prices };
+      for (const k of Object.keys(next) as (keyof PriceList)[]) {
+        const v = s.prices[k];
+        if (typeof v === 'number') next[k] = v;
+      }
+      this.form.controls.prices.patchValue(next);
     }
-    this.form.controls.prices.patchValue(next);
+    setCatalog(this.fb, this.form, s.catalog ?? { doors: [], windows: [] });
+    this.tenantForm.reset({
+      defaultRoofOverhang: s.constants?.defaultRoofOverhang ?? DEFAULT_CONSTANTS.defaultRoofOverhang,
+      roofBoardWidth: s.constants?.roofBoardWidth ?? DEFAULT_CONSTANTS.roofBoardWidth,
+      maxJoistSpacing: s.constants?.maxJoistSpacing ?? DEFAULT_CONSTANTS.maxJoistSpacing,
+      maxPurlinSpacing: s.constants?.maxPurlinSpacing ?? DEFAULT_CONSTANTS.maxPurlinSpacing,
+    });
+    if (this.readonly()) this.form.controls.catalog.disable();
+  }
+
+  protected addCatalogItem(kind: 'doors' | 'windows'): void {
+    this.form.controls.catalog.controls[kind].push(buildCatalogItem(this.fb));
   }
 
   // ------------------------------------------------------------ sisselogimine
   protected async openLogin(): Promise<void> {
     const ok = await firstValueFrom(this.dialog.open(LoginDialog, { width: '420px', maxWidth: '94vw', autoFocus: 'first-tabbable' }).afterClosed());
     if (ok) {
-      this.applyTenantPrices();
+      this.applyTenantSettings();
       const u = this.session.user();
       this.snack.open(`Tere, ${u?.name || u?.email}!`, undefined, { duration: 2500 });
     }
@@ -253,8 +314,7 @@ export class CalculatorPage {
     if (typeof id !== 'number') return;
     try {
       const p = await this.api.project<HouseData>(id);
-      const prices = this.form.getRawValue().prices;
-      setFormValue(this.fb, this.form, { ...DEFAULT_VALUE, ...p.data, prices });
+      setFormValue(this.fb, this.form, normalizeHouse(p.data, this.tenantPart()));
       this.project.set({ id: p.id, name: p.name, access: p.access });
       this.savedSnapshot.set(canon(p.data));
       this.snack.open(`Avatud: ${p.name}`, undefined, { duration: 2000 });
@@ -313,12 +373,18 @@ export class CalculatorPage {
   }
 
   // ------------------------------------------------------------ hinnakiri
-  protected async saveTenantPrices(): Promise<void> {
-    const prices = this.form.getRawValue().prices;
+  protected async saveTenantSettings(): Promise<void> {
+    const { prices, catalog } = this.tenantPart();
+    const clean = (list: typeof catalog.doors) => list.filter((c) => c.name.trim() !== '');
     try {
-      const t = await this.api.saveTenantSettings({ prices });
+      const t = await this.api.saveTenantSettings({
+        prices,
+        catalog: { doors: clean(catalog.doors), windows: clean(catalog.windows) },
+        constants: this.tenantForm.getRawValue() as TenantConstants,
+      });
       this.session.tenant.set(t);
-      this.snack.open(`Hinnakiri salvestatud kliendile ${t.name}`, undefined, { duration: 2500 });
+      this.applyTenantSettings();
+      this.snack.open(`Ettevõtte seaded salvestatud: ${t.name}`, undefined, { duration: 2500 });
     } catch (e) {
       this.snack.open(apiError(e), 'OK', { duration: 5000 });
     }
@@ -326,8 +392,12 @@ export class CalculatorPage {
 
   // ------------------------------------------------------------ muu
   protected reset(): void {
-    const keepPrices = this.form.getRawValue().prices;
-    setFormValue(this.fb, this.form, { ...DEFAULT_VALUE, prices: keepPrices });
+    setFormValue(this.fb, this.form, normalizeHouse({ ...DEFAULT_VALUE }, this.tenantPart()));
+  }
+
+  protected toggleFbAuto(): void {
+    const c = this.form.controls.fbAuto;
+    c.setValue(!c.value);
   }
 
   protected readonly pieces = formatPieces;

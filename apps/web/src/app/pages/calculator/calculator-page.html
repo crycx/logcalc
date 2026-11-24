@@ -60,8 +60,8 @@
   <!-- Mõõdud ühes reas -->
   <section class="dims">
     <mat-button-toggle-group formControlName="roofType" aria-label="Katuse tüüp" hideSingleSelectionIndicator>
-      <mat-button-toggle value="gable">Viilkatus</mat-button-toggle>
-      <mat-button-toggle value="mono">Ühekalle</mat-button-toggle>
+      <mat-button-toggle value="gable"><span class="roof-opt"><app-roof-icon roofType="gable" [size]="20" /> Viilkatus</span></mat-button-toggle>
+      <mat-button-toggle value="mono"><span class="roof-opt"><app-roof-icon roofType="mono" [size]="20" /> Ühekalle</span></mat-button-toggle>
     </mat-button-toggle-group>
     <mat-form-field class="f-scenario">
       <mat-label>Mõõdud</mat-label>
@@ -85,9 +85,17 @@
         <input matInput type="number" min="0" formControlName="sideWallHeight" />
       </mat-form-field>
     }
-    <mat-form-field class="f-num">
+    <mat-form-field class="f-num" [class.f-auto]="isGable()">
       <mat-label>{{ isGable() ? 'Esi/taga h' : 'Esisein h' }}</mat-label>
       <input matInput type="number" min="0" formControlName="frontBackWallHeight" />
+      @if (isGable()) {
+        <button matSuffix mat-icon-button type="button" class="auto-btn" (click)="toggleFbAuto()" [disabled]="readonly()"
+          [matTooltip]="formValue().fbAuto ? 'Arvutatud: küljesein − ½ palki. Vajuta, et sisestada käsitsi.' : 'Sisestatud käsitsi. Vajuta, et arvutada küljeseinast (− ½ palki).'"
+          [attr.aria-label]="formValue().fbAuto ? 'Lülita käsitsi sisestamisele' : 'Arvuta automaatselt'"
+          [attr.aria-pressed]="formValue().fbAuto">
+          <mat-icon>{{ formValue().fbAuto ? 'link' : 'link_off' }}</mat-icon>
+        </button>
+      }
     </mat-form-field>
     <mat-form-field class="f-num">
       <mat-label>{{ isGable() ? 'Hari h' : 'Tagasein h' }}</mat-label>
@@ -132,9 +140,9 @@
             <h3>Pikemad lauad <span class="count">{{ form.controls.longBoards.length }}</span></h3>
             <app-rows-editor [rows]="form.controls.longBoards" aLabel="Pikkus" bLabel="Kõrgus" addLabel="Pikem laud" />
             <h3>Uksed <span class="count">{{ form.controls.doors.length }}</span></h3>
-            <app-rows-editor [rows]="form.controls.doors" addLabel="Uks" />
+            <app-rows-editor [rows]="form.controls.doors" [catalog]="formValue().catalog.doors" addLabel="Uks" />
             <h3>Aknad <span class="count">{{ form.controls.windows.length }}</span></h3>
-            <app-rows-editor [rows]="form.controls.windows" addLabel="Aken" />
+            <app-rows-editor [rows]="form.controls.windows" [catalog]="formValue().catalog.windows" addLabel="Aken" />
           </div>
         </mat-tab>
 
@@ -153,8 +161,16 @@
               <div class="pair">
                 <mat-form-field><mat-label>Prussi laius</mat-label><input matInput type="number" min="0" formControlName="joistWidth" /><span matTextSuffix>mm</span></mat-form-field>
                 <mat-form-field><mat-label>Prussi kõrgus</mat-label><input matInput type="number" min="0" formControlName="joistHeight" /><span matTextSuffix>mm</span></mat-form-field>
-                <mat-form-field><mat-label>Arv (0 = auto)</mat-label><input matInput type="number" min="0" formControlName="joistCount" /><span matTextSuffix>tk</span></mat-form-field>
-                <mat-form-field><mat-label>Max vahe</mat-label><input matInput type="number" min="0" formControlName="joistMaxSpacing" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-button-toggle-group class="full joist-mode" formControlName="joistMode" aria-label="Prusside arv" hideSingleSelectionIndicator>
+                  <mat-button-toggle value="auto" [matTooltip]="'Max kesktelgede vahe ' + tenantConstants().maxJoistSpacing + ' mm'">Automaatne</mat-button-toggle>
+                  <mat-button-toggle value="count">Arv</mat-button-toggle>
+                  <mat-button-toggle value="spacing">Vahe</mat-button-toggle>
+                </mat-button-toggle-group>
+                @if (form.controls.joistMode.value === 'count') {
+                  <mat-form-field><mat-label>Prusside arv</mat-label><input matInput type="number" min="2" formControlName="joistCount" /><span matTextSuffix>tk</span></mat-form-field>
+                } @else if (form.controls.joistMode.value === 'spacing') {
+                  <mat-form-field><mat-label>Max vahe (k/k)</mat-label><input matInput type="number" min="100" formControlName="joistMaxSpacing" /><span matTextSuffix>mm</span></mat-form-field>
+                }
                 <mat-form-field><mat-label>Kaugus 1–2</mat-label><input matInput type="number" min="0" formControlName="dist12" /><span matTextSuffix>mm</span></mat-form-field>
                 <mat-form-field><mat-label>Kaugus A–B</mat-label><input matInput type="number" min="0" formControlName="distAB" /><span matTextSuffix>mm</span></mat-form-field>
               </div>
@@ -177,8 +193,8 @@
             @if (form.controls.roofOn.value) {
               <div class="pair">
                 <mat-form-field><mat-label>Laua pikkus (0 = auto)</mat-label><input matInput type="number" min="0" formControlName="roofBoardLength" /><span matTextSuffix>mm</span></mat-form-field>
-                <mat-form-field><mat-label>Üleulatus</mat-label><input matInput type="number" min="0" formControlName="roofOverhang" /><span matTextSuffix>mm</span></mat-form-field>
-                <mat-form-field><mat-label>Laua laius</mat-label><input matInput type="number" min="0" formControlName="roofBoardWidth" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Min üleulatus</mat-label><input matInput type="number" min="0" formControlName="roofOverhang" [placeholder]="'' + tenantConstants().defaultRoofOverhang" /><span matTextSuffix>mm</span><mat-hint>tühi/0 = ettevõtte {{ tenantConstants().defaultRoofOverhang }} mm</mat-hint></mat-form-field>
+                <mat-form-field><mat-label>Laua laius</mat-label><input matInput type="number" min="0" formControlName="roofBoardWidth" [placeholder]="'' + tenantConstants().roofBoardWidth" /><span matTextSuffix>mm</span><mat-hint>tühi/0 = ettevõtte {{ tenantConstants().roofBoardWidth }} mm</mat-hint></mat-form-field>
               </div>
             }
             <mat-slide-toggle formControlName="purlinsOn">Pärlinid</mat-slide-toggle>
@@ -210,8 +226,19 @@
               }
             </div>
             @if (session.isAdmin()) {
-              <button mat-stroked-button type="button" (click)="saveTenantPrices()">
-                <mat-icon>cloud_upload</mat-icon> Salvesta ettevõtte hinnakirjaks
+              <h3>Arvutuse seaded</h3>
+              <div class="pair" [formGroup]="tenantForm">
+                <mat-form-field><mat-label>Min katuse üleulatus</mat-label><input matInput type="number" min="0" formControlName="defaultRoofOverhang" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Katuselaua laius</mat-label><input matInput type="number" min="1" formControlName="roofBoardWidth" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Prusside max vahe</mat-label><input matInput type="number" min="100" formControlName="maxJoistSpacing" /><span matTextSuffix>mm</span></mat-form-field>
+                <mat-form-field><mat-label>Pärlinite max vahe</mat-label><input matInput type="number" min="100" formControlName="maxPurlinSpacing" /><span matTextSuffix>mm</span><mat-hint>horisontaalselt</mat-hint></mat-form-field>
+              </div>
+              <h3>Uksed (kataloog)</h3>
+              <app-catalog-editor [items]="form.controls.catalog.controls.doors" addLabel="Uks kataloogi" />
+              <h3>Aknad (kataloog)</h3>
+              <app-catalog-editor [items]="form.controls.catalog.controls.windows" addLabel="Aken kataloogi" />
+              <button mat-stroked-button type="button" (click)="saveTenantSettings()">
+                <mat-icon>cloud_upload</mat-icon> Salvesta ettevõtte seaded
               </button>
             }
           </div>
@@ -227,11 +254,14 @@
           <div class="view-bar">
             <mat-button-toggle-group [value]="view()" (change)="view.set($event.value)" aria-label="Joonise vaade" hideSingleSelectionIndicator>
               <mat-button-toggle value="overview">Ülevaade</mat-button-toggle>
+              @if (!isGable()) {
+                <mat-button-toggle value="side">Külg</mat-button-toggle>
+              }
               <mat-button-toggle value="floor">Põrand</mat-button-toggle>
               <mat-button-toggle value="foundation">Vundament</mat-button-toggle>
             </mat-button-toggle-group>
           </div>
-          <app-house-drawing [v]="formValue()" [r]="r" [view]="view()" />
+          <app-house-drawing [v]="houseValue()" [r]="r" [view]="view()" />
         </div>
         @if (!readonly()) {
         <div class="panel details">
@@ -334,7 +364,7 @@
                       <span class="muted">{{ l.profile }}{{ l.profile && l.pieces?.length ? ' · ' : '' }}{{ pieces(l.pieces) }}</span>
                     }
                   </td>
-                  <td class="num">{{ l.quantity | number: '1.2-2' }} jm</td>
+                  <td class="num">{{ l.unit === 'tk' ? (l.quantity | number: '1.0-0') + ' tk' : (l.quantity | number: '1.2-2') + ' jm' }}</td>
                   @if (!readonly()) {
                     <td class="num">{{ l.total != null ? (l.total | number: '1.2-2') + ' €' : '–' }}</td>
                   }

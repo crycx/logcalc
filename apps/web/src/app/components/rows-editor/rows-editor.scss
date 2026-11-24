@@ -3,3 +3,13 @@
 .empty { margin: 0; color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small); }
 @media (max-width: 480px) { .row { grid-template-columns: 1fr 1fr 72px 40px; } }
 
+
+.model,
+.model-name {
+  grid-column: 1 / -1;
+}
+
+.model-name {
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-on-surface-variant);
+}

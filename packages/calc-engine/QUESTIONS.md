@@ -1,31 +1,30 @@
-# Lahtised küsimused (vajavad domeenieksperdi kinnitust)
+# Küsimused arvutuse kohta
 
-Need kohad on mootoris **jäetud samaks nagu v2-s**. Need tunduvad aga kahtlased ja tuleks üle kontrollida mõne Revit-projekti vastu.
+## Lahendatud
 
-**K1. ~~Viilkatuse esi- ja tagaseina osaline rida~~ – LAHENDATUD**
-v2 `1/0,5 = 2` tähendas ühte pool palki kummalegi seinale. Revit (Placas I 40, 40x57) kinnitas seda. Pool palki on kulus terve palk.
+| # | Küsimus | Otsus |
+|---|---|---|
+| K1 | Viilkatuse esi/tagaseina osaline rida | v2 `1/0,5 = 2` = pool palki kummalegi seinale; kinnitatud Revitiga (Placas I 40). Pool palki on kulus terve palk. |
+| K2 | Külgseinte ridade arv (`floor(h/p) − 1` mittetäpsel kõrgusel) | Tahtlik, jääb. |
+| K3 | Vundamendi prusside vahe ja kaugused seintest | Kuvab õigesti vastavalt suunale A→B / 1→2; jääb. |
+| K4 | Pärlini pikkus ühekaldelisel | = katuse pikkus (laius). DEVIATIONS.md D8. |
+| K5 | Esi/tagaseina kõrgus | Kasutajaliideses automaatselt = küljesein − ½ palki, käsitsi muudetav (`fbAuto`). Vanad salvestatud majad jäävad käsitsi väärtusega. |
+| K6 | Ühekaldelise kolmnurga laius `pikkus − (2×100 + paksus)` | Kinnitatud Revitiga (Annika I 28): kolmnurga palgid 2000 / 1429 / 543 mm täpselt, seinad kokku 150,82 m. |
+| K7 | Uste ja akende hinnad | Ettevõtte kataloog (nimi, mõõdud, hind tk kohta), admin seadistab; materjalide nimekirjas tükiridadena. |
+| K8 | Vundamendi prusside max vahe | Kasutaja määratav (valik auto / arv / vahe), automaatne max vahe 600 (Revit). |
+| K9 | Räästalaudade järjekord | Toelauad (RR) ees, siis esiräästalaud (RF) ja papikinnituslaud (EE). |
+| K10 | Vundamendi prusside pikkus/arv | Pikkus: 5 mm vahe otstes (Revit 5/5). Arv: valik auto (max vahe 600) / arv / vahe – Revit'i mudelid kasutavad 368–593 mm. |
+| K11 | Tuuleliistud | Nurkade vertikaalsed liistud; Revit näitab laopikkust 2200 (+550 kõrgel seinal). Valem jääb. |
+| K13 | Katuselaudade, pärlinite, põranda arv | Kalibreeritud 8 Revit-joonise järgi (DEVIATIONS.md D9–D12). |
 
-**K2. ~~Külgseinte ridade arv~~ – LAHENDATUD**
-Mittetäpse kõrguse puhul `floor(h/p) − 1` rida on tahtlik (kinnitatud).
+## Lahtised
 
-**K3. Vundament, suund AB** (`foundation.ts`, v2 r.4127)
-Prusside vahe arvutatakse laiuse ja prusside pikkus sügavuse järgi, aga **mõlemal juhul** kasutatakse kaugust seintest 1–2 (`prussiKaugusValisseinast12`). Kaugust A–B kasutatakse ainult ringprusside juures. Kas see on õige?
+**K12. Katuse nurk** – joonistel täisarvud (Annika 7°, Bente 17°), mootor arvutab arvutuslikust kolmnurgast (7,7°, 16,5°). Mõjutab ainult kuvamist. Kas joonisel on tootekirjelduse ümardatud nurk?
 
-**K4. ~~Pärlini pikkus ühekaldelisel katusel~~ – LAHENDATUD**
-Ühekaldelisel = laius (katuse pikkus), vt DEVIATIONS.md D8.
+**K14. Katuselaua pikkus** – Revit'i pikkused (nt Bente 1590, Brantevik 2197) sõltuvad tegelikust üleulatusest; mootor arvutab vaikimisi üleulatusega 200 (1643, 2083). Iga maja üleulatus tuleb sisestada või see peab olema kliendi seade.
 
-**K5. Viilkatuse kõrgused** (`geometry.ts`, v2 `arvutaUus()`)
-Viilupalkide arv arvutatakse esi- ja tagaseina kõrgusest (`roofHeight − heightFb`), viilu kolmnurga kõrgus aga küljeseina kõrgusest (`roofHeight − heightSide`). Placas I 40 puhul andis see Revitiga sama tulemuse (27,76 vs 27,74 m), seega on see ilmselt tahtlik poole palgi nihke tõttu. Kinnita.
+## Seinamudeli testjuhtumid (praegune 4-seinaline mudel ei kata)
 
-**K6. Ühekaldelise katuse kolmnurga laius** (`geometry.ts`)
-`depth − (2×100 + paksus)`, ehk palgi paksus on lahutatud ainult üks kord, mitte kaks korda nagu viilkatusel.
-
-**K7. Uste ja akende hinnad** (v2 `avaHinnad()`)
-Seda pole veel üle kantud: uste ja akende hinnad on v2-s seeriapõhised ja eraldi loogikaga.
-
-**K8. ~~Vundamendi prusside arv vs Revit~~ – LAHENDATUD**
-Max vahe on kasutaja määratav (`foundation.maxSpacing`), vaikimisi 500. Brantevik II joonise 7 prussi saab max vahega 600.
-
-**K9. Testimise märkmetest** (Annika I)
-- Katuselaua laius peab olema muudetav, mitte alati 110. See on nüüd konstant `roofBoardWidth` ja seda saab muuta.
-- Räästalauad tuleks kuvada vastupidises järjekorras („RR-id ees“). See on kasutajaliidese küsimus.
+- **Nora I 40** – garaaž: garaažiukse kõrval postid (410), kolm viilu (sh keskmine viilsõrestik), külgseinas uks + aken.
+- **Boden II 40** – lahtine veranda postidega, magamislava (redel, piire), 68 mm pärlinid, 39° katus, 6 seinagruppi.
+- **Lund 40** – kinnine terrass (piirded, nurgapostid 300 klotsidest), viiluga vahesein uksega, 3 viilu, X-nurgaliited.

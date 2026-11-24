@@ -10,6 +10,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Api, type ProjectSummary } from '../../core/api';
+import { RoofIcon } from '../../components/roof-icon/roof-icon';
 import { serverDate } from '../../helpers/date';
 import { apiError } from '../../helpers/http';
 import { ShareDialog } from '../share-dialog/share-dialog';
@@ -23,7 +24,7 @@ interface ProjectGroup {
 @Component({
   selector: 'app-projects-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, MatTooltipModule],
+  imports: [DatePipe, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, MatTooltipModule, RoofIcon],
   templateUrl: './projects-dialog.html',
   styleUrl: './projects-dialog.scss',
 })

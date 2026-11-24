@@ -33,7 +33,7 @@ final class ProjectsApi
         $isAdmin = in_array($u['role'], ['admin', 'superadmin'], true) ? 1 : 0;
         $isSuper = $u['role'] === 'superadmin' ? 1 : 0;
         $st = $this->db->prepare(
-            'SELECT p.id, p.tenant_id, p.name, p.created_at, p.updated_at, p.owner_id,
+            'SELECT p.id, p.tenant_id, p.name, p.data, p.created_at, p.updated_at, p.owner_id,
                     o.name AS owner_name, o.email AS owner_email,
                     s.permission AS share_permission,
                     (SELECT COUNT(*) FROM project_shares x WHERE x.project_id = p.id) AS share_count
@@ -226,7 +226,20 @@ final class ProjectsApi
             'owner' => $r['owner_id'] !== null ? ['id' => (int) $r['owner_id'], 'name' => $r['owner_name'], 'email' => $r['owner_email']] : null,
             'access' => ['edit' => $a['edit'], 'manage' => $a['manage'], 'via' => $a['via']],
             'shareCount' => (int) ($r['share_count'] ?? 0),
-        ];
+        ] + self::shape($r['data'] ?? null);
+    }
+
+    /** Nimekirja jaoks: katuse tüüp ja mõõdud maja andmetest */
+    private static function shape(?string $json): array
+    {
+        $d = $json ? json_decode($json, true) : null;
+        if (!is_array($d)) {
+            return [];
+        }
+        $roof = in_array($d['roofType'] ?? null, ['gable', 'mono'], true) ? $d['roofType'] : null;
+        $w = is_numeric($d['width'] ?? null) ? (int) $d['width'] : null;
+        $dp = is_numeric($d['depth'] ?? null) ? (int) $d['depth'] : null;
+        return ['roofType' => $roof, 'size' => $w && $dp ? ['width' => $w, 'depth' => $dp] : null];
     }
 
     private function full(array $u, array $r): array

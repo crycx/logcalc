@@ -1,6 +1,7 @@
 import { HttpClient, type HttpInterceptorFn } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type { PriceList } from '@logcalc/calc-engine';
+import type { Catalog } from './house-form';
 import { firstValueFrom } from 'rxjs';
 
 export type Role = 'superadmin' | 'admin' | 'user';
@@ -28,6 +29,9 @@ export interface ProjectSummary {
   owner: { id: number; name: string; email: string } | null;
   access: ProjectAccess;
   shareCount: number;
+  /** nimekirja jaoks maja andmetest */
+  roofType?: 'gable' | 'mono' | null;
+  size?: { width: number; depth: number } | null;
 }
 
 export interface Share {
@@ -45,7 +49,16 @@ export interface Project<T = unknown> extends ProjectSummary {
 
 export interface TenantSettings {
   prices?: Partial<Record<keyof PriceList, number>>;
-  constants?: Record<string, number>;
+  catalog?: Catalog;
+  constants?: Partial<TenantConstants>;
+}
+
+/** Ettevõtte arvutuse seaded (alamhulk mootori konstantidest) */
+export interface TenantConstants {
+  defaultRoofOverhang: number;
+  roofBoardWidth: number;
+  maxJoistSpacing: number;
+  maxPurlinSpacing: number;
 }
 
 export interface Tenant {

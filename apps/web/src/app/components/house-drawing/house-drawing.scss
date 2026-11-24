@@ -17,3 +17,7 @@ svg { width: 100%; height: 100%; max-height: 440px; overflow: visible; }
 .area { fill: var(--mat-sys-on-surface-variant); }
 .axis { fill: var(--mat-sys-surface); stroke: var(--mat-sys-outline); stroke-width: 1; vector-effect: non-scaling-stroke; }
 
+
+.plan-gap { fill: var(--mat-sys-surface); stroke: none; }
+.plan-swing { fill: none; stroke: #5b4a32; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.plan-glass { stroke: #3d6a8a; stroke-width: 1.5; vector-effect: non-scaling-stroke; }

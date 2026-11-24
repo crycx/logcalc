@@ -13,6 +13,19 @@ Mootor on vana `htdocs/v2/JS/script.js` valemite ülekanne. Allpool on kõik koh
 | D8 | `parlinNimekiri()` | Pärlini pikkus oli alati maja sügavus, ka ühekaldelisel katusel. | Pärlini pikkus = katuse pikkus: viilkatusel sügavus, ühekaldelisel laius (või pikim pikem laud). Kinnitatud (K4). |
 | D7 | `arvutaUus()` | Viilupalkide kogupikkus ümardati enne korrutamist (`toFixed(2)`). | Ümardamist ei tehta; vormindab kasutajaliides. |
 
+### Revit-joonistega kalibreeritud (2026-11, 8 Viktra maja)
+
+Võrdlus: `test/revit-houses.test.ts`; toorandmed ja võrdlusskript `Dropbox/logcalc/Vanad joonised/andmed/` (gitist väljas).
+
+| # | Koht | v2 | Nüüd (Revit) | Kehtib |
+|---|---|---|---|---|
+| D9 | Katuselaudade arv | `2 + 2 × ümar(L/110)` | `alla(L / laua laius)` katusepoole kohta | 7/8 (Placas I: Revit 72, reegel 70 – tõenäoliselt Revit'i viga) |
+| D10 | Pärlinite arv | kaldpinna pikkus ÷ (n+1) < 700 | **horisontaalne** ulatus ÷ (n+1) < 900 | 8/8 |
+| D11 | Vundamendi pruss | täispikk; max vahe 500 | 5 mm vahe kummaski otsas (ka ringprussid); automaatne max vahe 600; valik auto / arv / vahe | pikkus 5/5, arv auto-ga 3/5 |
+| D12 | Põrandalaudade arv | `üles(ava/110) + 1` | `üles((ava − 2×20)/110)` – 20 mm vahe seinast kummalgi pool | 5/5 |
+
+Tuuleliistud = nurkade vertikaalsed liistud (4 nurka × seina kõrgus) – v2 valem jääb. Revit näitab laopikkust (4 × 2200; kõrgemal seinal + 550).
+
 ## Kontroll päris majadega
 
 `test/real-houses.test.ts` (andmed: `Dropbox/kalkull/Abimaterjal/`):

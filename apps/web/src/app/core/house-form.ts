@@ -8,18 +8,49 @@ import type {
   RoofType,
 } from '@logcalc/calc-engine';
 
-/** Üks rida loendis (pikem laud / uks / aken): a = pikkus|laius, b = kõrgus. */
+/**
+ * Üks rida loendis (pikem laud / uks / aken): a = pikkus|laius, b = kõrgus.
+ * name + price: uste/akende kataloogi mudel (tühi = oma mõõdud, ilma hinnata).
+ */
 export type RowForm = FormGroup<{
   a: FormControl<number>;
   b: FormControl<number>;
   count: FormControl<number>;
+  name: FormControl<string>;
+  price: FormControl<number>;
 }>;
 
 export interface RowValue {
   a: number;
   b: number;
   count: number;
+  name?: string;
+  price?: number;
 }
+
+/** Ettevõtte uste/akende kataloogi rida */
+/** Vundamendi prusside arvu määramine: auto (max vahe 600), arv käsitsi või max vahe käsitsi */
+export type JoistMode = 'auto' | 'count' | 'spacing';
+
+export interface CatalogItem {
+  name: string;
+  width: number;
+  height: number;
+  /** € tk kohta */
+  price: number;
+}
+
+export interface Catalog {
+  doors: CatalogItem[];
+  windows: CatalogItem[];
+}
+
+export type CatalogItemForm = FormGroup<{
+  name: FormControl<string>;
+  width: FormControl<number>;
+  height: FormControl<number>;
+  price: FormControl<number>;
+}>;
 
 export const PRICE_KEYS: { key: keyof PriceList; label: string }[] = [
   { key: 'seinaLauad', label: 'Seinalauad' },
@@ -42,6 +73,8 @@ export interface HouseFormValue {
   depth: number;
   sideWallHeight: number;
   frontBackWallHeight: number;
+  /** Esi/tagaseina kõrgus = küljesein − ½ palki (QUESTIONS.md K5) */
+  fbAuto: boolean;
   roofHeight: number;
   logThickness: number;
   logHeight: number;
@@ -52,6 +85,7 @@ export interface HouseFormValue {
   foundationOn: boolean;
   joistWidth: number;
   joistHeight: number;
+  joistMode: JoistMode;
   joistCount: number;
   joistMaxSpacing: number;
   dist12: number;
@@ -67,7 +101,10 @@ export interface HouseFormValue {
   purlinsOn: boolean;
   purlinCount: number;
   ridgeOnly: boolean;
+  /** Ettevõtte hinnakiri (ei salvestata majaga) */
   prices: Record<keyof PriceList, number>;
+  /** Ettevõtte uste/akende kataloog (ei salvestata majaga) */
+  catalog: Catalog;
 }
 
 const ZERO_PRICES = Object.fromEntries(PRICE_KEYS.map((p) => [p.key, 0])) as Record<keyof PriceList, number>;
@@ -80,6 +117,7 @@ export const DEFAULT_VALUE: HouseFormValue = {
   depth: 3800,
   sideWallHeight: 1824,
   frontBackWallHeight: 1767,
+  fbAuto: true,
   roofHeight: 2223,
   logThickness: 28,
   logHeight: 114,
@@ -90,8 +128,9 @@ export const DEFAULT_VALUE: HouseFormValue = {
   foundationOn: true,
   joistWidth: 40,
   joistHeight: 70,
-  joistCount: 0,
-  joistMaxSpacing: 500,
+  joistMode: 'auto',
+  joistCount: 8,
+  joistMaxSpacing: 600,
   dist12: 0,
   distAB: 0,
   ring: false,
@@ -100,73 +139,72 @@ export const DEFAULT_VALUE: HouseFormValue = {
   floorGap: 5,
   roofOn: true,
   roofBoardLength: 0,
-  roofOverhang: 200,
-  roofBoardWidth: 110,
+  roofOverhang: 0,
+  roofBoardWidth: 0,
   purlinsOn: true,
   purlinCount: 0,
   ridgeOnly: false,
   prices: { ...ZERO_PRICES },
+  catalog: { doors: [], windows: [] },
 };
 
-export interface Example {
-  name: string;
-  note: string;
-  value: Partial<HouseFormValue>;
+const normRow = (r: RowValue): Required<RowValue> => ({
+  a: r.a ?? 0,
+  b: r.b ?? 0,
+  count: r.count ?? 1,
+  name: r.name ?? '',
+  price: r.price ?? 0,
+});
+
+/**
+ * Salvestatud/vana maja -> täielik vormi väärtus.
+ * Vanadel majadel pole fbAuto-t: nende esi/tagaseina kõrgus jääb käsitsi (fbAuto = false).
+ */
+export function normalizeHouse(d: Partial<HouseFormValue>, keep?: Pick<HouseFormValue, 'prices' | 'catalog'>): HouseFormValue {
+  return {
+    ...DEFAULT_VALUE,
+    ...d,
+    fbAuto: d.fbAuto ?? false,
+    // vanad majad: arv > 0 -> käsitsi arv; muu max vahe kui v2 vaikimisi 500 -> käsitsi vahe; muidu auto
+    joistMode:
+      d.joistMode ??
+      ((d.joistCount ?? 0) > 0 ? 'count' : d.joistMaxSpacing && d.joistMaxSpacing !== 500 ? 'spacing' : 'auto'),
+    joistCount: d.joistCount || DEFAULT_VALUE.joistCount,
+    joistMaxSpacing: d.joistMaxSpacing && d.joistMaxSpacing !== 500 ? d.joistMaxSpacing : DEFAULT_VALUE.joistMaxSpacing,
+    longBoards: (d.longBoards ?? DEFAULT_VALUE.longBoards).map(normRow),
+    doors: (d.doors ?? DEFAULT_VALUE.doors).map(normRow),
+    windows: (d.windows ?? DEFAULT_VALUE.windows).map(normRow),
+    prices: keep?.prices ?? { ...DEFAULT_VALUE.prices, ...(d.prices ?? {}) },
+    catalog: keep?.catalog ?? d.catalog ?? DEFAULT_VALUE.catalog,
+  };
 }
 
-export const EXAMPLES: Example[] = [
-  { name: 'Bente IV 28', note: 'v2 tulemusega kontrollitud', value: DEFAULT_VALUE },
-  {
-    name: 'Placas I 40',
-    note: 'Revit-eelarvega kontrollitud',
-    value: {
-      roofType: 'gable',
-      lengthScenario: 'log',
-      width: 4500,
-      depth: 3000,
-      sideWallHeight: 2052,
-      frontBackWallHeight: 1995,
-      roofHeight: 2565,
-      logThickness: 40,
-      logHeight: 114,
-      longBoards: [
-        { a: 3900, b: 114, count: 2 },
-        { a: 3500, b: 114, count: 2 },
-        { a: 3200, b: 114, count: 2 },
-      ],
-      doors: [{ a: 1440, b: 1995, count: 1 }],
-      windows: [{ a: 520, b: 1938, count: 2 }],
-    },
-  },
-  {
-    name: 'Brantevik II 40',
-    note: 'joonise andmed',
-    value: {
-      roofType: 'gable',
-      lengthScenario: 'log',
-      width: 3800,
-      depth: 3800,
-      sideWallHeight: 2058,
-      frontBackWallHeight: 1995,
-      roofHeight: 2565,
-      logThickness: 40,
-      logHeight: 114,
-      longBoards: [
-        { a: 5100, b: 120, count: 2 },
-        { a: 4700, b: 114, count: 2 },
-        { a: 4400, b: 114, count: 2 },
-        { a: 4100, b: 114, count: 2 },
-      ],
-      doors: [{ a: 1440, b: 1995, count: 1 }],
-      windows: [{ a: 765, b: 990, count: 1 }],
-      floorDirection: 'AB',
-      floorBoardWidth: 95,
-    },
-  },
-];
+/** Automaatsed väljad välja arvutatud (K5: esi/taga = küljesein − ½ palki). */
+export function resolveAuto(v: HouseFormValue): HouseFormValue {
+  if (v.roofType === 'gable' && v.fbAuto) {
+    return { ...v, frontBackWallHeight: (v.sideWallHeight || 0) - (v.logHeight || 0) / 2 };
+  }
+  return v;
+}
 
 export function buildRow(fb: NonNullableFormBuilder, v: RowValue = { a: 0, b: 0, count: 1 }): RowForm {
-  return fb.group({ a: fb.control(v.a), b: fb.control(v.b), count: fb.control(v.count) });
+  const r = normRow(v);
+  return fb.group({
+    a: fb.control(r.a),
+    b: fb.control(r.b),
+    count: fb.control(r.count),
+    name: fb.control(r.name),
+    price: fb.control(r.price),
+  });
+}
+
+export function buildCatalogItem(fb: NonNullableFormBuilder, v: CatalogItem = { name: '', width: 0, height: 0, price: 0 }): CatalogItemForm {
+  return fb.group({
+    name: fb.control(v.name),
+    width: fb.control(v.width),
+    height: fb.control(v.height),
+    price: fb.control(v.price),
+  });
 }
 
 export function buildHouseForm(fb: NonNullableFormBuilder, v: HouseFormValue = DEFAULT_VALUE) {
@@ -177,6 +215,7 @@ export function buildHouseForm(fb: NonNullableFormBuilder, v: HouseFormValue = D
     depth: fb.control(v.depth),
     sideWallHeight: fb.control(v.sideWallHeight),
     frontBackWallHeight: fb.control(v.frontBackWallHeight),
+    fbAuto: fb.control(v.fbAuto),
     roofHeight: fb.control(v.roofHeight),
     logThickness: fb.control(v.logThickness),
     logHeight: fb.control(v.logHeight),
@@ -187,6 +226,7 @@ export function buildHouseForm(fb: NonNullableFormBuilder, v: HouseFormValue = D
     foundationOn: fb.control(v.foundationOn),
     joistWidth: fb.control(v.joistWidth),
     joistHeight: fb.control(v.joistHeight),
+    joistMode: fb.control<JoistMode>(v.joistMode),
     joistCount: fb.control(v.joistCount),
     joistMaxSpacing: fb.control(v.joistMaxSpacing),
     dist12: fb.control(v.dist12),
@@ -208,10 +248,25 @@ export function buildHouseForm(fb: NonNullableFormBuilder, v: HouseFormValue = D
         FormControl<number>
       >,
     ),
+    catalog: fb.group({
+      doors: fb.array<CatalogItemForm>(v.catalog.doors.map((c) => buildCatalogItem(fb, c))),
+      windows: fb.array<CatalogItemForm>(v.catalog.windows.map((c) => buildCatalogItem(fb, c))),
+    }),
   });
 }
 
 export type HouseForm = ReturnType<typeof buildHouseForm>;
+
+/** Seab kataloogi (ettevõtte seadetest). */
+export function setCatalog(fb: NonNullableFormBuilder, form: HouseForm, c: Catalog): void {
+  const set = (arr: FormArray<CatalogItemForm>, items: CatalogItem[]) => {
+    arr.clear({ emitEvent: false });
+    items.forEach((it) => arr.push(buildCatalogItem(fb, it), { emitEvent: false }));
+  };
+  set(form.controls.catalog.controls.doors, c.doors);
+  set(form.controls.catalog.controls.windows, c.windows);
+  form.controls.catalog.updateValueAndValidity();
+}
 
 /** Seab vormi väärtuse, sh loendite read. */
 export function setFormValue(fb: NonNullableFormBuilder, form: HouseForm, v: HouseFormValue): void {
@@ -222,14 +277,23 @@ export function setFormValue(fb: NonNullableFormBuilder, form: HouseForm, v: Hou
   setRows(form.controls.longBoards, v.longBoards);
   setRows(form.controls.doors, v.doors);
   setRows(form.controls.windows, v.windows);
+  setCatalog(fb, form, v.catalog);
   form.patchValue(v);
 }
 
 const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
 const rows = (list: RowValue[]) => list.filter((r) => n(r.a) > 0 && n(r.b) > 0 && n(r.count) > 0);
+const opening = (r: RowValue) => ({
+  width: r.a,
+  height: r.b,
+  count: r.count,
+  ...(r.name ? { name: r.name } : {}),
+  ...(n(r.price) > 0 ? { unitPrice: n(r.price) } : {}),
+});
 
 /** Vormi väärtus -> arvutusmootori sisend. */
-export function toEngineInput(v: HouseFormValue): { input: HouseInput; options: CalculateOptions } {
+export function toEngineInput(value: HouseFormValue): { input: HouseInput; options: CalculateOptions } {
+  const v = resolveAuto(value);
   const gable = v.roofType === 'gable';
   const input: HouseInput = {
     roofType: v.roofType,
@@ -241,16 +305,16 @@ export function toEngineInput(v: HouseFormValue): { input: HouseInput; options: 
     roofHeight: n(v.roofHeight),
     log: { thickness: n(v.logThickness), height: n(v.logHeight) },
     longBoards: rows(v.longBoards).map((r) => ({ length: r.a, height: r.b, count: r.count })),
-    doors: rows(v.doors).map((r) => ({ width: r.a, height: r.b, count: r.count })),
-    windows: rows(v.windows).map((r) => ({ width: r.a, height: r.b, count: r.count })),
+    doors: rows(v.doors).map(opening),
+    windows: rows(v.windows).map(opening),
     floorDirection: v.floorDirection,
   };
   if (v.foundationOn) {
     input.foundation = {
       joistWidth: n(v.joistWidth),
       joistHeight: n(v.joistHeight),
-      count: n(v.joistCount),
-      maxSpacing: n(v.joistMaxSpacing),
+      ...(v.joistMode === 'count' ? { count: n(v.joistCount) } : {}),
+      ...(v.joistMode === 'spacing' ? { maxSpacing: n(v.joistMaxSpacing) } : {}),
       distanceFromWall12: n(v.dist12),
       distanceFromWallAB: n(v.distAB),
       ring: v.ring,

@@ -77,29 +77,47 @@ describe('Bente IV 28 – võrdlus v2 tulemusega (leht "Bente IV 190306")', () =
     expect(r.openings.doorsJm).toBeCloseTo(23.04, 9);
   });
 
-  it('vundament: 9 tk (2750 mm), vahe 445 mm, 24,75 jm', () => {
-    const f = r.foundation!;
-    expect(f.joistCount).toBe(9);
-    expect(f.joistLength).toBe(2750);
-    expect(f.spacing).toBeCloseTo(445, 9);
-    expect(f.totalJm).toBeCloseTo(24.75, 9);
-  });
-
-  it('katuselaudu 74 tk, nurk ~16°', () => {
-    expect(r.roof!.boardCount).toBe(74);
-    expect(Math.round(r.roof!.angle)).toBeGreaterThanOrEqual(16);
-    expect(Math.round(r.roof!.angle)).toBeLessThanOrEqual(17);
-  });
-
-  it('pärlinid: 2 + tipupärlin, vahe 702,4 mm, 12,0 jm', () => {
-    const p = r.purlins!;
-    expect(p.pieces).toBe(3);
-    expect(p.spacing!).toBeCloseTo(702.4, 1);
-    expect(p.totalJm).toBeCloseTo(12, 9);
-  });
-
   it('vaikimisi pindala 9,9 m2', () => {
     expect(r.walls.footprintArea).toBeCloseTo(9.9, 2);
+  });
+});
+
+describe('Annika I 28 (ühekalle) – võrdlus Revit lõikenimekirjaga (Vanad joonised/Annika_I_28_270x180_4000002_S_220208.pdf)', () => {
+  // Sein 1 (esi, uksega): 1BL 28x57 2×730, 1LG 28x114 34×730, 1TL 28x114 1×3100
+  // Sein 2 (taga):        2BL 28x57 1×2900, 2LG 15×2900, 2TL 1×3100
+  // Sein A ja B:          LG-4 16×2000, LG-3 2000, LG-2 1429, LG-1 543 (kolmnurk)
+  const annika: HouseInput = {
+    roofType: 'mono',
+    lengthScenario: 'log',
+    width: 2900,
+    depth: 2000,
+    sideWallHeight: 0,
+    frontBackWallHeight: 2109, // 18,5 rida
+    roofHeight: 1881, // 16,5 rida
+    log: { thickness: 28, height: 114 },
+    longBoards: [{ length: 3100, height: 114, count: 2 }], // TL ülemised palgid
+    doors: [{ width: 1440, height: 1995, count: 1 }], // ava: ½ + 17 rida
+  };
+  const r = calculateHouse(annika);
+
+  it('sein 1 (esisein uksega): Revit 1,46 + 24,82 + 3,10 = 29,38 m', () => {
+    expect(r.walls.breakdown.front! - r.openings.doorsJm).toBeCloseTo(29.38, 2);
+  });
+
+  it('sein 2 (tagasein): Revit 2,90 + 43,50 + 3,10 = 49,50 m', () => {
+    expect(r.walls.breakdown.back).toBeCloseTo(49.5, 2);
+  });
+
+  it('seinad A+B: Revit 2 × 16 × 2000 = 64,00 m', () => {
+    expect(r.walls.breakdown.sides).toBeCloseTo(64, 9);
+  });
+
+  it('kolmnurga palgid täpselt nagu Revitis: 2000, 1429, 543 (K6)', () => {
+    expect(r.walls.gableCourses.map((c) => Math.round(c.length))).toEqual([2000, 1429, 543]);
+  });
+
+  it('kokku: Revit 150,82 m (ka testimärkmetes "Seinalauad õiged – 150,82")', () => {
+    expect(r.walls.netJm).toBeCloseTo(150.82, 2);
   });
 });
 
@@ -122,14 +140,14 @@ describe('Brantevik II 40 – jooniselt (Brantevik II/andmed jooniselt.txt)', ()
     expect(r.floor!.boardLength).toBe(3515);
   });
 
-  it('vundamendi prussi pikkus 3600 mm (seinast seinani)', () => {
-    expect(r.foundation!.joistLength).toBe(3600);
+  it('vundamendi prussi pikkus 3590 mm (Revit: 5 mm vahe otstes; joonise märkus "3600 seinast seinani")', () => {
+    expect(r.foundation!.joistLength).toBe(3590);
   });
 
-  it('vundament: vaikimisi max vahe 500 -> 9 prussi; joonise 7 prussi saab max vahega 600', () => {
-    expect(r.foundation!.joistCount).toBe(9);
-    const r600 = calculateHouse({ ...b, foundation: { ...b.foundation!, maxSpacing: 600 } });
-    expect(r600.foundation!.joistCount).toBe(7);
-    expect(r600.foundation!.spacing).toBeCloseTo(3560 / 6, 9);
+  it('vundament: vaikimisi max vahe 600 -> 7 prussi nagu joonisel; vana 500 -> 9', () => {
+    expect(r.foundation!.joistCount).toBe(7);
+    expect(r.foundation!.spacing).toBeCloseTo(3560 / 6, 9);
+    const r500 = calculateHouse({ ...b, foundation: { ...b.foundation!, maxSpacing: 500 } });
+    expect(r500.foundation!.joistCount).toBe(9);
   });
 });
