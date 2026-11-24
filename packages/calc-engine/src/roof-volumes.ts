@@ -52,7 +52,51 @@ export function roofVolumes(plan: HousePlan, geo: WallGeometry[]): RoofVolume[] 
     const e = host ? sharedEdge(host, v) : null;
     v.ridge = e === 'v' ? 'x' : e === 'h' ? 'y' : mainRidge;
   }
-  return vols;
+  return dominate(vols);
+}
+
+/**
+ * Tiib, mis on teise mahu räästa vastas ja sellest laiem (sama kalde juures kõrgem hari), läbib nurga:
+ * teise mahu riba tiiva laiuses läheb tiivale (ristviil), kitsam osa liitub tiivaga oruga.
+ * Muidu jääks kõrgem tiiva hari madalama katuse kohal õhku.
+ */
+function dominate(input: RoofVolume[]): RoofVolume[] {
+  let vols = input.map((v) => ({ ...v }));
+  for (let guard = 0; guard < 10; guard++) {
+    let next: RoofVolume[] | null = null;
+    for (let k = 0; k < vols.length && !next; k++) {
+      const w = vols[k]!;
+      for (let h = 0; h < vols.length && !next; h++) {
+        const o = vols[h]!;
+        if (h === k || o.ridge === w.ridge) continue;
+        const se = sharedEdge(o, w);
+        // ühine serv peab olema o räästas (paralleelne o harjaga)
+        if (!((se === 'v' && o.ridge === 'y') || (se === 'h' && o.ridge === 'x'))) continue;
+        if (volumeSpan(w).across <= volumeSpan(o).across + EPS) continue;
+        const ry = o.ridge === 'y'; // o hari y -> tiiva hari x, tiiva laius y-suunas
+        const s0 = ry ? w.y0 : w.x0;
+        const s1 = ry ? w.y1 : w.x1;
+        const o0 = ry ? o.y0 : o.x0;
+        const o1 = ry ? o.y1 : o.x1;
+        if (s0 < o0 - EPS || s1 > o1 + EPS) continue; // tiib peab jääma o külje sisse
+        const grown: RoofVolume = ry
+          ? { ...w, x0: Math.min(o.x0, w.x0), x1: Math.max(o.x1, w.x1) }
+          : { ...w, y0: Math.min(o.y0, w.y0), y1: Math.max(o.y1, w.y1) };
+        const rest: RoofVolume[] = [];
+        if (s0 - o0 > EPS) rest.push(ry ? { ...o, y1: s0 } : { ...o, x1: s0 });
+        if (o1 - s1 > EPS) rest.push(ry ? { ...o, y0: s1 } : { ...o, x0: s1 });
+        // põhiosa jääb o suuremale tükile (või tiivale, kui o kaob)
+        rest.sort((a, b) => volumeSpan(b).along - volumeSpan(a).along);
+        rest.forEach((r, i) => (r.main = o.main && i === 0));
+        grown.main = w.main || (o.main && !rest.length);
+        next = vols.flatMap((v, i) => (i === k ? [grown] : i === h ? rest : [v]));
+      }
+    }
+    if (!next) break;
+    vols = next;
+  }
+  // põhiosa ees (katuse arvutus: esimene = põhiosa)
+  return [...vols.filter((v) => v.main), ...vols.filter((v) => !v.main)];
 }
 
 /** Viiluotsad: mahu harjaga ristuvad servad, mis ei ole teise mahu vastas */

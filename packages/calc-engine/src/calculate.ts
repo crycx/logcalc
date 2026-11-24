@@ -104,13 +104,14 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
         const lb = v.main ? longBoards : computeLongBoards({ ...vi, longBoards: [] }, vd, c);
         return { roof: computeRoof(vi, vd, vt, lb, c), purlins: computePurlins(vi, vd, vt, lb, c) };
       });
-      // tiivad: katus vabast viilust teise mahu räästa jooneni (org) või seinani; põhiosa jääb täislaudadega
-      // (orus lõigatud põhiosa laudade jäägid katavad tiiva oru – sama kalle, 45°)
+      // teise mahuga liituv osa: katus vabast viilust teise mahu räästa jooneni (org) või seinani; läbiv (kõrgem)
+      // maht jääb täislaudadega (orus lõigatud laudade jäägid katavad liituva osa oru – sama kalle, 45°)
       const t = input.log.thickness;
       const ovOf = (m: number) => parts[m]?.roof?.computedOverhang ?? input.roof?.overhang ?? c.defaultRoofOverhang;
       parts.forEach((p, k) => {
-        if (k === 0) return;
         const span = wingSpan(vols, k, t, c, ovOf);
+        // ilma ühendusteta osa (ka põhiosa pikemate laudadega) jääb nagu ristkülik
+        if (span.gableEnds >= 2) return;
         if (p.roof) p.roof = trimRoof(p.roof, span, c);
         if (p.purlins) p.purlins = { ...p.purlins, length: span.purlinLength, totalJm: (p.purlins.pieces * span.purlinLength) / 1000 };
       });

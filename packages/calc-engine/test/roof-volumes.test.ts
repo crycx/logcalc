@@ -33,12 +33,21 @@ describe('katusemahud', () => {
     expect(roofVolumes(p, planGeometry(p, T, C)).length).toBe(1);
   });
 
-  it('L-maja: põhiosa (hari y) ja tiib (hari x, risti ühise seinaga)', () => {
+  it('L-maja (kitsam tiib): põhiosa (hari y) ja tiib (hari x, risti ühise seinaga)', () => {
+    const p = planTemplate('lshape', 8000, 6000, T, C);
+    const v = roofVolumes(p, planGeometry(p, T, C));
+    expect(v.length).toBe(2);
+    expect(v[0]).toMatchObject({ main: true, ridge: 'y', x0: J, x1: 4000, y0: J, y1: 6000 - J });
+    expect(v[1]).toMatchObject({ main: false, ridge: 'x', x0: 4000, x1: 8000 - J, y0: J, y1: 3000 });
+  });
+
+  it('L-maja (laiem tiib): laiem osa läbib nurga (kõrgem hari), kitsam liitub oruga', () => {
+    // 6000 × 8000: vasak osa 2880 lai, tagumine 3880 lai -> tagumine osa üle kogu laiuse
     const p = planTemplate('lshape', 6000, 8000, T, C);
     const v = roofVolumes(p, planGeometry(p, T, C));
     expect(v.length).toBe(2);
-    expect(v[0]).toMatchObject({ main: true, ridge: 'y', x0: J, x1: 3000, y0: J, y1: 8000 - J });
-    expect(v[1]).toMatchObject({ main: false, ridge: 'x', x0: 3000, x1: 6000 - J, y0: J, y1: 4000 });
+    expect(v[0]).toMatchObject({ main: true, ridge: 'y', x0: J, x1: 3000, y0: 4000, y1: 8000 - J });
+    expect(v[1]).toMatchObject({ main: false, ridge: 'x', x0: J, x1: 6000 - J, y0: J, y1: 4000 });
   });
 
   it('L-maja kalle sama mis ümbritseval ristkülikul (kitsamate osade hari madalam)', () => {
@@ -48,9 +57,10 @@ describe('katusemahud', () => {
   });
 });
 
-describe('L-maja seinad ja katus', () => {
-  const plan = planTemplate('lshape', 6000, 8000, T, C);
-  const r = calculateHouse({ ...base, plan });
+describe('L-maja seinad ja katus (8000 × 6000, kitsam tiib)', () => {
+  const plan = planTemplate('lshape', 8000, 6000, T, C);
+  const lb: HouseInput = { ...base, width: 8000, depth: 6000 };
+  const r = calculateHouse({ ...lb, plan });
   const cut = (id: string) => r.cutList.find((w) => w.wall === id)!;
   const gableLens = (id: string) => cut(id).pieces.filter((p) => p.kind === 'gable').map((p) => p.length);
 
@@ -59,22 +69,22 @@ describe('L-maja seinad ja katus', () => {
   });
 
   it('esisein 1 (põhiosa ots): viil põhiosa laiune, mitte terve maja laiune', () => {
-    // põhiosa kesktelgede laius 3000 − 120 = 2880 -> palk 2880 + 40 + 200 = 3120
-    expect(Math.max(...gableLens('1'))).toBe(3120);
+    // põhiosa kesktelgede laius 4000 − 120 = 3880 -> palk 3880 + 40 + 200 = 4120
+    expect(Math.max(...gableLens('1'))).toBe(4120);
   });
 
   it('tagasein 3: viil ainult põhiosa kohal, tiiva kohal üks räästa rida', () => {
-    expect(Math.max(...gableLens('3'))).toBe(3120);
+    expect(Math.max(...gableLens('3'))).toBe(4120);
     const w3 = r.wallModel.find((w) => w.id === '3')!;
     const eave = w3.rows.filter((x) => x.kind === 'log' && x.x0 !== undefined);
     expect(eave.length).toBe(1);
-    expect(eave[0]!.length).toBeGreaterThan(2500);
+    expect(eave[0]!.length).toBeGreaterThan(3500);
   });
 
   it('tiiva viil on külgseinal C (hari x-suunas), vaheseinal 2 viilu pole', () => {
     expect(gableLens('C').length).toBeGreaterThan(0);
-    // tiiva laius (kesktelgedel) 4000 − 120 = 3880 -> palk 4120
-    expect(Math.max(...gableLens('C'))).toBe(4120);
+    // tiiva laius (kesktelgedel) 3000 − 120 = 2880 -> palk 3120
+    expect(Math.max(...gableLens('C'))).toBe(3120);
     expect(gableLens('2')).toEqual([]);
   });
 
@@ -86,20 +96,38 @@ describe('L-maja seinad ja katus', () => {
   });
 
   it('org: tiiva katus vabast viilust põhiosa räästa jooneni, servalauad ainult vabas otsas', () => {
-    const roof = calculateHouse({ ...base, plan, roof: { boardLength: 0, overhang: 300 } }).roof!;
+    const roof = calculateHouse({ ...lb, plan, roof: { boardLength: 0, overhang: 300 } }).roof!;
     const ov = roof.computedOverhang!;
     const wing = roof.parts![0]!;
-    // tiib x 3000..5880: vaba ots 5880 + 20 + 100, põhiosa räästas 3000 + 20 + üleulatus
-    expect(wing.roofLength).toBeCloseTo(5880 + 120 - (3000 + 20 + ov), 6);
+    // tiib x 4000..7880: vaba ots 7880 + 20 + 100, põhiosa räästas 4000 + 20 + üleulatus
+    expect(wing.roofLength).toBeCloseTo(7880 + 120 - (4000 + 20 + ov), 6);
     expect(wing.boardCount).toBe(2 * Math.floor(wing.roofLength / 110));
     expect(wing.edgeBoards.fascia.count).toBe(2);
     expect(wing.edgeBoards.felt.count).toBe(2);
     expect(wing.edgeBoards.supportSmall.pieceLength).toBeCloseTo(wing.roofLength, 6);
     // põhiosa täislaudadega (oru lõikejäägid lähevad tiivale)
-    expect(roof.roofLength).toBe(8000);
+    expect(roof.roofLength).toBe(6000);
+    expect(roof.edgeBoards.fascia.count).toBe(4);
     // tiiva hari ulatub põhiosa katusesse pool tiiva laiusest
-    const pur = calculateHouse({ ...base, plan, purlins: { count: 0, ridgeOnly: true } }).purlins!.parts![0]!;
-    expect(pur.length).toBeCloseTo(2880 + 120 + 3880 / 2, 6);
+    const pur = calculateHouse({ ...lb, plan, purlins: { count: 0, ridgeOnly: true } }).purlins!.parts![0]!;
+    expect(pur.length).toBeCloseTo(3880 + 120 + 2880 / 2, 6);
+  });
+
+  it('laiem tiib (6000 × 8000): kitsam põhiosa lõpeb orus, laiem läbiv osa täispikk, viilud külgseintel', () => {
+    const p2 = planTemplate('lshape', 6000, 8000, T, C);
+    const r2 = calculateHouse({ ...base, plan: p2, roof: { boardLength: 0, overhang: 300 } });
+    const g2 = (id: string) => r2.cutList.find((w) => w.wall === id)!.pieces.filter((x) => x.kind === 'gable').map((x) => x.length);
+    expect(Math.max(...g2('1'))).toBe(3120);
+    expect(Math.max(...g2('A'))).toBe(4120);
+    expect(Math.max(...g2('C'))).toBe(4120);
+    expect(g2('3')).toEqual([]);
+    expect(g2('B')).toEqual([]);
+    const roof = r2.roof!;
+    // põhiosa y 4000..7880: vaba ots 7880 + 120, orus tagumise osa räästa jooneni 4000 − 20 − üleulatus
+    const ovWide = roof.parts![0]!.computedOverhang!;
+    expect(roof.roofLength).toBeCloseTo(7880 + 120 - (4000 + 20 + ovWide), 6);
+    expect(roof.edgeBoards.fascia.count).toBe(2);
+    expect(roof.parts![0]!.roofLength).toBe(6000);
   });
 
   it('ristküliku plaan: katus sama mis ilma plaanita', () => {
