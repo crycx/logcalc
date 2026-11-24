@@ -70,7 +70,7 @@
     </mat-button-toggle-group>
     <mat-form-field class="f-scenario">
       <mat-label>Mõõdud</mat-label>
-      <mat-select formControlName="lengthScenario">
+      <mat-select formControlName="lengthScenario" [matTooltip]="hasPlan() ? 'Mõõdud tulevad plaanist (palgi pikkus)' : ''">
         <mat-option value="log">Palgi pikkus</mat-option>
         <mat-option value="outer">Välisseinast välisseinani</mat-option>
         <mat-option value="inner">Siseseinast siseseinani</mat-option>
@@ -78,11 +78,11 @@
     </mat-form-field>
     <mat-form-field class="f-num">
       <mat-label>Laius</mat-label>
-      <input matInput type="number" min="0" formControlName="width" />
+      <input matInput type="number" min="0" formControlName="width" [readonly]="hasPlan()" [matTooltip]="hasPlan() ? 'Plaanist – muuda seinu vaates Plaan' : ''" />
     </mat-form-field>
     <mat-form-field class="f-num">
       <mat-label>Pikkus</mat-label>
-      <input matInput type="number" min="0" formControlName="depth" />
+      <input matInput type="number" min="0" formControlName="depth" [readonly]="hasPlan()" [matTooltip]="hasPlan() ? 'Plaanist – muuda seinu vaates Plaan' : ''" />
     </mat-form-field>
     @if (isGable()) {
       <mat-form-field class="f-num">
@@ -145,9 +145,9 @@
             <h3>Pikemad lauad <span class="count">{{ form.controls.longBoards.length }}</span></h3>
             <app-rows-editor [rows]="form.controls.longBoards" aLabel="Pikkus" bLabel="Kõrgus" addLabel="Pikem laud" />
             <h3>Uksed <span class="count">{{ form.controls.doors.length }}</span></h3>
-            <app-rows-editor [rows]="form.controls.doors" [catalog]="formValue().catalog.doors" [placement]="true" [placed]="placedDoors()" addLabel="Uks" />
+            <app-rows-editor [rows]="form.controls.doors" [catalog]="formValue().catalog.doors" [placement]="true" [placed]="placedDoors()" [wallIds]="wallIds()" addLabel="Uks" />
             <h3>Aknad <span class="count">{{ form.controls.windows.length }}</span></h3>
-            <app-rows-editor [rows]="form.controls.windows" [catalog]="formValue().catalog.windows" [placement]="true" [placed]="placedWindows()" addLabel="Aken" />
+            <app-rows-editor [rows]="form.controls.windows" [catalog]="formValue().catalog.windows" [placement]="true" [placed]="placedWindows()" [wallIds]="wallIds()" addLabel="Aken" />
           </div>
         </mat-tab>
 
@@ -259,6 +259,9 @@
           <div class="view-bar">
             <mat-button-toggle-group [value]="view()" (change)="view.set($event.value)" aria-label="Joonise vaade" hideSingleSelectionIndicator>
               <mat-button-toggle value="overview">Ülevaade</mat-button-toggle>
+              <mat-button-toggle value="plan" [matTooltip]="hasPlan() ? 'Muuda põhiplaani' : 'Vabakujuline plaan: vaheseinad, L-kuju, terrass, veranda, garaaž'">
+                Plaan
+              </mat-button-toggle>
               @if (!isGable()) {
                 <mat-button-toggle value="side">Külg</mat-button-toggle>
               }
@@ -266,29 +269,52 @@
               <mat-button-toggle value="foundation">Vundament</mat-button-toggle>
             </mat-button-toggle-group>
           </div>
-          <app-house-drawing [v]="houseValue()" [r]="r" [view]="view()" />
+          @if (view() === 'plan') {
+            <app-plan-editor
+              [plan]="formValue().plan"
+              (planChange)="setPlan($event)"
+              (renamed)="renameWall($event)"
+              [thickness]="formValue().logThickness"
+              [size]="planSize()"
+              [walls]="r.wallModel"
+              [openings]="r.placedOpenings"
+              [readonly]="readonly()"
+            />
+          } @else {
+            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" />
+          }
         </div>
         @if (!readonly()) {
         <div class="panel details">
           <mat-tab-group animationDuration="0ms">
             <mat-tab label="Seinte jaotus">
+              @if (hasPlan()) {
+              <!-- plaanist maja: seinad lõikenimekirja järgi -->
               <dl class="kv">
-                @if (r.walls.breakdown.frontBack != null) {
-                  <dt>Esi- ja tagasein</dt><dd>{{ r.walls.breakdown.frontBack | number: '1.2-2' }} jm</dd>
-                  <dt class="indent">sh pool palki</dt><dd>{{ r.walls.breakdown.frontBackPartial | number: '1.2-2' }} jm</dd>
+                @for (w of r.cutList; track w.wall) {
+                  <dt>Sein {{ w.wall }}</dt><dd>{{ w.totalJm | number: '1.2-2' }} jm</dd>
                 }
-                @if (r.walls.breakdown.front != null) {
-                  <dt>Esisein</dt><dd>{{ r.walls.breakdown.front | number: '1.2-2' }} jm</dd>
-                  <dt>Tagasein</dt><dd>{{ r.walls.breakdown.back | number: '1.2-2' }} jm</dd>
-                }
-                <dt>Küljeseinad</dt><dd>{{ r.walls.breakdown.sides | number: '1.2-2' }} jm</dd>
-                <dt>{{ isGable() ? 'Viilud' : 'Kolmnurgad' }}</dt><dd>{{ r.walls.gableJm | number: '1.2-2' }} jm</dd>
-                @if (r.walls.breakdown.longBoards > 0) {
-                  <dt>Pikemad lauad</dt><dd>{{ r.walls.breakdown.longBoards | number: '1.2-2' }} jm</dd>
-                }
-                <dt>Uksed (maha)</dt><dd>−{{ r.openings.doorsJm | number: '1.2-2' }} jm</dd>
-                <dt>Aknad (maha)</dt><dd>−{{ r.openings.windowsJm | number: '1.2-2' }} jm</dd>
+                <dt><b>Kokku</b></dt><dd><b>{{ wallJm() | number: '1.2-2' }} jm</b></dd>
               </dl>
+              } @else {
+              <dl class="kv">
+                  @if (r.walls.breakdown.frontBack != null) {
+                    <dt>Esi- ja tagasein</dt><dd>{{ r.walls.breakdown.frontBack | number: '1.2-2' }} jm</dd>
+                    <dt class="indent">sh pool palki</dt><dd>{{ r.walls.breakdown.frontBackPartial | number: '1.2-2' }} jm</dd>
+                  }
+                  @if (r.walls.breakdown.front != null) {
+                    <dt>Esisein</dt><dd>{{ r.walls.breakdown.front | number: '1.2-2' }} jm</dd>
+                    <dt>Tagasein</dt><dd>{{ r.walls.breakdown.back | number: '1.2-2' }} jm</dd>
+                  }
+                  <dt>Küljeseinad</dt><dd>{{ r.walls.breakdown.sides | number: '1.2-2' }} jm</dd>
+                  <dt>{{ isGable() ? 'Viilud' : 'Kolmnurgad' }}</dt><dd>{{ r.walls.gableJm | number: '1.2-2' }} jm</dd>
+                  @if (r.walls.breakdown.longBoards > 0) {
+                    <dt>Pikemad lauad</dt><dd>{{ r.walls.breakdown.longBoards | number: '1.2-2' }} jm</dd>
+                  }
+                  <dt>Uksed (maha)</dt><dd>−{{ r.openings.doorsJm | number: '1.2-2' }} jm</dd>
+                  <dt>Aknad (maha)</dt><dd>−{{ r.openings.windowsJm | number: '1.2-2' }} jm</dd>
+                </dl>
+              }
             </mat-tab>
             <mat-tab [label]="(isGable() ? 'Viilupalgid' : 'Kolmnurga palgid') + ' (' + r.walls.gableCourses.length + ' × 2)'">
               <dl class="kv cols">
@@ -340,8 +366,12 @@
       @if (result(); as r) {
         <div class="hero">
           <span class="label">Seinalauad</span>
-          <span class="value">{{ r.walls.netJm | number: '1.2-2' }} <small>jm</small></span>
-          <span class="sub">ilma avadeta {{ r.walls.totalJm | number: '1.2-2' }} jm</span>
+          <span class="value">{{ wallJm() | number: '1.2-2' }} <small>jm</small></span>
+          @if (hasPlan()) {
+            <span class="sub">plaanist, lõikenimekirja järgi</span>
+          } @else {
+            <span class="sub">ilma avadeta {{ r.walls.totalJm | number: '1.2-2' }} jm</span>
+          }
         </div>
         <div class="mini">
           <div><span>Pindala</span><b>{{ r.walls.footprintArea | number: '1.2-2' }} m²</b></div>

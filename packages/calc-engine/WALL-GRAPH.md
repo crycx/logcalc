@@ -45,9 +45,12 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
    (post, piire), `open` (lahtine osa), `railings` (piire vahepalkidega); liite kõrgusvahemik (sälk ainult
    ridades, kus ristuval seinal palk on); max palk 6 m -> jätk vaheseina kohal, read vaheliti.
    Kontroll: Nora, Boden, Lund tükk tüki haaval (`test/graph-houses.test.ts`, erinevused D13–D15).
-3. **Plaanieditor** – SVG plaan: seinte joonistamine (täisnurk, haaramine), sõlmede lohistamine,
-   valitud seina paneel täpsete väljadega (pikkus, tüüp, avad), mõõtketid muudetavad. Mallid: ristkülik,
-   garaaž, veranda, terrass, L-kuju.
+3. ✅ (v1) **Plaanieditor** (`apps/web/.../plan-editor`, toimingud `src/plan-edit.ts`, mallid
+   `src/plan-templates.ts`): seinte joonistamine (täisnurk, haaramine sõlmedele/seintele, 10 mm samm,
+   ahelana), seina lohistamine risti, valitud seina paneel (tähis, pikkus, asukoht, viil, ehitus,
+   lahtised osad, piirded, suuna pööramine, kustutamine), valitud seina vaade mudelist (palgid, avad,
+   liited, jätkud), tagasivõtmine. Mallid: ristkülik, vaheseinaga, garaaž, veranda, terrass, L-kuju.
+   Edasi: sõlme lohistamine, mõõtketi muutmine otse joonisel, külgvaated plaanist.
 4. **Katus ja põrand graafist** – mitu katusemahtu (L-kuju: orgu), viilud graafist; ruumid (graafi tahud)
    -> põrand ja vundament ruumide kaupa.
 5. **3D vaade** samast mudelist; seejärel CNC (BTL/BTLx).

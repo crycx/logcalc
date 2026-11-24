@@ -1,0 +1,64 @@
+:host {
+  display: block;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.log {
+  fill: #e3c79a;
+  stroke: #8a6a3c;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+
+  &.half {
+    fill: #d9b886;
+  }
+
+  &.top {
+    fill: #d6b27c;
+  }
+
+  &.gable {
+    fill: #ecd5ad;
+  }
+}
+
+.opening {
+  fill: #cfe2f3;
+  stroke: #4a78a8;
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+
+  &.door {
+    fill: #dde9f5;
+  }
+}
+
+.joint {
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1px;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.8;
+}
+
+.joint-label {
+  fill: var(--mat-sys-tertiary);
+  font-family: inherit;
+}
+
+.splice {
+  stroke: var(--mat-sys-error);
+  stroke-width: 2.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+.ground {
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}

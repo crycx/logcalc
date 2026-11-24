@@ -32,7 +32,8 @@ export class RowsEditor {
   readonly placement = input(false);
   /** Mootori paigutatud avad (selle tüübi omad, ridade järjekorras, kogus lahti laotud) – automaatsete väärtuste vihjeks */
   readonly placed = input<PlacedOpening[]>([]);
-  protected readonly wallIds: WallId[] = ['1', '2', 'A', 'B'];
+  /** valitavad seinad (plaanist või ristküliku 4 seina) */
+  readonly wallIds = input<WallId[]>(['1', '2', 'A', 'B']);
 
   constructor() {
     // FormArray on sama objekt ka siis, kui read asendatakse (maja avamine) – OnPush vajab märguannet

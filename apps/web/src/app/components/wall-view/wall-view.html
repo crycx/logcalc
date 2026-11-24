@@ -1,0 +1,20 @@
+@let v = view();
+<svg [attr.viewBox]="v.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="'Sein ' + wall().id">
+  <!-- liidete teljed (ristuvad seinad) -->
+  @for (j of v.joints; track $index) {
+    <line class="joint" [attr.x1]="j.x" [attr.x2]="j.x" [attr.y1]="-v.fs * 0.6" [attr.y2]="v.H" />
+    <text class="joint-label" [attr.x]="j.x" [attr.y]="-v.fs * 0.8" [attr.font-size]="v.fs * 0.8" text-anchor="middle">{{ j.wall }}</text>
+  }
+  @for (r of v.rects; track $index) {
+    <rect [class]="'log ' + r.kind" [attr.x]="r.x" [attr.y]="r.y" [attr.width]="r.w" [attr.height]="r.h" />
+  }
+  @for (o of v.openings; track $index) {
+    <rect [class]="'opening ' + o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
+  }
+  <!-- jätkukohad (pikk sein, vaheseina teljel) -->
+  @for (s of v.splices; track $index) {
+    <line class="splice" [attr.x1]="s.x" [attr.x2]="s.x" [attr.y1]="s.y" [attr.y2]="s.y + s.h" />
+  }
+  <line class="ground" [attr.x1]="-v.fs" [attr.x2]="wall().length + v.fs" [attr.y1]="v.H" [attr.y2]="v.H" />
+  <g lcDims [dims]="v.dims" [fs]="v.fs * 0.8"></g>
+</svg>

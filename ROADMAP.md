@@ -20,8 +20,8 @@ Eesmärk: palkmaja materjalikulu ja tootmisandmed otse mõõtudest, ilma Revitis
 ## Järgmised sammud
 
 1. **Vabakujuline plaan** – seinte graaf: vaheseinad, L-kuju, terrass/veranda, mitu viilu. Plaan ja etapid:
-   `packages/calc-engine/WALL-GRAPH.md`. Etapid 1–2 (mootor: graaf, liited, seinatüübid, Nora/Boden/Lund = Revit) tehtud;
-   järgmine: plaanieditor.
+   `packages/calc-engine/WALL-GRAPH.md`. Etapid 1–3 (mootor + plaanieditor v1) tehtud;
+   järgmine: katus/põrand/vundament graafist (L-kuju), külgvaated plaanist.
 2. **3D vaade** samast mudelist (Three.js).
 3. Google'i sisselogimine; PDF-pakkumised; parooli taastamine e-postiga (vajab e-posti saatmist serverist).
 

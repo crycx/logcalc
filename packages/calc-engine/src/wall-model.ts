@@ -339,21 +339,30 @@ function solidRanges(wall: WallSpec, x: number): [number, number][] {
   return out;
 }
 
-/** Ühe seina lõikenimekiri: iga rida miinus tühjad alad -> tükid; sälkude arv = liidete arv tükis. */
-export function wallCutList(
-  wall: WallSpec,
-  log: { thickness: number; height: number },
-  opts: { maxLogLength?: number } = {},
-): WallCutList {
-  const t = Math.round(log.thickness);
+/** Paigutatud palgitükk seina vaates (seina koordinaatides, mm) */
+export interface PlacedPiece {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  kind: WallRow['kind'];
+  notches: number;
+  /** tükk algab/lõpeb jätkukohas (pikk sein, vaheseina kesktelg) */
+  spliceStart: boolean;
+  spliceEnd: boolean;
+}
+
+/**
+ * Seina palgitükid asukohtadega: iga rida miinus tühjad alad; liiga pikk palk jätkatakse vaheseina
+ * kohal (read vaheliti); sälkude arv = liidete arv tükis. Kasutavad lõikenimekiri ja seinajoonis.
+ */
+export function wallPieces(wall: WallSpec, opts: { maxLogLength?: number } = {}): PlacedPiece[] {
   const max = opts.maxLogLength ?? Infinity;
-  const groups = new Map<string, Omit<CutPiece, 'mark'>>();
-  let overLength = 0;
+  const out: PlacedPiece[] = [];
   const voids: WallVoid[] = [
     ...wall.openings.map((o): WallVoid => ({ x0: o.offset, x1: o.offset + o.width, y0: o.sill, y1: o.sill + o.height, kind: o.kind })),
     ...(wall.voids ?? []),
   ];
-
   // jätk ainult vaheseina kohal, mitte seina otsa nurgaliites
   const jMin = Math.min(...wall.joints.map((j) => j.x));
   const jMax = Math.max(...wall.joints.map((j) => j.x));
@@ -383,25 +392,43 @@ export function wallCutList(
         });
       }
     }
-    const height = Math.round(row.y1 - row.y0);
-    const profile = `${t}x${height}`;
     for (const [s0, e0] of segs) {
       // liiga pikk palk -> jätk liite (vaheseina) kohal; read vaheliti eri liidetes
-      const parts = row.kind === 'gable' ? [{ s: s0, e: e0, cutS: false, cutE: false }] : splitLong(s0, e0, joints.filter((x) => x > jMin + EPS && x < jMax - EPS), max, rowIndex);
+      const parts =
+        row.kind === 'gable'
+          ? [{ s: s0, e: e0, cutS: false, cutE: false }]
+          : splitLong(s0, e0, joints.filter((x) => x > jMin + EPS && x < jMax - EPS), max, rowIndex);
       for (const part of parts) {
-        const length = Math.round(part.e - part.s);
-        if (length > max + EPS) overLength++;
         // ühe sälguga tükk on ümberpööratav -> algus- ja lõpuotsa tükid on sama detail (nagu Revitis)
         const notches =
           row.kind === 'gable'
             ? 0
             : joints.filter((x) => x > part.s + EPS && x < part.e - EPS).length + Number(part.cutS) + Number(part.cutE);
-        const key = `${row.kind}|${profile}|${length}|${notches}`;
-        const g = groups.get(key);
-        if (g) g.count++;
-        else groups.set(key, { profile, count: 1, length, kind: row.kind, notches });
+        out.push({ x0: part.s, x1: part.e, y0: row.y0, y1: row.y1, kind: row.kind, notches, spliceStart: part.cutS, spliceEnd: part.cutE });
       }
     }
+  }
+  return out;
+}
+
+/** Ühe seina lõikenimekiri: tükid (wallPieces) rühmitatud pikkuse, profiili ja sälkude järgi. */
+export function wallCutList(
+  wall: WallSpec,
+  log: { thickness: number; height: number },
+  opts: { maxLogLength?: number } = {},
+): WallCutList {
+  const t = Math.round(log.thickness);
+  const max = opts.maxLogLength ?? Infinity;
+  const groups = new Map<string, Omit<CutPiece, 'mark'>>();
+  let overLength = 0;
+  for (const piece of wallPieces(wall, opts)) {
+    const length = Math.round(piece.x1 - piece.x0);
+    if (length > max + EPS) overLength++;
+    const profile = `${t}x${Math.round(piece.y1 - piece.y0)}`;
+    const key = `${piece.kind}|${profile}|${length}|${piece.notches}`;
+    const g = groups.get(key);
+    if (g) g.count++;
+    else groups.set(key, { profile, count: 1, length, kind: piece.kind, notches: piece.notches });
   }
 
   // tähised nagu Revitis: BL (pool palki), LG (palgid pikkuse järgi), TL (ülemine pikem palk); viil "*"

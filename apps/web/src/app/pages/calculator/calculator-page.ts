@@ -18,7 +18,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { CalcInputError, DEFAULT_CONSTANTS, calculateHouse, type CalcResult, type PriceList } from '@logcalc/calc-engine';
+import { CalcInputError, DEFAULT_CONSTANTS, PlanError, calculateHouse, type CalcResult, type HousePlan, type PriceList } from '@logcalc/calc-engine';
 import { firstValueFrom, map } from 'rxjs';
 import { Api, Session, type ProjectAccess, type TenantConstants } from '../../core/api';
 import { formatPieces } from '../../helpers/format';
@@ -33,12 +33,14 @@ import { NameDialog, type NameDialogData } from '../../dialogs/name-dialog/name-
 import { ProjectsDialog } from '../../dialogs/projects-dialog/projects-dialog';
 import { ShareDialog } from '../../dialogs/share-dialog/share-dialog';
 import { HouseDrawing, type DrawingView } from '../../components/house-drawing/house-drawing';
+import { PlanEditor } from '../../components/plan-editor/plan-editor';
 import {
   DEFAULT_VALUE,
   PRICE_KEYS,
   buildCatalogItem,
   buildHouseForm,
   normalizeHouse,
+  planBox,
   resolveAuto,
   setCatalog,
   setFormValue,
@@ -102,6 +104,7 @@ function houseData(v: HouseFormValue): HouseData {
     MatDividerModule,
     RowsEditor,
     HouseDrawing,
+    PlanEditor,
     CatalogEditor,
     RoofIcon,
     CutList,
@@ -117,7 +120,7 @@ export class CalculatorPage {
   protected readonly session = inject(Session);
 
   protected readonly priceKeys = PRICE_KEYS;
-  protected readonly view = signal<DrawingView>('overview');
+  protected readonly view = signal<DrawingView | 'plan'>('overview');
 
   protected readonly form = buildHouseForm(this.fb, DEMO);
 
@@ -165,7 +168,7 @@ export class CalculatorPage {
     try {
       return { ok: true, result: calculateHouse(input, options) };
     } catch (e) {
-      return { ok: false, message: e instanceof CalcInputError ? e.message : 'Arvutus ebaõnnestus.' };
+      return { ok: false, message: e instanceof CalcInputError || e instanceof PlanError ? e.message : 'Arvutus ebaõnnestus.' };
     }
   });
 
@@ -184,8 +187,48 @@ export class CalculatorPage {
   protected readonly placedDoors = computed(() => this.result()?.placedOpenings.filter((o) => o.kind === 'door') ?? []);
   protected readonly placedWindows = computed(() => this.result()?.placedOpenings.filter((o) => o.kind === 'window') ?? []);
 
+  // ------------------------------------------------------------ põhiplaan (graaf)
+  protected readonly hasPlan = computed(() => !!this.formValue().plan);
+  /** seinalauad: sama mis materjalide nimekirjas (plaanist maja: lõikenimekirja summa) */
+  protected readonly wallJm = computed(() => this.result()?.bom.find((l) => l.key === 'seinaLauad')?.quantity ?? this.result()?.walls.netJm ?? 0);
+  /** seinad uste/akende valikus: plaanist või ristküliku 4 seina */
+  protected readonly wallIds = computed(() => this.formValue().plan?.walls.map((w) => w.id) ?? ['1', '2', 'A', 'B']);
+  /** palgi pikkused mallide jaoks */
+  protected readonly planSize = computed(() => {
+    const d = this.result()?.dimensions;
+    return { width: d?.width ?? this.formValue().width, depth: d?.depth ?? this.formValue().depth };
+  });
+
+  protected setPlan(plan: HousePlan | null): void {
+    this.form.controls.plan.setValue(plan);
+    this.syncPlanSize();
+  }
+
+  /** plaanist maja: laius/sügavus = palgi otste ümbritsev ristkülik */
+  private syncPlanSize(): void {
+    const v = this.form.getRawValue() as HouseFormValue;
+    if (!v.plan) return;
+    const box = planBox(v.plan, v.logThickness);
+    if (!box) return;
+    if (v.lengthScenario !== 'log' || v.width !== box.width || v.depth !== box.depth) {
+      this.form.patchValue({ lengthScenario: 'log', width: box.width, depth: box.depth });
+    }
+  }
+
+  /** seina tähis muutus plaanis -> uksed/aknad järgivad */
+  protected renameWall(e: { from: string; to: string }): void {
+    for (const arr of [this.form.controls.doors, this.form.controls.windows]) {
+      for (const row of arr.controls) if (row.controls.wall.value === e.from) row.controls.wall.setValue(e.to);
+    }
+  }
+
   constructor() {
     inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');
+    // palgi paksus muudab plaani ümbritsevat ristkülikut (nurgaülejääk + ½ paksust)
+    effect(() => {
+      const v = this.formValue();
+      if (v.plan) untracked(() => this.syncPlanSize());
+    });
     // sisse logimata -> näidismaja, vorm lukus; sisse logitud -> viimane oma mustand
     effect(() => {
       const ro = this.readonly();

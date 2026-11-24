@@ -1,8 +1,10 @@
 import { FormArray, FormControl, FormGroup, NonNullableFormBuilder } from '@angular/forms';
+import { DEFAULT_CONSTANTS, planBounds, planGeometry } from '@logcalc/calc-engine';
 import type {
   CalculateOptions,
   FloorDirection,
   HouseInput,
+  HousePlan,
   LengthScenario,
   PriceList,
   RoofType,
@@ -109,6 +111,8 @@ export interface HouseFormValue {
   purlinsOn: boolean;
   purlinCount: number;
   ridgeOnly: boolean;
+  /** Põhiplaan graafina (plaanieditor); null = ristkülik laiuse ja sügavuse järgi */
+  plan: HousePlan | null;
   /** Ettevõtte hinnakiri (ei salvestata majaga) */
   prices: Record<keyof PriceList, number>;
   /** Ettevõtte uste/akende kataloog (ei salvestata majaga) */
@@ -152,6 +156,7 @@ export const DEFAULT_VALUE: HouseFormValue = {
   purlinsOn: true,
   purlinCount: 0,
   ridgeOnly: false,
+  plan: null,
   prices: { ...ZERO_PRICES },
   catalog: { doors: [], windows: [] },
 };
@@ -185,6 +190,7 @@ export function normalizeHouse(d: Partial<HouseFormValue>, keep?: Pick<HouseForm
     longBoards: (d.longBoards ?? DEFAULT_VALUE.longBoards).map(normRow),
     doors: (d.doors ?? DEFAULT_VALUE.doors).map(normRow),
     windows: (d.windows ?? DEFAULT_VALUE.windows).map(normRow),
+    plan: d.plan ?? null,
     prices: keep?.prices ?? { ...DEFAULT_VALUE.prices, ...(d.prices ?? {}) },
     catalog: keep?.catalog ?? d.catalog ?? DEFAULT_VALUE.catalog,
   };
@@ -256,6 +262,7 @@ export function buildHouseForm(fb: NonNullableFormBuilder, v: HouseFormValue = D
     purlinsOn: fb.control(v.purlinsOn),
     purlinCount: fb.control(v.purlinCount),
     ridgeOnly: fb.control(v.ridgeOnly),
+    plan: fb.control<HousePlan | null>(v.plan),
     prices: fb.group(
       Object.fromEntries(PRICE_KEYS.map((p) => [p.key, fb.control(v.prices[p.key] ?? 0)])) as Record<
         keyof PriceList,
@@ -327,6 +334,16 @@ export function toEngineInput(value: HouseFormValue): { input: HouseInput; optio
     windows: rows(v.windows).map(opening),
     floorDirection: v.floorDirection,
   };
+  if (v.plan) {
+    // plaanist maja: laius/sügavus = palgi otste ümbritsev ristkülik (katus, vundament, põrand)
+    input.plan = v.plan;
+    const box = planBox(v.plan, n(v.logThickness));
+    if (box) {
+      input.lengthScenario = 'log';
+      input.width = box.width;
+      input.depth = box.depth;
+    }
+  }
   if (v.foundationOn) {
     input.foundation = {
       joistWidth: n(v.joistWidth),
@@ -347,4 +364,14 @@ export function toEngineInput(value: HouseFormValue): { input: HouseInput; optio
 
   const constants = n(v.roofBoardWidth) > 0 ? { roofBoardWidth: n(v.roofBoardWidth) } : {};
   return { input, options: { prices, constants } };
+}
+
+/** Plaani ümbritsev ristkülik palgi otste järgi; vigase plaani korral null. */
+export function planBox(plan: HousePlan, thickness: number): { width: number; depth: number } | null {
+  try {
+    const b = planBounds(planGeometry(plan, thickness, DEFAULT_CONSTANTS));
+    return { width: Math.round(b.x1 - b.x0), depth: Math.round(b.y1 - b.y0) };
+  } catch {
+    return null;
+  }
 }

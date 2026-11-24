@@ -1,0 +1,214 @@
+@if (!plan() && !readonly() && !compact()) {
+  <!-- plaani pole: mallid -->
+  <div class="start">
+    <h3>Põhiplaan</h3>
+    <p class="muted">
+      Praegu arvutatakse maja ristkülikuna ({{ size().width | number: '1.0-0' }} × {{ size().depth | number: '1.0-0' }} mm).
+      Vali mall – see tehakse praeguste mõõtudega – ja muuda seinu plaanil.
+    </p>
+    <div class="cards">
+      @for (t of templates; track t.kind) {
+        <button type="button" class="card" (click)="useTemplate(t.kind)">
+          <span class="card-name">{{ t.name }}</span>
+          <span class="card-desc">{{ t.description }}</span>
+        </button>
+      }
+    </div>
+  </div>
+} @else {
+  <div class="toolbar">
+    @if (!readonly() && !compact()) {
+      <mat-button-toggle-group [value]="tool()" (change)="setTool($event.value)" aria-label="Tööriist" hideSingleSelectionIndicator>
+        <mat-button-toggle value="select" matTooltip="Vali ja lohista seina (V)"><mat-icon>arrow_selector_tool</mat-icon> Vali</mat-button-toggle>
+        <mat-button-toggle value="wall" matTooltip="Joonista sein: klõps algus, klõps lõpp (W)"><mat-icon>draw</mat-icon> Sein</mat-button-toggle>
+      </mat-button-toggle-group>
+      <button mat-icon-button type="button" (click)="undo()" [disabled]="!canUndo()" matTooltip="Võta tagasi (Ctrl+Z)" aria-label="Võta tagasi"><mat-icon>undo</mat-icon></button>
+      <button mat-icon-button type="button" (click)="redo()" [disabled]="!canRedo()" matTooltip="Tee uuesti (Ctrl+Y)" aria-label="Tee uuesti"><mat-icon>redo</mat-icon></button>
+      <span class="spacer"></span>
+      <button mat-button type="button" [matMenuTriggerFor]="tplMenu"><mat-icon>dashboard_customize</mat-icon> Mall</button>
+      <mat-menu #tplMenu="matMenu">
+        @for (t of templates; track t.kind) {
+          <button mat-menu-item type="button" (click)="useTemplate(t.kind)">{{ t.name }}</button>
+        }
+        <mat-divider />
+        <button mat-menu-item type="button" (click)="clearPlan()"><mat-icon>crop_square</mat-icon> Eemalda plaan (lihtne ristkülik)</button>
+      </mat-menu>
+    }
+  </div>
+
+  <div class="body" [class.compact]="compact()">
+    <div class="canvas-col">
+      @let v = view();
+      <svg
+        #svg
+        class="canvas"
+        [class.drawing]="tool() === 'wall'"
+        [attr.viewBox]="v.viewBox"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label="Põhiplaan"
+        (pointerdown)="onDown($event)"
+        (pointermove)="onMove($event)"
+        (pointerup)="onUp()"
+        (pointercancel)="onUp()"
+      >
+        @for (w of v.walls; track w.id) {
+          <g class="wall" [class.selected]="w.selected" [class.partial]="w.partial" [attr.data-wall]="w.id">
+            <rect class="log" [attr.x]="w.rect.x" [attr.y]="w.rect.y" [attr.width]="w.rect.w" [attr.height]="w.rect.h" />
+            @for (o of w.open; track $index) {
+              <rect class="open" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
+            }
+            @for (r of w.railings; track $index) {
+              <rect class="railing" [attr.x]="r.x" [attr.y]="r.y" [attr.width]="r.w" [attr.height]="r.h" />
+            }
+            @for (o of w.openings; track $index) {
+              <rect [class]="'opening ' + o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />
+            }
+            <!-- laiem nähtamatu ala valimiseks -->
+            <line class="hit" [attr.x1]="w.hit.x1" [attr.y1]="w.hit.y1" [attr.x2]="w.hit.x2" [attr.y2]="w.hit.y2" />
+            <text class="label" [attr.x]="w.label.x" [attr.y]="w.label.y" [attr.font-size]="v.fs" [attr.text-anchor]="w.anchor">{{ w.id }}</text>
+          </g>
+        }
+        @if (tool() === 'wall' || selected()) {
+          @for (n of v.nodes; track n.id) {
+            <circle class="node" [attr.cx]="n.x" [attr.cy]="n.y" [attr.r]="v.nodeR" />
+          }
+        }
+        @if (draft(); as d) {
+          <line class="draft" [attr.x1]="d.from.x" [attr.y1]="d.from.y" [attr.x2]="d.to.x" [attr.y2]="d.to.y" [attr.stroke-width]="v.t" />
+          <circle class="draft-pt" [attr.cx]="d.from.x" [attr.cy]="d.from.y" [attr.r]="v.nodeR * 1.4" />
+          <text class="draft-len" [attr.x]="(d.from.x + d.to.x) / 2" [attr.y]="(d.from.y + d.to.y) / 2 - v.fs * 0.6" [attr.font-size]="v.fs" text-anchor="middle">
+            {{ draftLen() | number: '1.0-0' }}
+          </text>
+        }
+        <g lcDims [dims]="v.dims" [fs]="v.fs * 0.8"></g>
+      </svg>
+      @if (geo().error) {
+        <p class="err" role="alert">{{ geo().error }}</p>
+      } @else if (message()) {
+        <p class="msg" role="status">{{ message() }}</p>
+      }
+      @if (!compact() && sel()?.model; as m) {
+        <figure class="wall-preview">
+          <figcaption>Sein {{ m.id }} – vaade (x seina algusest); punane = jätk vaheseina kohal</figcaption>
+          <app-wall-view [wall]="m" />
+        </figure>
+      }
+    </div>
+
+    @if (!compact()) {
+    <aside class="panel">
+      @if (sel(); as s) {
+        <div class="panel-head">
+          <h4>Sein {{ s.w.id }}</h4>
+          <span class="muted">{{ s.g.dir === 'x' ? 'laiuse suunas' : 'sügavuse suunas' }} · palk {{ s.g.length | number: '1.0-0' }} mm</span>
+        </div>
+        <div class="grid2">
+          <mat-form-field>
+            <mat-label>Tähis</mat-label>
+            <input matInput [value]="s.w.id" (change)="rename($event)" maxlength="4" [disabled]="readonly()" />
+          </mat-form-field>
+          <mat-form-field matTooltip="Kesktelgede vahe (sõlmest sõlmeni). Liigutab seina lõpus olevat ristuvat seina.">
+            <mat-label>Pikkus, mm</mat-label>
+            <input matInput type="number" step="10" [value]="s.span" (change)="setSpan($event)" [disabled]="readonly()" />
+          </mat-form-field>
+          <mat-form-field [matTooltip]="s.g.dir === 'x' ? 'Kaugus tagumise seina keskteljest' : 'Kaugus vasaku seina keskteljest'">
+            <mat-label>Asukoht, mm</mat-label>
+            <input matInput type="number" step="10" [value]="s.position" (change)="setPosition($event)" [disabled]="readonly()" />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Viil</mat-label>
+            <mat-select [value]="s.gable" (selectionChange)="setGable($event.value)" [disabled]="readonly()">
+              <mat-option value="auto">Automaatne</mat-option>
+              <mat-option value="yes">Jah</mat-option>
+              <mat-option value="no">Ei</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <mat-form-field class="full">
+          <mat-label>Ehitus</mat-label>
+          <mat-select [value]="s.type" (selectionChange)="setType($event.value)" [disabled]="readonly()">
+            <mat-option value="full">Täissein</mat-option>
+            <mat-option value="top">Ainult ülemised read (keskviil, tõmbepalk)</mat-option>
+            <mat-option value="height">Kindla kõrgusega (post, piirdeots)</mat-option>
+          </mat-select>
+        </mat-form-field>
+        @if (s.type === 'top') {
+          <mat-form-field class="full">
+            <mat-label>Ülemiste ridade arv</mat-label>
+            <input matInput type="number" min="1" step="1" [value]="s.w.topOnly" (change)="setTopOnly($event)" [disabled]="readonly()" />
+          </mat-form-field>
+        } @else if (s.type === 'height') {
+          <mat-form-field class="full">
+            <mat-label>Kõrgus, mm</mat-label>
+            <input matInput type="number" min="0" step="1" [value]="s.w.height" (change)="setHeight($event)" [disabled]="readonly()" />
+            <mat-hint>Täisread + pool palki, kui jääk on ≥ ½ palki</mat-hint>
+          </mat-form-field>
+        }
+
+        <h5>Lahtised osad <span class="muted">(terrass, veranda, sissepääs)</span></h5>
+        @for (o of s.w.open ?? []; track $index; let i = $index) {
+          <div class="sub">
+            <mat-form-field><mat-label>Algus</mat-label><input matInput type="number" step="10" [value]="o.x0" (change)="setOpen(i, 'x0', $event)" [disabled]="readonly()" /></mat-form-field>
+            <mat-form-field><mat-label>Lõpp</mat-label><input matInput type="number" step="10" [value]="o.x1" (change)="setOpen(i, 'x1', $event)" [disabled]="readonly()" /></mat-form-field>
+            <mat-form-field matTooltip="Alt alles jäävad read (nt piire)"><mat-label>Alt rida</mat-label><input matInput type="number" min="0" [value]="o.bottomRows ?? 0" (change)="setOpen(i, 'bottomRows', $event)" [disabled]="readonly()" /></mat-form-field>
+            <mat-form-field matTooltip="Ülalt alles jäävad read (sillus, räästas)"><mat-label>Üleval</mat-label><input matInput type="number" min="0" [value]="o.topRows ?? 0" (change)="setOpen(i, 'topRows', $event)" [disabled]="readonly()" /></mat-form-field>
+            <button mat-icon-button type="button" (click)="removeOpen(i)" matTooltip="Eemalda" aria-label="Eemalda lahtine osa" [disabled]="readonly()"><mat-icon>delete</mat-icon></button>
+          </div>
+        }
+        @if (!readonly()) {
+          <button mat-button type="button" (click)="addOpen()"><mat-icon>add</mat-icon> Lahtine osa</button>
+        }
+
+        <h5>Piirded</h5>
+        @for (r of s.w.railings ?? []; track $index; let i = $index) {
+          <div class="sub">
+            <mat-form-field><mat-label>Algus</mat-label><input matInput type="number" step="10" [value]="r.x0" (change)="setRailing(i, 'x0', $event)" [disabled]="readonly()" /></mat-form-field>
+            <mat-form-field><mat-label>Lõpp</mat-label><input matInput type="number" step="10" [value]="r.x1" (change)="setRailing(i, 'x1', $event)" [disabled]="readonly()" /></mat-form-field>
+            <mat-form-field><mat-label>Read</mat-label><input matInput type="number" min="1" [value]="r.rows" (change)="setRailing(i, 'rows', $event)" [disabled]="readonly()" /></mat-form-field>
+            <button mat-icon-button type="button" (click)="removeRailing(i)" matTooltip="Eemalda" aria-label="Eemalda piire" [disabled]="readonly()"><mat-icon>delete</mat-icon></button>
+            <mat-form-field class="span" matTooltip="Vahepalkide (300) algused seina koordinaatides, komaga eraldatud">
+              <mat-label>Vahepalgid, mm</mat-label>
+              <input matInput [value]="spacersText(r)" (change)="setSpacers(i, $event)" [disabled]="readonly()" />
+            </mat-form-field>
+          </div>
+        }
+        @if (!readonly()) {
+          <button mat-button type="button" (click)="addRailing()"><mat-icon>add</mat-icon> Piire</button>
+          <mat-divider />
+          <div class="actions">
+            <button mat-button type="button" (click)="reverse()" matTooltip="Uste/akende ja lahtiste osade kaugus mõõdetakse teisest otsast"><mat-icon>swap_horiz</mat-icon> Pööra suund</button>
+            <button mat-button type="button" class="danger" (click)="remove()"><mat-icon>delete</mat-icon> Kustuta sein</button>
+          </div>
+        }
+      } @else {
+        <div class="panel-head">
+          <h4>Seinad</h4>
+          <span class="muted">Klõpsa seinal plaanil või nimekirjas</span>
+        </div>
+        <ul class="wall-list">
+          @for (w of view().walls; track w.id) {
+            <li><button type="button" (click)="select(w.id)"><b>{{ w.id }}</b> <span class="muted">{{ w.dir === 'x' ? 'laius' : 'sügavus' }} · {{ w.length | number: '1.0-0' }} mm</span></button></li>
+          }
+        </ul>
+        @if (plan(); as p) {
+          <mat-form-field class="full">
+            <mat-label>Poole palgiga algavad</mat-label>
+            <mat-select [value]="p.halfStart ?? 'x'" (selectionChange)="setHalfStart($event.value)" [disabled]="readonly()">
+              <mat-option value="x">Laiuse suunas seinad (1, 2, …)</mat-option>
+              <mat-option value="y">Sügavuse suunas seinad (A, B, …)</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+        @if (!readonly()) {
+          <p class="help muted">
+            <b>Sein</b>: klõpsa algus ja lõpp – haarab sõlmedele ja seintele (T-liide).
+            <b>Vali</b>: lohista seina risti, ühendatud seinad pikenevad. Täpsed mõõdud paneelis.
+            Del kustutab, Ctrl+Z võtab tagasi.
+          </p>
+        }
+      }
+    </aside>
+    }
+  </div>
+}

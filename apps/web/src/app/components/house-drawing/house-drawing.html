@@ -1,6 +1,19 @@
 @let p = plan();
 @switch (view()) {
   @case ('overview') {
+    @if (v().plan; as hp) {
+    <!-- plaanist maja: plaan graafist ja seina 1 vaade mudelist -->
+    <figure class="view">
+      <figcaption>Plaan</figcaption>
+      <app-plan-editor class="plan-mini" [plan]="hp" [thickness]="v().logThickness" [size]="planSize()" [openings]="r().placedOpenings" [readonly]="true" [compact]="true" />
+    </figure>
+    @if (frontWall(); as fw) {
+      <figure class="view">
+        <figcaption>Sein {{ fw.id }}</figcaption>
+        <app-wall-view class="plan-mini" [wall]="fw" />
+      </figure>
+    }
+    } @else {
     <figure class="view">
       <figcaption>Plaan</figcaption>
       <svg [attr.viewBox]="p.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Maja plaan">
@@ -14,6 +27,7 @@
     </figure>
 
     <ng-container *ngTemplateOutlet="elevTpl; context: { $implicit: elev(), single: false }" />
+    }
   }
 
   @case ('side') {

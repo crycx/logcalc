@@ -42,7 +42,7 @@
         <mat-form-field class="wall" floatLabel="always">
           <mat-label>Sein</mat-label>
           <mat-select [formControl]="row.controls.wall" aria-label="Sein, millel ava on">
-            @for (w of wallIds; track w) {
+            @for (w of wallIds(); track w) {
               <mat-option [value]="w">{{ w }}</mat-option>
             }
           </mat-select>

@@ -4,6 +4,7 @@ import { CalculatorPage } from './calculator-page';
 import { appConfig } from '../../app.config';
 import { NonNullableFormBuilder } from '@angular/forms';
 import { normalizeHouse, setFormValue, type HouseForm, type RowValue } from '../../core/house-form';
+import { planTemplate, type HousePlan } from '@logcalc/calc-engine';
 
 const ADMIN = { id: 1, email: 'a@b.ee', name: 'Admin', role: 'admin', tenant: { id: 1, slug: 't', name: 'Test OÜ' } };
 const tick = () => new Promise((r) => setTimeout(r));
@@ -223,6 +224,27 @@ describe('CalculatorPage', () => {
       expect(win.length).toBe(1);
       expect(win[0]).toContain('2 tk');
       expect(win[0]).toContain('seinad A, B');
+    });
+
+    it('plaaniga maja: seinalauad lõikenimekirjast, laius plaanist (lukus), vaheseina C saab ustele valida', async () => {
+      const fixture = await create(ADMIN);
+      const page = fixture.componentInstance as unknown as { form: HouseForm; setPlan(p: HousePlan | null): void };
+      page.setPlan(planTemplate('partition', 3600, 5000, 28, { cornerOverhang: 100 }));
+      await fixture.whenStable();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('.hero .sub')?.textContent).toContain('plaanist');
+      const width = el.querySelector('input[formcontrolname="width"]') as HTMLInputElement;
+      expect(width.value).toBe('3600');
+      expect(width.readOnly).toBe(true);
+      expect(page.form.controls.plan.value?.walls.map((w) => w.id)).toContain('C');
+      // uks vaheseinale C
+      page.form.controls.doors.at(0).patchValue({ wall: 'C', offset: 1500 });
+      await fixture.whenStable();
+      expect(bomRows(el).find((t) => t.includes('Uks'))).toContain('sein C');
+      // plaani eemaldamine -> tagasi ristkülikuks
+      page.setPlan(null);
+      await fixture.whenStable();
+      expect(width.readOnly).toBe(false);
     });
 
     it('arvutab ümber ja näitab viga vigase sisendi korral', async () => {

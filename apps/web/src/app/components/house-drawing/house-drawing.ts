@@ -2,6 +2,8 @@ import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { DEFAULT_CONSTANTS, type CalcResult, type WallId } from '@logcalc/calc-engine';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
+import { PlanEditor } from '../plan-editor/plan-editor';
+import { WallView } from '../wall-view/wall-view';
 import type { HouseFormValue } from '../../core/house-form';
 
 export type DrawingView = 'overview' | 'side' | 'floor' | 'foundation';
@@ -25,7 +27,7 @@ let uid = 0;
 @Component({
   selector: 'app-house-drawing',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NgTemplateOutlet, DimLines],
+  imports: [DecimalPipe, NgTemplateOutlet, DimLines, PlanEditor, WallView],
   templateUrl: './house-drawing.html',
   styleUrl: './house-drawing.scss',
 })
@@ -33,6 +35,13 @@ export class HouseDrawing {
   readonly v = input.required<HouseFormValue>();
   readonly r = input.required<CalcResult>();
   readonly view = input<DrawingView>('overview');
+
+  /** plaanist maja: mõõdud (mallide jaoks, siin ainult kuvamine) ja esisein mudelist */
+  protected readonly planSize = computed(() => ({ width: this.r().dimensions.width, depth: this.r().dimensions.depth }));
+  protected readonly frontWall = computed(() => {
+    const ws = this.r().wallModel;
+    return ws.find((w) => w.id === '1') ?? ws[0] ?? null;
+  });
 
   protected readonly clipId = `lc-clip-${++uid}`;
 
