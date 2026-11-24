@@ -269,9 +269,43 @@ export interface FoundationResult {
   joistLength: number;
   ringPieces: { count: number; length: number } | null;
   totalJm: number;
+  /** plaanist maja: vundament lõikude kaupa (prussid ühes suunas, vaheseina all topeltpruss) */
+  bays?: FoundationBay[];
+}
+
+/** Ristkülik plaani koordinaatides (mm) */
+export interface PlanBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+export interface FoundationBay extends Omit<FoundationResult, 'bays'> {
+  /** lõigu välismõõt (seinte välispinnad) */
+  box: PlanBox;
+  /** prusside ja ringi ristkülikud plaanil */
+  joists: PlanBox[];
+  ring: PlanBox[];
 }
 
 export interface FloorResult {
+  boardCount: number;
+  boardLength: number;
+  totalJm: number;
+  /** plaanist maja: põrand ruumide kaupa (L-ruum mitmes ristkülikus) */
+  parts?: FloorPart[];
+}
+
+export interface FloorPart {
+  /** põrandaala (seinte sisepindade vahel) */
+  box: PlanBox;
+  /** ruumi järjekorranumber (0 = suurim) */
+  room: number;
+  /** terrass/veranda (lahtine osa) */
+  open: boolean;
+  /** lauad: 'x' = laiuse suunas, 'y' = sügavuse suunas */
+  along: 'x' | 'y';
   boardCount: number;
   boardLength: number;
   totalJm: number;

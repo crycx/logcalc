@@ -46,4 +46,6 @@ export {
   type WallLine,
 } from './plan-edit.js';
 export { roofVolumes, gableEnds, pitchRatio, volumeSpan, type RoofVolume, type RoofGableEnd } from './roof-volumes.js';
+export { planGrid, planRooms, greedyRects, outerArea, outlineCorners, type PlanGrid, type PlanRoom, type PlanRect } from './plan-regions.js';
+export { planFloor, planFoundation } from './floor-plan.js';
 export { planTemplate, PLAN_TEMPLATES, type PlanTemplateKind, type PlanTemplateInfo, type PlanTemplateOptions } from './plan-templates.js';

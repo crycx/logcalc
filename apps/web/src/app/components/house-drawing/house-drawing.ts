@@ -1,6 +1,6 @@
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DEFAULT_CONSTANTS, type CalcResult, type WallId } from '@logcalc/calc-engine';
+import { DEFAULT_CONSTANTS, planBounds, planGeometry, type CalcResult, type PlanBox, type WallId } from '@logcalc/calc-engine';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 import { PlanEditor } from '../plan-editor/plan-editor';
 import { WallView } from '../wall-view/wall-view';
@@ -205,6 +205,109 @@ export class HouseDrawing {
     }
     const ringNote = f.ringPieces ? ` + ring 2 × ${Math.round(f.ringPieces.length)} mm` : '';
     return { joists, ring, dims, label: `${f.joistCount} × ${Math.round(f.joistLength)} mm${ringNote}, vahe ${Math.round(f.spacing)} mm` };
+  });
+
+  /**
+   * Plaanist maja: seinad graafist (põranda- ja vundamendijoonise alus).
+   * Koordinaadid = plaani koordinaadid (sõlmed palgi kesktelgedel).
+   */
+  protected readonly graph = computed(() => {
+    const hp = this.v().plan;
+    if (!hp) return null;
+    const t = Math.max(this.v().logThickness, 1);
+    let geo;
+    try {
+      geo = planGeometry(hp, t, DEFAULT_CONSTANTS);
+    } catch {
+      return null;
+    }
+    if (!geo.length) return null;
+    const b = planBounds(geo);
+    const W = b.x1 - b.x0;
+    const D = b.y1 - b.y0;
+    const m = Math.max(W, D);
+    const fs = m * 0.035;
+    const pad = m * 0.12;
+    const walls = geo.map((g) => {
+      const x0 = Math.min(g.a.x, g.b.x);
+      const x1 = Math.max(g.a.x, g.b.x);
+      const y0 = Math.min(g.a.y, g.b.y);
+      const y1 = Math.max(g.a.y, g.b.y);
+      const rect: Rect =
+        g.dir === 'x'
+          ? { x: x0 - (g.a.x < g.b.x ? g.startExt : g.endExt), y: g.a.y - t / 2, w: x1 - x0 + g.startExt + g.endExt, h: t }
+          : { x: g.a.x - t / 2, y: y0 - (g.a.y < g.b.y ? g.startExt : g.endExt), w: t, h: y1 - y0 + g.startExt + g.endExt };
+      const label =
+        g.dir === 'x' ? { x: (x0 + x1) / 2, y: g.a.y - t / 2 - fs * 0.7 } : { x: g.a.x - t / 2 - fs * 0.7, y: (y0 + y1) / 2 };
+      return { id: g.id, rect, label };
+    });
+    const dims: Dim[] = [
+      { x1: b.x0, y1: b.y1, x2: b.x1, y2: b.y1, offset: fs * 2 },
+      { x1: b.x1, y1: b.y1, x2: b.x1, y2: b.y0, offset: fs * 2 },
+    ];
+    return { walls, dims, fs, viewBox: `${b.x0 - pad} ${b.y0 - pad} ${W + 2 * pad} ${D + 2 * pad}` };
+  });
+
+  /** Plaanist maja: põrand ruumide kaupa (lauad iga osa ristkülikus) */
+  protected readonly graphFloor = computed(() => {
+    const g = this.graph();
+    const fl = this.r().floor;
+    if (!g || !fl?.parts) return null;
+    const bw = Math.max(this.v().floorBoardWidth, 1);
+    let boardsLeft = 3000;
+    const parts = fl.parts.map((p, i) => {
+      const bx = p.box;
+      const boards: Rect[] = [];
+      const n = Math.min(p.boardCount, boardsLeft);
+      boardsLeft -= n;
+      for (let k = 0; k < n; k++) {
+        boards.push(
+          p.along === 'x'
+            ? { x: bx.x0, y: bx.y0 + k * bw, w: p.boardLength, h: bw }
+            : { x: bx.x0 + k * bw, y: bx.y0, w: bw, h: p.boardLength },
+        );
+      }
+      const mid = p.along === 'x' ? (bx.y0 + bx.y1) / 2 : (bx.x0 + bx.x1) / 2;
+      const dim: Dim =
+        p.along === 'x'
+          ? { x1: bx.x0, y1: mid, x2: bx.x0 + p.boardLength, y2: mid, offset: -g.fs * 0.2 }
+          : { x1: mid, y1: bx.y0, x2: mid, y2: bx.y0 + p.boardLength, offset: g.fs * 0.2 };
+      return { clip: `${this.clipId}-f${i}`, box: toRect(bx), boards, dim, open: p.open };
+    });
+    const label = fl.parts.map((p) => (p.open ? 'terrass ' : '') + p.boardCount + ' × ' + Math.round(p.boardLength)).join(' + ');
+    return { parts, dims: parts.map((p) => p.dim), label: label + ' mm' };
+  });
+
+  /** Plaanist maja: vundament lõikude kaupa */
+  protected readonly graphFoundation = computed(() => {
+    const g = this.graph();
+    const f = this.r().foundation;
+    if (!g || !f?.bays) return null;
+    const ab = this.v().floorDirection === 'AB';
+    const joists = f.bays.flatMap((b) => b.joists.map(toRect));
+    const ring = f.bays.flatMap((b) => b.ring.map(toRect));
+    const dims: Dim[] = [];
+    for (const b of f.bays) {
+      const j0 = b.joists[0];
+      const j1 = b.joists[1];
+      if (j0) {
+        dims.push(
+          ab
+            ? { x1: j0.x0, y1: j0.y0, x2: j0.x0, y2: j0.y1, offset: g.fs * 1.4 }
+            : { x1: j0.x0, y1: j0.y0, x2: j0.x1, y2: j0.y0, offset: -g.fs * 1.4 },
+        );
+      }
+      if (j0 && j1) {
+        dims.push(
+          ab
+            ? { x1: (j0.x0 + j0.x1) / 2, y1: j0.y0, x2: (j1.x0 + j1.x1) / 2, y2: j1.y0, offset: -g.fs * 1.4 }
+            : { x1: j0.x0, y1: (j0.y0 + j0.y1) / 2, x2: j1.x0, y2: (j1.y0 + j1.y1) / 2, offset: g.fs * 1.4 },
+        );
+      }
+    }
+    const ringNote = f.ringPieces ? ' + ring ' + f.ringPieces.count + ' tk' : '';
+    const lens = [...new Set(f.bays.map((b) => Math.round(b.joistLength)))].join(' / ');
+    return { joists, ring, dims, label: f.joistCount + ' prussi (' + lens + ' mm)' + ringNote + ', ' + f.bays.length + ' lõiku' };
   });
 
   /** Plaan: avad kõigil seintel (mootori paigutus). Uks: ava + avanemiskaar sissepoole, aken: topeltjoon. */
@@ -460,4 +563,8 @@ function mirrorElevation<
     groundX1: fx(e.groundX2),
     groundX2: fx(e.groundX1),
   };
+}
+
+function toRect(b: PlanBox): Rect {
+  return { x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 };
 }

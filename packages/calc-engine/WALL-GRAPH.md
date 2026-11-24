@@ -53,9 +53,18 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
    Edasi: sõlme lohistamine, mõõtketi muutmine otse joonisel, külgvaated plaanist.
 4. ◐ **Katus graafist** (`src/roof-volumes.ts`): plaani sisemine ala (üleujutus väljast) jagatakse
    ristkülikuteks – suurim = põhiosa (hari `plan.ridge`, vaikimisi y), tiivad harjaga risti ühise seinaga.
-   Viil mahu otsas, mis pole teise mahu vastas; viilupalgid mahu laiuse järgi, kalle põhiosa järgi
-   (Hari h = põhiosa hari); seina osa, mis pole viilu all, saab räästa rea. Samal joonel jätkuvad seinad:
+   Viil mahu otsas, mis pole teise mahu vastas; viilupalgid mahu laiuse järgi, kalle kõigil osadel sama –
+   ümbritseva ristküliku järgi (kinnitatud: „kalle jääb samaks“; kitsama osa hari madalam kui Hari h);
+   seina osa, mis pole viilu all, saab räästa rea. Samal joonel jätkuvad seinad:
    otsapidi jätk ristuva seina keskteljel, viil jaguneb. Katuselauad/pärlinid/räästalauad mahtude kaupa
    (org lõikamata – hoiatus `roof.valley`). Tähised automaatselt: numbrid eest taha, tähed vasakult paremale.
-   Edasi: põrand ja vundament ruumide kaupa; orgude lõikamine; külgvaated plaanist.
+   **Põrand ja vundament** (`src/plan-regions.ts`, `src/floor-plan.ts`): ala, mida piiravad alt olemas
+   seinad („ainult viil“ esiseinaga veranda jääb välja – Boden). Põrand ruumide kaupa (ruume eraldavad alt
+   olemas seinad; terrass/veranda märgitud lahtiseks), lauad igas ristkülikus, seina ääres sama vahe mis
+   ristkülikul. Vundament lõikudena: prussid ühes suunas üle maja, lõik katkeb prussidega paralleelse
+   vaheseina all (kumbki lõik kuni seina keskteljeni -> topeltpruss, Lund) ja kus kuju muutub (L-tiib).
+   Kontroll Revitiga: Boden põrand 32 × 2615 (Revit 2617), prussid 6 × 3450 + ring 2690; Lund tuba
+   34 × 3315 (3316), prussid 7 + 5 × 3650, ring 3370 (3388) ja 2360 (2352). Ristkülik = endine tulemus.
+   Pindala välispindade järgi (L-kuju), tuuleliistud iga välisnurga kohta.
+   Edasi: orgude lõikamine; külgvaated plaanist; terrassilauad eraldi materjalina.
 5. **3D vaade** samast mudelist; seejärel CNC (BTL/BTLx).

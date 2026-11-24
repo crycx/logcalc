@@ -7,6 +7,8 @@ import { computeLongBoards, computeOpenings, computeWalls } from './walls.js';
 import { buildWalls, placeOpenings, wallCutList, type WallId } from './wall-model.js';
 import { planGeometry } from './plan.js';
 import { pitchRatio, roofVolumes, volumeInput } from './roof-volumes.js';
+import { planFloor, planFoundation } from './floor-plan.js';
+import { outerArea, outlineCorners, planGrid, solidBelow } from './plan-regions.js';
 
 export class CalcInputError extends Error {
   constructor(
@@ -72,14 +74,25 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   const longBoards = computeLongBoards(input, dimensions, c);
   const openings = computeOpenings(input);
   const walls = computeWalls(input, dimensions, tri, longBoards, openings, c);
-  const foundation = computeFoundation(input, dimensions, c, warnings);
-  const floor = computeFloor(input, dimensions, c);
+  // plaanist maja: põrand ruumide kaupa, vundament lõikude kaupa, pindala ja nurgad plaani järgi
+  const planGeo = input.plan ? planGeometry(input.plan, input.log.thickness, c) : null;
+  const grid = input.plan && planGeo ? planGrid(input.plan, planGeo) : null;
+  // põrand/vundament: ala, mida piiravad alt olemas seinad (lahtine veranda „ainult viil“ esiseinaga jääb välja)
+  const floorGrid = input.plan && planGeo ? planGrid(input.plan, planGeo, solidBelow) : null;
+  const foundation =
+    input.plan && planGeo ? planFoundation(input, input.plan, planGeo, c, warnings, floorGrid) : computeFoundation(input, dimensions, c, warnings);
+  const floor = input.plan && planGeo ? planFloor(input, input.plan, planGeo, c, floorGrid) : computeFloor(input, dimensions, c);
+  if (grid) {
+    const rectArea = walls.footprintArea;
+    walls.footprintArea = outerArea(grid, input.log.thickness);
+    if (rectArea > 0) walls.volume *= walls.footprintArea / rectArea;
+  }
   let roof = computeRoof(input, dimensions, tri, longBoards, c);
   let purlins = computePurlins(input, dimensions, tri, longBoards, c);
 
   // plaanist viilkatusega maja: katus mahtude kaupa (põhiosa + tiivad, sama kalle)
   if (input.plan && input.roofType === 'gable') {
-    const vols = roofVolumes(input.plan, planGeometry(input.plan, input.log.thickness, c));
+    const vols = roofVolumes(input.plan, planGeo!);
     if (vols.length) {
       const ratio = pitchRatio(vols, input);
       const parts = vols.map((v) => {
@@ -148,21 +161,29 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   if (walls.netJm > 0) {
     // nurkade vertikaalsed liistud: 4 nurka × seina kõrgus
     const p = input.log.height;
+    // plaanist maja: iga välisnurk (L-majal 6)
+    const corners = grid ? outlineCorners(grid) : 4;
     const pieces =
       input.roofType === 'gable'
-        ? [{ count: 4, length: input.sideWallHeight }]
+        ? [{ count: corners, length: input.sideWallHeight }]
         : [
             { count: 2, length: input.frontBackWallHeight - p },
             { count: 2, length: input.roofHeight - p },
           ];
-    add('tuuleLiist', walls.windStripsJm, { pieces });
+    add('tuuleLiist', pieces.reduce((sum, x) => sum + (x.count * x.length) / 1000, 0) || walls.windStripsJm, { pieces });
   }
   if (foundation) {
-    const pieces = [{ count: foundation.joistCount, length: foundation.joistLength }];
-    if (foundation.ringPieces) pieces.push(foundation.ringPieces);
-    add('vundament', foundation.totalJm, { pieces });
+    const pieces: { count: number; length: number }[] = [];
+    for (const b of foundation.bays ?? [foundation]) {
+      pieces.push({ count: b.joistCount, length: b.joistLength });
+      if (b.ringPieces) pieces.push(b.ringPieces);
+    }
+    add('vundament', foundation.totalJm, { pieces: mergePieces(pieces) });
   }
-  if (floor) add('porandaLauad', floor.totalJm, { pieces: [{ count: floor.boardCount, length: floor.boardLength }] });
+  if (floor) {
+    const parts = floor.parts ?? [{ boardCount: floor.boardCount, boardLength: floor.boardLength }];
+    add('porandaLauad', floor.totalJm, { pieces: mergePieces(parts.map((p) => ({ count: p.boardCount, length: p.boardLength }))) });
+  }
   if (roof) {
     const pf = input.roof?.profiles ?? {};
     const all = [roof, ...(roof.parts ?? [])];
@@ -224,6 +245,17 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 }
 
 /** „sein A“, „seinad 1, A“, „seinad A ×2, B“ – seinte järjekord 1, 2, A, B */
+/** Sama pikkusega tükid kokku (järjekord säilib) */
+function mergePieces(pieces: { count: number; length: number }[]): { count: number; length: number }[] {
+  const out: { count: number; length: number }[] = [];
+  for (const p of pieces) {
+    const same = out.find((x) => Math.abs(x.length - p.length) < 0.5);
+    if (same) same.count += p.count;
+    else out.push({ ...p });
+  }
+  return out;
+}
+
 function wallsText(walls: WallId[]): string {
   if (!walls.length) return '';
   // järjekord: 1, 2, A, B, siis ülejäänud (plaani seinad) tähestiku järgi

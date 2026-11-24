@@ -8,6 +8,7 @@
  * Viil tekib mahu otsas (harjaga risti), kui see serv ei ole teise mahu vastas.
  */
 import type { HousePlan, WallGeometry } from './plan.js';
+import { EPS, greedyRects, planGrid } from './plan-regions.js';
 import type { EngineConstants, HouseInput } from './types.js';
 
 export interface RoofVolume {
@@ -31,84 +32,16 @@ export interface RoofGableEnd {
   to: number;
 }
 
-const EPS = 0.5;
-
 export function roofVolumes(plan: HousePlan, geo: WallGeometry[]): RoofVolume[] {
-  if (!geo.length) return [];
-  const xs = uniq(plan.nodes.map((n) => n.x));
-  const ys = uniq(plan.nodes.map((n) => n.y));
-  const nx = xs.length - 1;
-  const ny = ys.length - 1;
-  if (nx < 1 || ny < 1) return [];
-
-  // seinad ruudustiku joontel: x-sein (horisontaalne) y-joonel, y-sein x-joonel
-  const covers = (g: WallGeometry, lo: number, hi: number) => {
-    const a = g.dir === 'x' ? Math.min(g.a.x, g.b.x) : Math.min(g.a.y, g.b.y);
-    const b = g.dir === 'x' ? Math.max(g.a.x, g.b.x) : Math.max(g.a.y, g.b.y);
-    return a <= lo + EPS && b >= hi - EPS;
-  };
-  /** horisontaalne tõke y-joonel j (0..ny) lahtris i */
-  const hWall = (i: number, j: number) => geo.some((g) => g.dir === 'x' && Math.abs(g.a.y - ys[j]!) < EPS && covers(g, xs[i]!, xs[i + 1]!));
-  /** vertikaalne tõke x-joonel i (0..nx) lahtris j */
-  const vWall = (i: number, j: number) => geo.some((g) => g.dir === 'y' && Math.abs(g.a.x - xs[i]!) < EPS && covers(g, ys[j]!, ys[j + 1]!));
-
-  // üleujutus väljast: lahtrid, kuhu pääseb ilma seina ületamata, on väljas
-  const out = Array.from({ length: nx }, () => Array<boolean>(ny).fill(false));
-  const queue: [number, number][] = [];
-  const push = (i: number, j: number) => {
-    if (!out[i]![j]) {
-      out[i]![j] = true;
-      queue.push([i, j]);
-    }
-  };
-  for (let i = 0; i < nx; i++) {
-    if (!hWall(i, 0)) push(i, 0);
-    if (!hWall(i, ny)) push(i, ny - 1);
-  }
-  for (let j = 0; j < ny; j++) {
-    if (!vWall(0, j)) push(0, j);
-    if (!vWall(nx, j)) push(nx - 1, j);
-  }
-  while (queue.length) {
-    const [i, j] = queue.shift()!;
-    if (i > 0 && !vWall(i, j)) push(i - 1, j);
-    if (i < nx - 1 && !vWall(i + 1, j)) push(i + 1, j);
-    if (j > 0 && !hWall(i, j)) push(i, j - 1);
-    if (j < ny - 1 && !hWall(i, j + 1)) push(i, j + 1);
-  }
-  const inside = out.map((col) => col.map((o) => !o));
-
+  const grid = planGrid(plan, geo);
+  if (!grid) return [];
   // ahne jaotus: suurim täielikult sisemine ristkülik, siis järgmine ülejäänust
-  const rects: { i0: number; j0: number; i1: number; j1: number }[] = [];
-  const left = inside.map((col) => [...col]);
-  for (let guard = 0; guard < 20; guard++) {
-    let best: { i0: number; j0: number; i1: number; j1: number; area: number } | null = null;
-    for (let i0 = 0; i0 < nx; i0++)
-      for (let j0 = 0; j0 < ny; j0++) {
-        if (!left[i0]![j0]) continue;
-        for (let i1 = i0; i1 < nx; i1++) {
-          if (!left[i1]![j0]) break;
-          for (let j1 = j0; j1 < ny; j1++) {
-            let ok = true;
-            for (let i = i0; i <= i1 && ok; i++) if (!left[i]![j1]) ok = false;
-            if (!ok) break;
-            const area = (xs[i1 + 1]! - xs[i0]!) * (ys[j1 + 1]! - ys[j0]!);
-            if (!best || area > best.area + 1) best = { i0, j0, i1, j1, area };
-          }
-        }
-      }
-    if (!best) break;
-    rects.push(best);
-    for (let i = best.i0; i <= best.i1; i++) for (let j = best.j0; j <= best.j1; j++) left[i]![j] = false;
-  }
+  const rects = greedyRects(grid, grid.inside).map(grid.rect);
   if (!rects.length) return [];
 
   const mainRidge = plan.ridge ?? 'y';
   const vols: RoofVolume[] = rects.map((r, k) => ({
-    x0: xs[r.i0]!,
-    y0: ys[r.j0]!,
-    x1: xs[r.i1 + 1]!,
-    y1: ys[r.j1 + 1]!,
+    ...r,
     ridge: mainRidge,
     main: k === 0,
   }));
@@ -163,10 +96,6 @@ function touches(o: RoofVolume, e: RoofGableEnd): boolean {
   return (Math.abs(o.x0 - e.at) < EPS || Math.abs(o.x1 - e.at) < EPS) && ov(o.y0, o.y1);
 }
 
-function uniq(v: number[]): number[] {
-  const s = [...v].sort((a, b) => a - b);
-  return s.filter((x, i) => i === 0 || x - s[i - 1]! > EPS);
-}
 
 /**
  * Katuse kalle kõigil mahtudel sama: sisemine kõrgus / sisemine laius kogu maja (ümbritseva ristküliku)

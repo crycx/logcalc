@@ -38,6 +38,33 @@
   }
 
   @case ('floor') {
+    @if (graph(); as g) {
+    @let gf = graphFloor();
+    <figure class="view single">
+      <figcaption>Põrandaplaan @if (gf) { · {{ gf.label }} }</figcaption>
+      <svg [attr.viewBox]="g.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Põrandaplaan">
+        @if (gf) {
+          <defs>
+            @for (part of gf.parts; track part.clip) {
+              <clipPath [attr.id]="part.clip"><rect [attr.x]="part.box.x" [attr.y]="part.box.y" [attr.width]="part.box.w" [attr.height]="part.box.h" /></clipPath>
+            }
+          </defs>
+          @for (part of gf.parts; track part.clip) {
+            <g [attr.clip-path]="'url(#' + part.clip + ')'" [class.open-part]="part.open">
+              @for (b of part.boards; track $index) {
+                <rect class="board" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h" />
+              }
+            </g>
+          }
+          <g lcDims [dims]="gf.dims" [fs]="g.fs * 0.8"></g>
+        }
+        <ng-container *ngTemplateOutlet="graphWalls; context: { $implicit: g }" />
+        @if (!gf) {
+          <text class="area" x="50%" y="50%" [attr.font-size]="g.fs">Põrandalauad pole sisse lülitatud</text>
+        }
+      </svg>
+    </figure>
+    } @else {
     @let f = floorPlan();
     <figure class="view single">
       <figcaption>Põrandaplaan @if (f) { · {{ f.label }} }</figcaption>
@@ -60,9 +87,36 @@
         }
       </svg>
     </figure>
+    }
   }
 
   @case ('foundation') {
+    @if (graph(); as g) {
+    @let gd = graphFoundation();
+    <figure class="view single">
+      <figcaption>Vundamendiplaan @if (gd) { · {{ gd.label }} }</figcaption>
+      <svg [attr.viewBox]="g.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vundamendiplaan">
+        @for (w of g.walls; track w.id) {
+          <rect class="outline" [attr.x]="w.rect.x" [attr.y]="w.rect.y" [attr.width]="w.rect.w" [attr.height]="w.rect.h" />
+        }
+        @if (gd) {
+          @for (j of gd.joists; track $index) {
+            <rect class="joist" [attr.x]="j.x" [attr.y]="j.y" [attr.width]="j.w" [attr.height]="j.h" />
+          }
+          @for (j of gd.ring; track $index) {
+            <rect class="joist ring" [attr.x]="j.x" [attr.y]="j.y" [attr.width]="j.w" [attr.height]="j.h" />
+          }
+          <g lcDims [dims]="gd.dims" [fs]="g.fs * 0.8"></g>
+        } @else {
+          <text class="area" x="50%" y="50%" [attr.font-size]="g.fs">Vundament pole sisse lülitatud</text>
+        }
+        @for (w of g.walls; track w.id) {
+          <text class="axis-t" [attr.x]="w.label.x" [attr.y]="w.label.y" [attr.font-size]="g.fs">{{ w.id }}</text>
+        }
+        <g lcDims [dims]="g.dims" [fs]="g.fs * 0.8"></g>
+      </svg>
+    </figure>
+    } @else {
     @let fd = foundationPlan();
     <figure class="view single">
       <figcaption>Vundamendiplaan @if (fd) { · {{ fd.label }} }</figcaption>
@@ -82,10 +136,20 @@
         <ng-container *ngTemplateOutlet="axes" />
       </svg>
     </figure>
+    }
   }
 }
 
 <!-- Ühised osad -->
+<ng-template #graphWalls let-g>
+  @for (w of g.walls; track w.id) {
+    <svg:rect class="log" [attr.x]="w.rect.x" [attr.y]="w.rect.y" [attr.width]="w.rect.w" [attr.height]="w.rect.h" />
+  }
+  @for (w of g.walls; track w.id) {
+    <svg:text class="axis-t" [attr.x]="w.label.x" [attr.y]="w.label.y" [attr.font-size]="g.fs">{{ w.id }}</svg:text>
+  }
+  <svg:g lcDims [dims]="g.dims" [fs]="g.fs * 0.8"></svg:g>
+</ng-template>
 <ng-template #walls>
   @for (w of p.walls; track $index) {
     <svg:rect class="log" [attr.x]="w.x" [attr.y]="w.y" [attr.width]="w.w" [attr.height]="w.h" />
