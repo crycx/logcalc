@@ -1,0 +1,24 @@
+
+Todo:
+  ✔ imei vahetusel baseline tühjaks @done(27-08-24 13:45)
+  ✔ graafik tühjaks @done(27-08-24 13:46)
+  ✔ mõõtmiste keskmine kihipaksus @done(27-08-24 18:22)
+  ✔ tooltipis diff => layer @done(27-08-24 19:51)
+  ✔ legendis last measurement lihtsalt measurement @done(27-08-24 19:48)
+  ✔ legendis baseline => BL @done(27-08-24 19:48)
+  ✔ div 90 => 100 @done(28-08-24 09:04)
+  ✔ mm maha scale-st @done(27-08-24 19:48)
+  ✔ height ja length peitu @done(28-08-24 09:54)
+  ✔ tooltipis nurgad @done(28-08-24 10:04)
+  ✔ historys kihi arvutamine @done(28-08-24 10:55)
+  ✔ edasi ja tagasi nupud uude kohta @done(28-08-24 11:59)
+  ✔ layer ja bldelta @done(28-08-24 13:45)
+  ✔ ios nupud @done(28-08-24 17:06)
+  ✔ nurkade diff salvestamine andmebaasi @done(06-09-24 12:07)
+  ✔ keelevalik @done(06-09-24 12:50)
+  ✔ autologin toimima @done(06-09-24 14:55)
+  ✔ site alt valid nurgad mis sinna kuuluvad @done(09-09-24 10:36)
+  ☐ site vaatesse pildi upload
+  ☐ grupi lisamine
+  ☐ erinevad admin levelid (superadmin, admin, tava)
+

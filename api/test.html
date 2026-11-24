@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart with Average Line</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+</head>
+<body>
+    <canvas id="myChart" width="600" height="400"></canvas>
+    <script>
+        const ctx = document.getElementById('myChart').getContext('2d');
+
+        const data1 = [
+            { x: 1, y: 10 },
+            { x: 2, y: 15 },
+            { x: 3, y: 20 },
+            { x: 4, y: 25 }
+        ];
+
+        const data2 = [
+            { x: 1.5, y: 12 },
+            { x: 2.5, y: 18 },
+            { x: 3.5, y: 22 },
+            { x: 4.5, y: 28 }
+        ];
+
+        // Calculate average value for dataset1
+        const avgValue = data1.reduce((sum, point) => sum + point.y, 0) / data1.length;
+
+        // Plot the chart
+        const myChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Data 1',
+                        data: data1,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        showLine: true
+                    },
+                    {
+                        label: 'Data 2',
+                        data: data2,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        showLine: true
+                    }
+                ]
+            },
+            options: {
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            avgLine: {
+                                type: 'line',
+                                yMin: avgValue,
+                                yMax: avgValue,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 2,
+                                label: {
+                                    content: `Avg: ${avgValue.toFixed(2)}`,
+                                    enabled: true,
+                                    position: 'center',
+                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                    font: {
+                                        style: 'bold'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom'
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

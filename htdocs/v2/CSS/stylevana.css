@@ -1,0 +1,208 @@
+* {box-sizing: border-box; font-family: "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", "DejaVu Sans", Verdana, "sans-serif"; font-size: 12px;}
+html, body {margin: 0 auto; height: 100%; padding: 0 0.5em;}
+h3 {font-size: 14px;}
+#container {margin: 0 auto; height: 100%;}
+.sisendandmed {list-style: none;}
+#sisend {float: left; width: 25%; text-align: left; padding-right: 1em; /*border-right: solid black 1px;*/ padding-bottom: 1em;min-width: 250px;}
+#joonis {margin-left: 25%; width: 75%;  height: auto; padding: 1em;}
+#detailInfo {margin-left: 25%; width: 75%; height: auto;}
+input[type=number] {margin-left: 1em; width: 100px !important}
+input[type=button] {color: white; background-color: #4CAF50;border: none;border-radius: 10px; width: 100%; margin: 1em 0; min-height: 30px;white-space: normal;cursor: pointer;}
+input[type=button]:hover {background-color: #D1D1D1; color: black;}
+ul.sisendandmed  label {float: left; width: 170px;}
+.modal-body label {width: 115px; display: inline-block;} 
+ul.sisendandmed  li { padding: 0.7em 0; padding-left: 10px;}
+canvas {margin: 0 auto; position: relative; /*border: 1px solid black;*/}
+#canvas {display: block; margin: 0 auto; text-align: center;}
+#blank {overflow: hidden;}
+#arvutuseTulemused {overflow: hidden; height: 0; transition: heigth 2s;}
+#usteInfo, #pikemadLauadInfo, #aknadInfo, #vundamentInfo, #porandInfo, #katusInfo, #parlinInfo  {overflow: hidden; height: 0; transition: heigth 2s;clear: both;padding-right: 1em;}
+#tapsemadSeaded {overflow: hidden; height: 0; transition: heigth 2s;clear: both; margin-bottom: 1em;}
+#arvutuseTulemused:hover {transition: height 2s;}
+.avatud { height: 200px; transition: height 2s !important;}
+input[type=button].poolNuppu {width: 45%; clear:both;margin-left: 1em;}
+.modal-body input[type=button].poolNuppu {width: 45%; clear:both;margin-left: 1em; position: absolute; bottom: 0; left: 0;}
+input[type=button].eemalda {margin: 0 auto; background-color: red; width: 30px; border-radius: 30px; float: right; margin-top: 1px;}
+input[type=button].eemaldaMitu {margin: 0 auto; background-color: red; width: 30px; border-radius: 30px; float: right; margin: 0; position: absolute; right:0; top: 50%; transform: translateY(-50%);-ms-transform: translateY(-50%)}
+input[type=button].eemalda:hover + li {background-color: rgba(255,0,4,0.20); border-radius: 0 30px 30px 0;}
+input[type=button].eemaldaMitu:hover ~ li:first-of-type {background-color: rgba(255,0,4,0.20); border-radius: 0 30px 0 0; }
+input[type=button].eemaldaMitu:hover ~ li {background-color: rgba(255,0,4,0.20); border-radius: 0 0 0 0; }
+input[type=button].eemaldaMitu:hover ~ li:last-of-type {background-color: rgba(255,0,4,0.20); border-radius: 0 0 30px 0; }
+input[type=button].eemalda:hover {background-color: black; color: white;}
+input[type=button].eemaldaMitu:hover {background-color: black; color: white;}
+input[type=button].poolNuppu:nth-of-type(2) {margin-left: 10%}
+input[type=button].ajutine {background-color: gray;}
+input[type=button].ilmaFunktsioonita {background-color: white; color: black; border: 1px solid black;}
+input[type=button]#lisaKatusPea {display: none;}
+input[type=button]#lisaVundamentPea {display: none;}
+input[type=button]#lisaPorandPea {display: none;}
+input[type=button]#lisaParlinPea {display: none;}
+#arvutuseTulemused input[type=button].poolNuppu {float: none;}
+#katus, #vundament, #porand, #parlin {display: none;}
+.suunaInfo{color: red; font-weight: bold;}
+
+
+
+ul#ustenimekiri li, ul#akendenimekiri li, ul#pikemateLaudadeNimekiri li, ul#vundamentNimekiri li, ul#porandNimekiri li, ul#katusNimekiri li, ul#parlinNimekiri li {min-height: 32px; /*float: left;*/ padding: 0.5em 30px 0 10px}
+ul {position: relative;}
+#uksed, #pikemadLauad, #aknad, #katus, #vundament, #porand, #katus, #parlin {clear: both;}
+#lisaPikemLaudPea {margin-top: 2em;}
+#detailInfo {overflow: hidden; height: 0px; transition: height 2s;}
+#detailInfo li{list-style: none;}
+.infoks {color:white; font-size: 10; background-color: black; text-align: center;}
+sup {font-size:9px}
+img#abiJoonis {max-height: 250px;}
+.tekstiOsa {float: left; width: 60%;}
+#abiJoonisDiv {float: right; width: 40%;}
+.tapsemadSeaded {position: absolute; bottom: 0; right: 5px; cursor: pointer; font-size:16px;}
+.taisLaius {width: 100%;}
+
+/* #### Desktops #### */
+@media screen and (max-width: 1600px){
+  .tekstiOsa {float: none; width: 100%;}
+  #abiJoonisDiv {float: none; width: 100%;}
+}
+
+@media screen and (max-width: 1520px){
+  .tekstiOsa {float: none; width: 100%;}
+  #abiJoonisDiv {float: none; width: 100%;}
+  .modal-body >  span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body >  span > label {float: left; width: 40%}
+  .modal-body > #tapsemadSeaded > .ymbris > span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body > #tapsemadSeaded > .ymbris > span > label {float: left; width: 40%}
+  .modal-body > #tapsemadSeaded > .ymbris > p > span >  label  {float: left; width: 40%}
+
+
+
+}
+@media screen and (max-width: 990px){
+  .tekstiOsa {float: none; width: 100%;}
+  #abiJoonisDiv {float: none; width: 100%;}
+  .modal-body > .tekstiOsa > span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body > .tekstiOsa > span > label {float: left; width: 40%}
+  .modal-body > #tapsemadSeaded > .ymbris > span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body > #tapsemadSeaded > .ymbris > span > label {float: left; width: 40%}
+  .modal-body > #tapsemadSeaded > .ymbris > p > span >  label {float: left; width: 40%}
+  .modal-body >  span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body >  span > label {float: left; width: 40%}
+
+}
+@media screen and (max-width: 625px){
+  .tekstiOsa {float: none; width: 100%;}
+  #abiJoonisDiv {float: none; width: 100%;}
+  .modal-body > .tekstiOsa > span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body > .tekstiOsa > span > label { width: 100%}
+  .modal-body > #tapsemadSeaded > .ymbris > span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body > #tapsemadSeaded > .ymbris > span > label { width: 100%}
+  .modal-body > #tapsemadSeaded > .ymbris > p > span >  label { width: 100%}
+  .modal-body >  span {display: block; width: 100%; margin-top: 1em;}
+  .modal-body >  span > label { width: 100%}
+}
+
+
+
+@media (max-device-width: 1024px), (max-width: 1045px) {
+    #sisend {float: left; width: 40%; text-align: left; padding-right: 1em; min-height: auto !important}
+    #joonis {margin-left: 40%; width: 60%; padding: 1em;} 
+    #detailInfo {margin-left: 40%; width: 60%;} 
+    
+}
+
+@media (max-device-width: 600px), (max-width: 600px) {
+    #sisend {float: left; width: 40%; text-align: left; padding-right: 1em; min-height: auto !important}
+    #joonis {margin-left: 40%; width: 80%; padding: 1em;
+    
+    }   
+    .modal-content {width: 95%;}
+}
+@media only screen and (max-device-width: 480px) {
+	#sisend {float: none; width: 100%;margin: 0 auto;border-right: none; min-height: auto !important}
+	#joonis {float: none; width: 100%;margin:0 auto;}
+    #detailInfo {float: none; width: 100%; margin: 0 auto;}
+    .modal-content {width: 95% !important}
+    .modal-body > .tekstiOsa > span {display: block; width: 100%; margin-top: 1em;}
+    .modal-body > .tekstiOsa > span > label {float: left; width: 40%}
+    .modal-body > #tapsemadSeaded > .ymbris > span {display: block; width: 100%; margin-top: 1em;}
+    .modal-body > #tapsemadSeaded > .ymbris > span > label {float: left; width: 40%}
+    .modal-body > #tapsemadSeaded > .ymbris > p > span >  label  {float: left; width: 40%}
+    .modal-body >  span {display: block; width: 100%; margin-top: 1em;}
+    .modal-body >  span > label {float: left; width: 40%}
+
+    }
+
+
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content */
+.modal-content {
+  position: relative;
+  background-color: #fefefe;
+  min-height: 100px;
+  margin: auto;
+  padding: 0;
+  border: 1px solid #888;
+  width: 50%;
+  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+  -webkit-animation-name: animatetop;
+  -webkit-animation-duration: 0.4s;
+  animation-name: animatetop;
+  animation-duration: 0.4s
+}
+
+/* Add Animation */
+@-webkit-keyframes animatetop {
+  from {top:-300px; opacity:0} 
+  to {top:0; opacity:1}
+}
+
+@keyframes animatetop {
+  from {top:-300px; opacity:0}
+  to {top:0; opacity:1}
+}
+
+/* The Close Button */
+.close {
+  color: white;
+  float: right;
+  font-size: 23px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.modal-header {
+  padding: 2px 16px;
+  background-color: #5cb85c;
+  color: white;
+}
+.modal-header > h2 {font-size: 1.3em}
+
+.modal-body {padding: 2px 16px; position: relative; overflow: hidden; padding-bottom: 4em;  }
+
+.modal-footer {
+  padding: 2px 16px;
+  background-color: #5cb85c;
+  color: white;
+}
+.modal span {margin-left: 1em;}
+span.info {margin-bottom: 5px;float:left; clear: both; color: white; background-color: #707070; padding: 3px; width: 97%; padding-left: 1em !important }
+#modal-body * {clear: none;}
+/* span.info ~ p {clear: both;} */

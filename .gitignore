@@ -1,0 +1,40 @@
+# --- Saladused / paroolid (ära kunagi commiti) ---
+.env
+.env.*
+!.env.example
+**/.vscode/sftp.json
+*.code-workspace
+api/config/database.php
+api/config/core.php
+**/.htpasswd
+*.pem
+*.key
+
+# php-crud-api failid (DB paroolid faili lõpus)
+htdocs/GjA8binTNAvhzHMT.php
+htdocs/m4XPMADWGgsUTToU.php
+htdocs/v2/m4XPMADWGgsUTToU.php
+
+# Andmebaasi dumpid, logid, varukoopiad
+*.sql
+*.sql.gz
+*.log
+*.bak
+*.bak-*
+
+# WordPress (eraldi rakendus, wp-config.php sisaldab paroole)
+htdocs/wp/
+
+# Sõltuvused / build
+api/vendor/
+node_modules/
+dist/
+.angular/
+
+# Editor / OS
+.vscode/
+.idea/
+**/_notes/
+Thumbs.db
+desktop.ini
+.DS_Store

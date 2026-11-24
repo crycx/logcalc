@@ -1,0 +1,4 @@
+AuthType Basic  
+AuthName "restricted area"  
+AuthUserFile /data01/virt86019/domeenid/www.logcalc.ee/htdocs/.htpasswd 
+require valid-user

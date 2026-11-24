@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LogCalc</title>
+<link href="CSS/style.css?v=1" rel="stylesheet" type="text/css">
+<link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet">
+<link rel="icon" href="img/3D_pildid0,5.svg">
+<!-- <script>
+    function cssVersion (){
+        const today = new Date();
+        var css = document.querySelectorAll("link")[0];
+        css.outerHTML = '<link href="CSS/style.css?v=' +today.getHours() + today.getMinutes() + today.getSeconds() + '" rel="stylesheet" type="text/css">';
+
+                
+    }
+    window.onload = cssVersion();
+    
+    
+</script> -->
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-138462328-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-138462328-1');
+</script>
+</head>
+
+<body>
+    
+    <div id="container">
+        <div id="sisend">
+        <div class="placeHolderPilt1"><object id="svgObject" data="img/3D_pildid0,5.svg" type="image/svg+xml" height="211" width="375">
+            Your browser doesn't support SVG
+            </object></div>
+            <!-- pikemad lauad algavad -->
+            <input id="lisaPikemLaudPea" type="button" value="Lisa pikem laud" onClick="lisaPikemLaud()">
+            <div id="pikemadLauad"></div>
+            <div id="pikemadLauadInfo"><div class="ymbris"></div></div>
+            
+			<!-- uksed algavad -->
+			<input id="lisaUksPea" type="button" value="Lisa uks" onClick="lisaUks2();">
+			<div id="uksed">
+			</div>
+			<div id="usteInfo"><div class="ymbris"></div></div>
+			<!-- uksed lõppevad -->
+			<!-- aknad algavad -->
+			<input id="lisaAkenPea" type="button" value="Lisa aken" onClick="lisaAken2();">
+			<div id="aknad">
+			</div>
+			<div id="aknadInfo"><div class="ymbris"></div></div>
+			<!-- aknad lõppevad -->
+			<!-- põrand algab-->
+			<input id="lisaVundamentPea" type="button" value="Lisa vundament" onClick="lisaVundament();">
+            <div id="vundament">
+            </div>
+            <div id="vundamentInfo"><div class="ymbris"></div></div>
+			<input id="lisaPorandPea" type="button" value="Lisa põrandalauad" onClick="lisaPorand();">
+			<div id="porand">
+			</div>
+			<div id="porandInfo"><div class="ymbris"></div></div>
+            <!-- põrand lõppeb -->
+            <!-- Pärlin algab -->
+            <input id="lisaParlinPea" type="button" value="Lisa pärlinid" onClick="lisaParlin();">
+            <div id="parlin">
+            </div>
+            <div id="parlinInfo"><div class="ymbris"></div></div>
+            <!-- Pärlin lõppeb -->
+            <!-- katus algab-->
+			<input id="lisaKatusPea" type="button" value="Lisa katuse lauad" onClick="lisaKatus();">
+			<div id="katus">
+			</div>
+			<div id="katusInfo"><div class="ymbris"></div></div>
+            <!-- katus lõppeb -->
+
+            <!-- Arvutustulemus algab -->
+            <!-- <input type="button" name="test" value="Arvuta kogused" onClick="arvutaUus();"> -->
+            <h3 class="majaInfo">Üldine info</h3>
+            <div id="arvutuseTulemused">
+            <div class="ymbris"></div>
+            </div>
+            <!-- Arvutustulemus lõppeb -->
+            <!-- <input type="button" value="Joonesta plaan" onClick="joonesta();"> -->
+            <!--<input type="button" class="ajutine" value="Lisa 1 uks" onClick="uks1()">-->
+<!-- The Modal -->
+<div id="myModal" class="modal">
+
+  <!-- Modal content -->
+  <div class="modal-content">
+    <div class="modal-header">
+      <span class="close">&times;</span>
+      <h2></h2>
+    </div>
+    <div class="modal-body">
+        
+    </div>
+  </div>
+  <!-- Modal content lõppeb -->
+</div>
+<!-- Modal lõppeb -->
+
+          
+        </div><!--sisend-->
+        <div id="joonisMoodud">
+        <div id="moodud">
+            <div id="menu">
+                <ul>
+                    <li class="aktiivne"><a class="aktiivne" href="#">Kalkulaator</a></li>
+                    <li><a href="kysitlus/">Küsitlus</a></li>
+                    <li><a href="meist/">Meist</a></li>
+                    <li><a href="kontakt/">Kontakt</a></li>
+                </ul>
+                
+            </div><!-- menu -->
+            <ul class="sisendandmed">
+                <li><div class="cab_width"><input class="number" type="number" id="cab_width" value="" onchange="sisendAndmed()"><label class="cab_width" for="cab_width">Laius (mm)</label></div></li>
+                <li><div class="cab_depth"><input type="number" id="cab_depth" value="" onchange="sisendAndmed()"><label for="cab_depth">Pikkus (mm)</label></div></li>
+                <li><div class="cab_height_side"><input type="number" id="cab_height_side" value="" onchange="sisendAndmed(), piltKulje()"><label for="cab_heigth_side">Küljeseina kõrgus (mm)</label></div></li>
+                <li><div class="cab_height_fb"><input type="number" id="cab_height_fb" value="" onchange="sisendAndmed(), piltEsiTagu()"><label for="cab_heigth_fb">Esi/tagaseina kõrgus (mm)</label></div></li>
+                <li><div class="cab_roofHeight"><input type="number" id="cab_roofHeight" value="" onchange="sisendAndmed(), piltKatus()"><label for="cab_roofHeight">Katuse kõrgus (mm)</label></div></li>
+                <li><div class="palgiPaksus"><input type="number" id="palgiPaksus" value="" onchange="sisendAndmed()"><label for="palgiPaksus">Palgi paksus (mm)</label></div></li>
+				<li><div class="palgiKorgus"><input type="number" id="palgiKorgus" value="" onchange="sisendAndmed()"><label for="palgiKorgus">Palgi kõrgus (mm)</label></div></li>
+            </ul>
+            <div style="clear:both" class="keskele"><label id="pikkuseValik" for="misPikkus">Pikkuse stsenaarium:
+            <select id="misPikkus" name="pikkuseStsenaarium" onchange="sisendAndmed()">
+                <option value="palk">palgi pikkus</option>
+                <option value="sise">siseseinast - siseseinani</option>
+                <option value="valis">välisseinast - välisseinani</option>
+            </select></label></div>
+        </div><!-- Mõõdud -->
+        <div id="joonisYmbris">
+        <div id="joonis">
+            <div id="canvas">
+                <!--<canvas id="majaJoonis" style="display: block;" width="900px" height="900px"></canvas>-->
+                <canvas id="majaJoonis" style="display: block;"></canvas>
+                <!--<canvas id="blank" style="display:none" width="900px" height="900px"></canvas>-->
+                <canvas id="blank" style="display:none"></canvas>
+            </div><!-- canvas -->
+            <div id="prindiPilt"></div>
+        </div><!-- joonis -->
+        <div id="jooniseInfo">
+                <div id="prindi"><img src="img/svg/print.svg" /></div> 
+                <h1>Summeeritud kogused:</h1>
+                <div class="ymbris">
+                <ul class="katus2Info"></ul>
+                <ul class="parlin2Info"></ul> 
+                <ul class="jooksvadMeetridInfo"></ul>
+                <ul class="pikemadLauad2Info"></ul>
+                <ul class="porand2Info"></ul>
+                <ul class="vundament2Info"></ul>
+                <ul class="tuuleliistudInfo"></ul>
+                <ul class="uksed2Info"></ul>
+                <ul class="aknad2Info"></ul>
+                <h1 class="summaKokku"><span class="esimenePool">Summa kokku:</span><span class="teinePool"></span></h1>
+                </div><!-- ymbris -->             
+        </div><!-- jooniseInfo -->
+        <div class="clear"></div>
+        </div><!-- joonisYmbris -->
+    </div><!-- joonisMoodud -->
+        <!-- <div id="detailInfo" style="height: 0px">
+			<div class="ymbris">
+                <ul class="pindala3Info"></ul>
+                <ul class="gablePalgid3Info"></ul>
+                <ul class="jooksvadMeetrid3Info"></ul>
+                <ul class="pikemadLauad3Info"></ul>
+                <ul class="uksed3Info"></ul>
+                <ul class="aknad3Info"></ul>
+                <ul class="vundament3Info"></ul>
+                <ul class="porand3Info"></ul>
+                <ul class="katus3Info"></ul>                
+                <ul class="parlin3Info"></ul>
+            </div>
+            
+        </div> --><!-- detailInfo -->
+    
+    </div> <!-- container -->
+    <div id="detailne">#D#</div>
+    <div id="hind">€</div>
+    <div id="demo"><a href="demo/">Lehte tutvustav demo</a></div>
+<script type="text/javascript" id="jvs" src="JS/obfuscated.js"></script>
+<script>
+    var paev = new Date();
+    var versioon = "?v="+paev.getHours() + paev.getMinutes() + paev.getSeconds();
+    document.querySelector("#jvs").src = "JS/obfuscated.js"+versioon
+</script>
+ <script>
+    window.onload = function() { 
+    	setCanvasHeight();
+    	//setBodyHeight();
+    }
+    window.addEventListener("resize", function() {
+       	setCanvasHeight();
+		//setTimeout(setBodyHeight(),1000);
+    });
+
+</script>
+</body>
+</html>

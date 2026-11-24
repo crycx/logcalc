@@ -1,0 +1,10 @@
+RewriteEngine On
+# Rewrite for bootstrap
+RewriteRule ^bootstrap/([a-zA-Z0-9]+)/([a-zA-Z0-9\.]+)$ api.php?route=bootstrap&imei=$1&fw_version=$2 [QSA,L]
+RewriteRule ^data/([a-zA-Z0-9]+)/([a-zA-Z0-9\.]+)$ api.php?route=data&imei=$1&fw_version=$2 [QSA,L]
+RewriteRule ^data/([a-zA-Z0-9]+)$ api.php?route=data&imei=$1 [QSA,L]
+RewriteRule ^clearcalibration/([a-zA-Z0-9]+)$ api.php?route=clearcalibration&imei=$1 [QSA,L]
+#RewriteRule ^bootstrap/([a-zA-Z0-9]+)$ api.php?route=bootstrap&imei=$1&fw_version=001 [QSA,L]
+# Rewrite for data and log POST requests
+RewriteRule ^data$ api.php?route=data [QSA,L]
+RewriteRule ^log$ api.php?route=log [QSA,L]
