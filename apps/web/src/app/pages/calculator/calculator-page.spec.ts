@@ -82,7 +82,7 @@ describe('CalculatorPage', () => {
 
     it('ettevõtte hinnakiri jõuab arvutusse', async () => {
       const el: HTMLElement = (await create(ADMIN, { seinaLauad: 2 })).nativeElement;
-      // 216,097 jm * 2 €/jm = 432,19 €
+      // 208,495 jm * 2 €/jm = 416,99 €
       expect(bomRows(el).find((t) => t.includes('Seinalauad'))).toContain('416,99');
     });
 
