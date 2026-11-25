@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DEFAULT_CONSTANTS, wallPieces, type WallSpec } from '@logcalc/calc-engine';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { DEFAULT_CONSTANTS, wallPieces, type PlacedPiece, type WallSpec } from '@logcalc/calc-engine';
 import { roofAtFn, underRoof } from '../../helpers/roof-cut';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 
@@ -22,6 +22,12 @@ export class WallView {
   readonly roofLine = input<[number, number][] | null>(null);
   /** Mõõdud: avade kett, kõrgused (seinte vaates); kompaktses vaates ainult pikkus */
   readonly dimensions = input(false);
+  /** palgitükid ja nende tähised mudelist (Wall3D.pieces/marks) – sama järjekord mis lõikenimekirjas */
+  readonly pieces = input<PlacedPiece[] | null>(null);
+  readonly marks = input<string[]>([]);
+  /** esiletõstetud tähis (lõikenimekirjast); klõps palgil -> pick */
+  readonly highlight = input<string | null>(null);
+  readonly pick = output<string | null>();
 
   protected readonly Math = Math;
 
@@ -29,19 +35,24 @@ export class WallView {
     const w = this.wall();
     const line = this.roofLine();
     const roofAt = line ? roofAtFn(line) : null;
-    const pieces = wallPieces(w, { maxLogLength: this.maxLogLength() });
+    const pieces = this.pieces() ?? wallPieces(w, { maxLogLength: this.maxLogLength() });
+    const marks = this.marks();
+    const hl = this.highlight();
     const xs = pieces.flatMap((p) => [p.x0, p.x1]);
     const x0 = Math.min(0, ...xs);
     const x1 = Math.max(w.length, ...xs);
 
     // palgid: viilupalgid (ja muud katusest kõrgemad) katusejoone järgi hulknurgaks
     type Shape = { kind: string; poly: [number, number][] | null; rect: { x0: number; x1: number; y0: number; y1: number } };
-    const shapes: (Shape & { spliceStart: boolean; spliceEnd: boolean })[] = [];
-    for (const p of pieces) {
+    const shapes: (Shape & { spliceStart: boolean; spliceEnd: boolean; mark: string })[] = [];
+    pieces.forEach((p, i) => {
       const cut = line && roofAt && p.kind === 'gable' ? underRoof(p, line, roofAt) : null;
-      if (cut === 'none') continue;
-      shapes.push({ kind: p.kind, poly: cut, rect: p, spliceStart: p.spliceStart, spliceEnd: p.spliceEnd });
-    }
+      if (cut === 'none') return;
+      shapes.push({ kind: p.kind, poly: cut, rect: p, spliceStart: p.spliceStart, spliceEnd: p.spliceEnd, mark: marks[i] ?? '' });
+    });
+    // esiletõstmine: valitud tähis oranž, teised hallimad
+    const cls = (s: { kind: string; mark: string }) => `log ${s.kind}${hl ? (s.mark === hl ? ' hi' : ' dim') : ''}`;
+    const hiCount = hl ? shapes.filter((s) => s.mark === hl).length : 0;
     const top = (s: Shape) => (s.poly ? Math.max(...s.poly.map((q) => q[1])) : s.rect.y1);
     const H = Math.max(1, ...shapes.map(top));
     const eave = Math.max(0, ...shapes.filter((s) => s.kind !== 'gable').map((s) => s.rect.y1));
@@ -51,8 +62,8 @@ export class WallView {
 
     const rects = shapes
       .filter((s) => !s.poly)
-      .map((s) => ({ x: s.rect.x0, y: Y(s.rect.y1), w: s.rect.x1 - s.rect.x0, h: s.rect.y1 - s.rect.y0, kind: s.kind }));
-    const polys = shapes.filter((s) => s.poly).map((s) => ({ kind: s.kind, points: s.poly!.map(([x, y]) => `${x},${Y(y)}`).join(' ') }));
+      .map((s) => ({ x: s.rect.x0, y: Y(s.rect.y1), w: s.rect.x1 - s.rect.x0, h: s.rect.y1 - s.rect.y0, cls: cls(s), mark: s.mark }));
+    const polys = shapes.filter((s) => s.poly).map((s) => ({ cls: cls(s), mark: s.mark, points: s.poly!.map(([x, y]) => `${x},${Y(y)}`).join(' ') }));
     const openings = w.openings.map((o) => {
       const x = o.offset;
       // uks: tiivad (topelt = kaks poolt, käepidemed keskel), ühepoolsel käepide hingede vastas
@@ -121,6 +132,13 @@ export class WallView {
       dims,
       H,
       fs,
+      hiCount,
     };
   });
+
+  /** klõps palgil: selle tähis (sama uuesti = tühista) */
+  protected onPick(mark: string): void {
+    if (!mark) return;
+    this.pick.emit(this.highlight() === mark ? null : mark);
+  }
 }

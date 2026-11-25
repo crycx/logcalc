@@ -315,7 +315,6 @@ export class CalculatorPage {
     effect(() => {
       const v = untracked(this.view);
       if ((this.isGable() || this.hasPlan()) && v === 'side') this.view.set('overview');
-      if (!this.hasPlan() && v === 'walls') this.view.set('overview');
     });
     void this.initSession();
   }

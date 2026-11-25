@@ -25,6 +25,26 @@ svg {
   &.gable {
     fill: #ecd5ad;
   }
+
+  /* lõikenimekirjast valitud tähis (sama oranž mis 3D-s) */
+  &.hi {
+    fill: #ff8a33;
+    stroke: #b34700;
+    stroke-width: 1.5px;
+  }
+
+  &.dim {
+    opacity: 0.35;
+  }
+
+  &.pickable {
+    cursor: pointer;
+
+    &:hover {
+      stroke: #b34700;
+      stroke-width: 2px;
+    }
+  }
 }
 
 .opening {

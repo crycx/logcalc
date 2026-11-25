@@ -10,7 +10,9 @@
     @if (frontWall(); as fw) {
       <figure class="view">
         <figcaption>Sein {{ fw.id }}</figcaption>
-        <app-wall-view class="plan-mini" [wall]="fw" [roofLine]="roofLines().get(fw.id) ?? null" [dimensions]="true" />
+        @let fm = model3dWalls().get(fw.id);
+        <app-wall-view class="plan-mini" [wall]="fw" [roofLine]="roofLines().get(fw.id) ?? null" [dimensions]="true"
+          [pieces]="fm?.pieces ?? null" [marks]="fm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)" />
       </figure>
     }
     } @else {
@@ -33,8 +35,14 @@
   @case ('walls') {
     @for (w of allWalls(); track w.id) {
       <figure class="view wall-fig">
-        <figcaption>Sein {{ w.id }} · {{ w.length | number: '1.0-0' }} mm</figcaption>
-        <app-wall-view class="wall-mini" [wall]="w" [roofLine]="roofLines().get(w.id) ?? null" [dimensions]="true" />
+        @let wm = model3dWalls().get(w.id);
+        @let hc = hiCount(w.id);
+        <figcaption>
+          Sein {{ w.id }} · {{ w.length | number: '1.0-0' }} mm
+          @if (hc) { <span class="hi-badge">{{ highlight() }} · {{ hc }} tk</span> }
+        </figcaption>
+        <app-wall-view class="wall-mini" [wall]="w" [roofLine]="roofLines().get(w.id) ?? null" [dimensions]="true"
+          [pieces]="wm?.pieces ?? null" [marks]="wm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)" />
       </figure>
     }
   }

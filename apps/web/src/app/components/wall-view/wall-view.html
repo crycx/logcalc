@@ -6,11 +6,15 @@
     <text class="joint-label" [attr.x]="j.x" [attr.y]="-v.fs * 0.8" [attr.font-size]="v.fs * 0.8" text-anchor="middle">{{ j.wall }}</text>
   }
   @for (r of v.rects; track $index) {
-    <rect [class]="'log ' + r.kind" [attr.x]="r.x" [attr.y]="r.y" [attr.width]="r.w" [attr.height]="r.h" />
+    <rect [class]="r.cls" [class.pickable]="!!r.mark" [attr.x]="r.x" [attr.y]="r.y" [attr.width]="r.w" [attr.height]="r.h" (click)="onPick(r.mark)">
+      @if (r.mark) { <title>{{ r.mark }}</title> }
+    </rect>
   }
   <!-- viilupalgid katusekalde järgi lõigatud -->
   @for (p of v.polys; track $index) {
-    <polygon [class]="'log ' + p.kind" [attr.points]="p.points" />
+    <polygon [class]="p.cls" [class.pickable]="!!p.mark" [attr.points]="p.points" (click)="onPick(p.mark)">
+      @if (p.mark) { <title>{{ p.mark }}</title> }
+    </polygon>
   }
   @for (o of v.openings; track $index) {
     <rect [class]="'opening ' + o.kind" [attr.x]="o.x" [attr.y]="o.y" [attr.width]="o.w" [attr.height]="o.h" />

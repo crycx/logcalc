@@ -268,9 +268,8 @@
               <mat-button-toggle value="plan" [matTooltip]="hasPlan() ? 'Muuda põhiplaani' : 'Vabakujuline plaan: vaheseinad, L-kuju, terrass, veranda, garaaž'">
                 Plaan
               </mat-button-toggle>
-              @if (hasPlan()) {
-                <mat-button-toggle value="walls" matTooltip="Kõik seinad mudelist: palgid, avad, liited, jätkud">Seinad</mat-button-toggle>
-              } @else if (!isGable()) {
+              <mat-button-toggle value="walls" matTooltip="Kõik seinad mudelist: palgid, avad, liited, jätkud">Seinad</mat-button-toggle>
+              @if (!hasPlan() && !isGable()) {
                 <mat-button-toggle value="side">Külg</mat-button-toggle>
               }
               <mat-button-toggle value="floor">Põrand</mat-button-toggle>
@@ -295,7 +294,7 @@
               <app-house-3d [model]="m" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
             }
           } @else {
-            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" />
+            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
           }
         </div>
         @if (!readonly()) {
@@ -364,7 +363,7 @@
               </mat-tab>
             }
             <mat-tab label="Lõikenimekiri">
-              <app-cut-list [walls]="r.cutList" [selected]="activeMark()" [linked]="view() === '3d'" (select)="pieceMark.set($event)" />
+              <app-cut-list [walls]="r.cutList" [selected]="activeMark()" [linked]="view() === '3d' || view() === 'walls'" [scrollToSelected]="view() === '3d'" (select)="pieceMark.set($event)" />
             </mat-tab>
           </mat-tab-group>
         </div>

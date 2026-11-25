@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, untracked } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { CutPiece, WallCutList } from '@logcalc/calc-engine';
 
@@ -26,6 +26,8 @@ export class CutList {
   readonly select = output<string | null>();
   /** kas valikul on mõju (3D vaade avatud) – vihje kasutajale */
   readonly linked = input(false);
+  /** 3D-s valitud tükk: rida nähtavale (seinte vaates mitte – loend on joonistest kaugel) */
+  readonly scrollToSelected = input(false);
 
   constructor() {
     // 3D-s valitud tükk: rida nähtavale
@@ -33,7 +35,7 @@ export class CutList {
     effect(() => {
       const m = this.selected();
       // ainult 3D-st tulnud valik (loendis klõpsatud rida on juba nähtaval)
-      if (!m || m === this.clicked) return;
+      if (!m || m === this.clicked || !untracked(this.scrollToSelected)) return;
       queueMicrotask(() => host.nativeElement.querySelector(`tr[data-mark="${CSS.escape(m)}"]`)?.scrollIntoView({ block: 'nearest' }));
     });
   }
