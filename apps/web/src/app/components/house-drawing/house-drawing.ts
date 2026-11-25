@@ -2,7 +2,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { DEFAULT_CONSTANTS, planBounds, planGeometry, type CalcResult, type HouseModel3D, type PlanBox, type Wall3D, type WallId } from '@logcalc/calc-engine';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 import { PlanEditor } from '../plan-editor/plan-editor';
@@ -65,9 +65,12 @@ export class HouseDrawing {
 
   /** plaanist maja: mõõdud (mallide jaoks, siin ainult kuvamine) ja esisein mudelist */
   protected readonly planSize = computed(() => ({ width: this.r().dimensions.width, depth: this.r().dimensions.depth }));
+  /** ülevaates plaanil klõpsatud sein (null = esisein) */
+  protected readonly overviewWall = signal<string | null>(null);
   protected readonly frontWall = computed(() => {
     const ws = this.r().wallModel;
-    return ws.find((w) => w.id === '1') ?? ws[0] ?? null;
+    const pick = this.overviewWall();
+    return (pick ? ws.find((w) => w.id === pick) : undefined) ?? ws.find((w) => w.id === '1') ?? ws[0] ?? null;
   });
 
   /** plaanist maja: kõik seinad (numbrid eest taha, siis tähed vasakult paremale) */

@@ -89,6 +89,8 @@ export class PlanEditor {
   readonly renamed = output<Record<string, string>>();
   /** lisa valitud seinale uks või aken (vanem lisab rea uste/akende loetellu) */
   readonly addOpening = output<{ kind: 'door' | 'window'; wall: string }>();
+  /** ülevaate (compact, ainult vaatamiseks) plaanil klõpsatud sein */
+  readonly wallPick = output<string>();
   readonly thickness = input.required<number>();
   /** palgi pikkused malli jaoks (praegused mõõdud) */
   readonly size = input.required<{ width: number; depth: number }>();
@@ -488,6 +490,15 @@ export class PlanEditor {
   }
 
   protected onDown(e: PointerEvent): void {
+    if (this.readonly() && this.compact() && e.button === 0) {
+      // ülevaade: klõps seinal valib selle (kõrval seina joonis)
+      const id = (e.target as Element).closest('[data-wall]')?.getAttribute('data-wall');
+      if (id) {
+        this.selected.set(id);
+        this.wallPick.emit(id);
+      }
+      return;
+    }
     if (this.readonly() || e.button !== 0) return;
     const p = this.toMm(e);
     const target = (e.target as Element).closest('[data-wall]');
