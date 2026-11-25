@@ -140,7 +140,9 @@ export class CalculatorPage {
   /** valitud tähis, kui see on veel lõikenimekirjas (maja muutmisel võib kaduda) */
   protected readonly activeMark = computed(() => {
     const m = this.pieceMark();
-    return m && this.result()?.cutList.some((w) => w.pieces.some((p) => p.mark === m)) ? m : null;
+    const r = this.result();
+    const known = !!m && !!r && (r.cutList.some((w) => w.pieces.some((p) => p.mark === m)) || r.materials.some((g) => g.rows.some((x) => x.mark === m)));
+    return known ? m : null;
   });
 
   protected readonly form = buildHouseForm(this.fb, DEMO);

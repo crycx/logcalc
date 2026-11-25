@@ -5,6 +5,7 @@ import { computePurlins, computeRoof } from './roof.js';
 import type { BomLine, CalcResult, EngineConstants, HouseInput, PriceList, RoofResult, Warning } from './types.js';
 import { computeLongBoards, computeOpenings, computeWalls } from './walls.js';
 import { buildWalls, placeOpenings, wallCutList, type WallId } from './wall-model.js';
+import { materialCutList } from './materials.js';
 import { planGeometry } from './plan.js';
 import { pitchRatio, roofVolumes, volumeInput, wingSpan, type WingSpan } from './roof-volumes.js';
 import { planFloor, planFoundation } from './floor-plan.js';
@@ -265,7 +266,8 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
 
-  return { dimensions, cutList, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
+  const materials = materialCutList(input, bom, c);
+  return { dimensions, cutList, materials, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
 }
 
 /** „sein A“, „seinad 1, A“, „seinad A ×2, B“ – seinte järjekord 1, 2, A, B */

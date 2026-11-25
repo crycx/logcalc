@@ -12,6 +12,19 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
+.group-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 18px 0 8px;
+  font: var(--mat-sys-title-medium);
+
+  .jm {
+    font: var(--mat-sys-label-large);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 .walls {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

@@ -10,6 +10,9 @@ import { planBounds, planGeometry, rectanglePlan, type HousePlan, type WallGeome
 import { pitchRatio, roofVolumes, volumeSpan, type RoofVolume } from './roof-volumes.js';
 import type { CalcResult, EngineConstants, HouseInput } from './types.js';
 import { wallPieces, type PlacedPiece } from './wall-model.js';
+import { buildMembers, type Member3D } from './members3d.js';
+
+export type { Member3D };
 
 const EPS = 0.5;
 
@@ -49,11 +52,17 @@ export interface RoofPlane3D {
   pts: [Vec3, Vec3, Vec3, Vec3];
   /** katuseosa (0 = põhiosa) */
   part: number;
+  /** räästa servad: 0 = pts[0]–pts[1], 1 = pts[3]–pts[2] (ühekaldel mõlemad) */
+  eaves: (0 | 1)[];
+  /** vabad otsad piki räästast (pts[0] pool, pts[1] pool): viiluots – räästalauad (RF, EE); org/sein – ei */
+  freeEnds: [boolean, boolean];
 }
 
 export interface HouseModel3D {
   walls: Wall3D[];
   roofs: RoofPlane3D[];
+  /** muu puit (prussid, põranda-/katuselauad, pärlinid, räästa- ja toelauad, tuuleliistud) tähistega */
+  members: Member3D[];
   bounds: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number };
 }
 
@@ -171,7 +180,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
     vols.forEach((v, k) => {
       const across = volumeSpan(v).across;
       const ridgeD = across / 2;
-      const [lo, hi] = alongExtent(vols, k, t, c, eaveExtent(v));
+      const [lo, hi, freeLo, freeHi] = alongExtent(vols, k, t, c, eaveExtent(v));
       const z = zOf;
       const dEave = -(t / 2 + ov);
       // kaks katusepoolt: d mõõdetakse räästaseina kesktelljest harja poole
@@ -183,7 +192,8 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
           v.ridge === 'y'
             ? [[a, lo, z(dEave)], [a, hi, z(dEave)], [r, hi, z(ridgeD)], [r, lo, z(ridgeD)]]
             : [[lo, a, z(dEave)], [hi, a, z(dEave)], [hi, r, z(ridgeD)], [lo, r, z(ridgeD)]];
-        roofs.push({ pts, part: k });
+        // teine pool: pts järjekord peegeldub (lo/hi samad)
+        roofs.push({ pts, part: k, eaves: [0], freeEnds: [freeLo, freeHi] });
       }
     });
     // katusepind ka räästa üleulatuse ja otste kohal (palgi otsad nurkades lõigatakse kalde järgi)
@@ -208,7 +218,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       yFront - yBack < EPS ? input.frontBackWallHeight : input.roofHeight + ((y - yBack) / (yFront - yBack)) * (input.frontBackWallHeight - input.roofHeight);
     const ya = yBack - t / 2 - ov;
     const yb = yFront + t / 2 + ov;
-    roofs.push({ pts: [[bx0, yb, zAt(yb)], [bx1, yb, zAt(yb)], [bx1, ya, zAt(ya)], [bx0, ya, zAt(ya)]], part: 0 });
+    roofs.push({ pts: [[bx0, yb, zAt(yb)], [bx1, yb, zAt(yb)], [bx1, ya, zAt(ya)], [bx0, ya, zAt(ya)]], part: 0, eaves: [0, 1], freeEnds: [true, true] });
     roofZ = (_x, y) => zAt(y);
     // esi-/tagasein: katus kaldu üle seina paksuse
     const k = yFront - yBack < EPS ? 0 : (input.frontBackWallHeight - input.roofHeight) / (yFront - yBack);
@@ -248,7 +258,8 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
   }
 
   const zMax = Math.max(zTop, ...roofs.flatMap((r) => r.pts.map((p) => p[2])));
-  return { walls, roofs, bounds: { x0: bx0 - ov, y0: by0 - ov, z0: 0, x1: bx1 + ov, y1: by1 + ov, z1: zMax } };
+  const members = buildMembers(input, result, c, { plan, geo, walls, roofs });
+  return { walls, roofs, members, bounds: { x0: bx0 - ov, y0: by0 - ov, z0: 0, x1: bx1 + ov, y1: by1 + ov, z1: zMax } };
 }
 
 /**
@@ -262,7 +273,7 @@ function alongExtent(
   t: number,
   c: Pick<EngineConstants, 'cornerOverhang'>,
   free: [number, number] | null,
-): [number, number] {
+): [number, number, boolean, boolean] {
   const v = vols[k]!;
   const across = volumeSpan(v).across;
   const lo0 = v.ridge === 'y' ? v.y0 : v.x0;
@@ -274,6 +285,7 @@ function alongExtent(
       return (Math.abs(o.x0 - at) < EPS || Math.abs(o.x1 - at) < EPS) && Math.min(o.y1, v.y1) - Math.max(o.y0, v.y0) > EPS;
     });
     if (host < 0) {
+      freeEnd[sgn < 0 ? 0 : 1] = true;
       const logEnd = at + sgn * (t / 2 + c.cornerOverhang);
       if (!free) return logEnd;
       return sgn < 0 ? Math.min(logEnd, free[0]) : Math.max(logEnd, free[1]);
@@ -283,7 +295,10 @@ function alongExtent(
     // teise mahu räästas -> hari jõuab teise katusepinnani pool laiust edasi; viil -> seina välispind
     return o.ridge === edgeDir ? at + sgn * (across / 2) : at - sgn * (t / 2);
   };
-  return [ext(lo0, -1), ext(hi0, 1)];
+  const freeEnd: [boolean, boolean] = [false, false];
+  const a = ext(lo0, -1);
+  const b = ext(hi0, 1);
+  return [a, b, freeEnd[0], freeEnd[1]];
 }
 
 export type { WallGeometry };

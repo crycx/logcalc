@@ -1,5 +1,5 @@
 <p class="summary">
-  Kokku <b>{{ pieceCount() }} tk</b>, <b>{{ total() | number: '1.2-2' }} jm</b>.
+  Seinapalgid kokku <b>{{ pieceCount() }} tk</b>, <b>{{ total() | number: '1.2-2' }} jm</b>.
   BL = pool palki, LG = palk, TL = ülemine pikem palk, * = viilu-/kolmnurga palk.
   <span class="muted">Sälk = nurgaliite sälk palgi otsas.</span>
   @if (linked()) {
@@ -45,3 +45,40 @@
     </section>
   }
 </div>
+
+@if (materials().length) {
+  <h3 class="group-title">Muu puit <span class="jm">{{ materialsJm() | number: '1.2-2' }} jm</span></h3>
+  <div class="walls">
+    @for (g of materials(); track g.key) {
+      <section class="wall">
+        <header>
+          <h4>{{ g.label }}</h4>
+          <span class="jm">{{ g.totalJm | number: '1.2-2' }} jm</span>
+        </header>
+        <table>
+          <thead>
+            <tr><th>Tähis</th><th>Profiil</th><th class="num">Tk</th><th class="num">Pikkus</th></tr>
+          </thead>
+          <tbody>
+            @for (r of g.rows; track r.mark) {
+              <tr
+                [class.sel]="selected() === r.mark"
+                [attr.data-mark]="r.mark"
+                [attr.aria-selected]="selected() === r.mark"
+                tabindex="0"
+                (click)="toggle(r.mark)"
+                (keydown.enter)="toggle(r.mark)"
+                (keydown.space)="$event.preventDefault(); toggle(r.mark)"
+              >
+                <td class="mark">{{ r.mark }}</td>
+                <td>{{ g.profile }}</td>
+                <td class="num">{{ r.count }}</td>
+                <td class="num">{{ r.length | number: '1.0-0' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+  </div>
+}

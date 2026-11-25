@@ -1,15 +1,38 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import type { HouseModel3D, Wall3D } from '@logcalc/calc-engine';
+import type { HouseModel3D, Member3D, MemberLayer, Wall3D } from '@logcalc/calc-engine';
 import type * as THREE_NS from 'three';
 import { roofAtFn, underRoof } from '../../helpers/roof-cut';
 
 type Three = typeof THREE_NS;
 type Controls = import('three/examples/jsm/controls/OrbitControls.js').OrbitControls;
 
-/** Katuse paksus joonisel (mm): katus palkide peal, viilupalgid lõigatud katuse alumise pinnani */
+/** Katuse paksus joonisel (mm), kui katuselaudu pole (katus välja lülitatud arvutusest) */
 const ROOF_T = 30;
+
+/** Nähtavuse kihid: seinad (palgid, avad, tuuleliistud), katus (lauad, pärlinid, räästalauad), põrand, vundament */
+export type Layer = 'walls' | 'roof' | 'floor' | 'foundation';
+const LAYER_OF: Record<MemberLayer, Layer> = { foundation: 'foundation', floor: 'floor', roof: 'roof', trim: 'walls' };
+export const LAYER_LABELS: { key: Layer; label: string }[] = [
+  { key: 'walls', label: 'Seinad' },
+  { key: 'roof', label: 'Katus' },
+  { key: 'floor', label: 'Põrand' },
+  { key: 'foundation', label: 'Vundament' },
+];
+/** muu puidu värvid materjali kaupa */
+const MEMBER_COLORS: Record<string, number> = {
+  vundament: 0x7d8a55,
+  porandaLauad: 0xe9d3a8,
+  terrassiLauad: 0xb58a5c,
+  katuseLauad: 0xc9a576,
+  parlinid: 0xa8773f,
+  toelaud38: 0x9a7448,
+  toelaud95: 0xb08a5a,
+  esiraastalaud: 0xe2cfa8,
+  papikinnituslaud: 0xd4bd92,
+  tuuleLiist: 0xe2cfa8,
+};
 
 /**
  * 3D vaade mootori mudelist (houseModel3d): palgid oma kohal, avad, katusepinnad. Hiirega pööramine ja suum.
@@ -30,7 +53,15 @@ export class House3d {
   readonly pick = output<string | null>();
   protected readonly highlightCount = signal(0);
 
-  protected readonly showRoof = signal(true);
+  /** nähtavad kihid */
+  protected readonly layers = signal<Record<Layer, boolean>>({ walls: true, roof: true, floor: true, foundation: true });
+  protected readonly layerLabels = LAYER_LABELS;
+  /** mudelis olemas olevad kihid (põrand/vundament ainult siis, kui arvutatud) */
+  protected readonly presentLayers = signal<Set<Layer>>(new Set(['walls', 'roof']));
+
+  protected setLayer(k: Layer, on: boolean): void {
+    this.layers.update((l) => ({ ...l, [k]: on }));
+  }
   protected readonly loading = signal(true);
   protected readonly error = signal('');
 
@@ -42,6 +73,7 @@ export class House3d {
   private controls: Controls | null = null;
   private house: THREE_NS.Group | null = null;
   private roof: THREE_NS.Group | null = null;
+  private groups: Partial<Record<Layer, THREE_NS.Group>> = {};
   private fitted = false;
   private resize: ResizeObserver | null = null;
   /** palgitükkide võrgud tähisega (esiletõstmine, klõpsuga valik) */
@@ -62,11 +94,9 @@ export class House3d {
       this.applyHighlight(h);
     });
     effect(() => {
-      const on = this.showRoof();
-      if (this.roof) {
-        this.roof.visible = on;
-        this.render();
-      }
+      const l = this.layers();
+      for (const k of Object.keys(this.groups) as Layer[]) this.groups[k]!.visible = l[k];
+      this.render();
     });
     inject(DestroyRef).onDestroy(() => this.dispose());
   }
@@ -137,14 +167,21 @@ export class House3d {
   private build(m: HouseModel3D): void {
     const THREE = this.three!;
     const scene = this.scene!;
-    for (const g of [this.house, this.roof]) {
+    for (const g of [this.house, ...Object.values(this.groups)]) {
       if (g) {
         scene.remove(g);
         disposeGroup(g);
       }
     }
+    // house = maapind (alati nähtav); kihid eraldi gruppides
     const house = new THREE.Group();
-    const roofGroup = new THREE.Group();
+    const groups: Record<Layer, THREE_NS.Group> = {
+      walls: new THREE.Group(),
+      roof: new THREE.Group(),
+      floor: new THREE.Group(),
+      foundation: new THREE.Group(),
+    };
+    const roofGroup = groups.roof;
     this.pieces = [];
 
     const mat = {
@@ -161,10 +198,24 @@ export class House3d {
     };
     const edgeMat = new THREE.LineBasicMaterial({ color: 0x8a6a3c, transparent: true, opacity: 0.45 });
 
-    for (const w of m.walls) this.addWall(THREE, house, w, mat, edgeMat);
+    for (const w of m.walls) this.addWall(THREE, groups.walls, w, mat, edgeMat);
 
-    // katusepinnad (alumine pind mudelist, paksus ülespoole)
-    for (const r of m.roofs) {
+    // muu puit: prussid, põranda-/katuselauad, pärlinid, räästa- ja toelauad, tuuleliistud
+    const members = m.members ?? [];
+    const memberMat = new Map<string, THREE_NS.Material>();
+    for (const x of members) {
+      let mm = memberMat.get(x.key);
+      if (!mm) {
+        mm = new THREE.MeshStandardMaterial({ color: MEMBER_COLORS[x.key] ?? 0xcfae80, roughness: 0.85 });
+        memberMat.set(x.key, mm);
+      }
+      this.addMember(THREE, groups[LAYER_OF[x.layer]], x, mm, edgeMat);
+    }
+    this.presentLayers.set(new Set<Layer>(['walls', 'roof', ...members.map((x) => LAYER_OF[x.layer])]));
+
+    // katusepinnad (kui katuselaudu pole – katus arvutusest välja lülitatud): alumine pind, paksus ülespoole
+    const hasRoofBoards = members.some((x) => x.key === 'katuseLauad');
+    for (const r of hasRoofBoards ? [] : m.roofs) {
       const p = r.pts.map(([x, y, z]) => new THREE.Vector3(x, z, y));
       const up = new THREE.Vector3(0, ROOF_T, 0);
       const q = p.map((v) => v.clone().add(up));
@@ -182,19 +233,23 @@ export class House3d {
       geo.computeVertexNormals();
       roofGroup.add(new THREE.Mesh(geo, mat.roof));
     }
-    roofGroup.visible = this.showRoof();
+    const vis = this.layers();
+    for (const k of Object.keys(groups) as Layer[]) groups[k].visible = vis[k];
 
     // maapind
     const b = m.bounds;
     const size = Math.max(b.x1 - b.x0, b.y1 - b.y0);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(size * 3, size * 3), mat.ground);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set((b.x0 + b.x1) / 2, -1, (b.y0 + b.y1) / 2);
+    // maapind vundamendi prusside all
+    const zLow = Math.min(0, ...members.map((x) => x.c[2] - Math.abs(x.size[2]) / 2));
+    ground.position.set((b.x0 + b.x1) / 2, zLow - 1, (b.y0 + b.y1) / 2);
     house.add(ground);
 
-    scene.add(house, roofGroup);
+    scene.add(house, ...Object.values(groups));
     this.house = house;
     this.roof = roofGroup;
+    this.groups = groups;
     this.roofMat = mat.roof;
     this.applyHighlight(this.highlight(), false);
 
@@ -333,6 +388,22 @@ export class House3d {
     }
   }
 
+  /** Muu puidu tükk: orienteeritud kast (mootori x, y, z -> three x, z, y) */
+  private addMember(THREE: Three, group: THREE_NS.Group, x: Member3D, material: THREE_NS.Material, edgeMat: THREE_NS.LineBasicMaterial): void {
+    const to3 = (v: readonly [number, number, number]) => new THREE.Vector3(v[0], v[2], v[1]);
+    const u = to3(x.u).normalize();
+    const v = to3(x.v).normalize();
+    const w = new THREE.Vector3().crossVectors(u, v).normalize();
+    const m4 = new THREE.Matrix4().makeBasis(u, v, w).setPosition(to3(x.c));
+    const geo = new THREE.BoxGeometry(x.size[0], x.size[1], x.size[2]);
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.applyMatrix4(m4);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
+    edges.applyMatrix4(m4);
+    group.add(mesh, edges);
+    this.pieces.push({ mesh, edges, mark: x.mark, base: material });
+  }
+
   /** Esiletõstmine: valitud tähisega tükid oranžid, ülejäänud läbipaistvad, katus peaaegu nähtamatu */
   private applyHighlight(mark: string | null, render = true): void {
     if (!this.hiMat || !this.dimMat) return;
@@ -361,7 +432,8 @@ export class House3d {
     ray.setFromCamera(ndc, this.camera);
     const cur = this.highlight();
     // esiletõstmise ajal on läbipaistvad tükid ka klõpsatavad (valitud tükid eelistatud)
-    const hits = ray.intersectObjects(this.pieces.map((p) => p.mesh), false);
+    // ainult nähtavad kihid
+    const hits = ray.intersectObjects(this.pieces.filter((p) => p.mesh.parent?.visible !== false).map((p) => p.mesh), false);
     const hit = hits.find((h) => !cur || this.pieces.find((p) => p.mesh === h.object)?.mark === cur) ?? hits[0];
     const mark = hit ? (this.pieces.find((p) => p.mesh === hit.object)?.mark ?? null) : null;
     this.pick.emit(mark && mark !== cur ? mark : null);
@@ -389,7 +461,7 @@ export class House3d {
   private dispose(): void {
     this.resize?.disconnect();
     this.controls?.dispose();
-    for (const g of [this.house, this.roof]) if (g) disposeGroup(g);
+    for (const g of [this.house, ...Object.values(this.groups)]) if (g) disposeGroup(g);
     this.renderer?.dispose();
     this.renderer?.domElement.remove();
   }

@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, untracked } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import type { CutPiece, WallCutList } from '@logcalc/calc-engine';
+import type { CutPiece, MaterialCutGroup, WallCutList } from '@logcalc/calc-engine';
 
 const WALL_NAMES: Record<string, string> = {
   '1': 'Sein 1 · esisein',
@@ -20,6 +20,9 @@ const WALL_NAMES: Record<string, string> = {
 })
 export class CutList {
   readonly walls = input.required<WallCutList[]>();
+  /** muu puit (prussid, põranda-/katuselauad, pärlinid, räästalauad, tuuleliistud) */
+  readonly materials = input<MaterialCutGroup[]>([]);
+  protected readonly materialsJm = computed(() => this.materials().reduce((s, g) => s + g.totalJm, 0));
   /** valitud tähis (esiletõstetud 3D vaates) */
   readonly selected = input<string | null>(null);
   /** klõps real: tähis (sama rida uuesti = null) */

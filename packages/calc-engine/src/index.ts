@@ -49,5 +49,7 @@ export {
 export { roofVolumes, gableEnds, pitchRatio, volumeSpan, type RoofVolume, type RoofGableEnd } from './roof-volumes.js';
 export { planGrid, planRooms, insideSide, greedyRects, outerArea, outlineCorners, type PlanGrid, type PlanRoom, type PlanRect } from './plan-regions.js';
 export { planFloor, planFoundation } from './floor-plan.js';
-export { houseModel3d, type HouseModel3D, type Wall3D, type RoofPlane3D, type Vec3 } from './model3d.js';
+export { houseModel3d, type HouseModel3D, type Wall3D, type RoofPlane3D, type Vec3, type Member3D } from './model3d.js';
+export type { MemberLayer } from './members3d.js';
 export { planTemplate, PLAN_TEMPLATES, type PlanTemplateKind, type PlanTemplateInfo, type PlanTemplateOptions } from './plan-templates.js';
+export { materialCutList, materialMark, MATERIAL_PREFIX, type MaterialCutGroup, type MaterialCutRow } from './materials.js';

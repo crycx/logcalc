@@ -75,4 +75,8 @@ Kontrollitud näited (Revit, `Vanad joonised/andmed`):
    viilupalgid lõigatud katuse alumise pinnani (`roofLine`), avad, katusepinnad mahtude kaupa (katus toetub
    räästaseina ülemise palgi välisservale; liituva mahu hari ulatub orus teise katusesse). Laiem L-tiib läbib
    nurga (kõrgem hari), kitsam osa liitub sellega oruga (`roofVolumes` -> `dominate`).
+   Muu puit (`src/members3d.ts`, lõikenimekiri `src/materials.ts`): vundamendi prussid ja ring, põranda- ja
+   terrassilauad, katuselauad, pärlinid (horisontaalse vahega), toelauad räästas, RF/EE vabades viiluotstes,
+   tuuleliistud nurkades – iga tükk tähisega (V-1, P-1, K-1, PR-1 …), 3D tükkide arv = lõikenimekirja kogus
+   (`test/materials3d.test.ts`). Lõikenimekirjast valitud tähis tõstetakse 3D-s ja seinte joonistel esile.
    Edasi: CNC (BTL/BTLx) samast mudelist – sälgud liidete kohal, jätkud, viilupalkide kaldlõiked.

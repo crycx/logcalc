@@ -382,6 +382,8 @@ export interface CalcResult {
   dimensions: Dimensions;
   /** Iga seina lõikenimekiri (seinamudel) */
   cutList: import('./wall-model.js').WallCutList[];
+  /** Muu puit lõikenimekirjana (prussid, põranda-/katuselauad, pärlinid, räästalauad, tuuleliistud) */
+  materials: import('./materials.js').MaterialCutGroup[];
   /** Seinad koos ridade ja paigutatud avadega (joonistamiseks) */
   wallModel: import('./wall-model.js').WallSpec[];
   /** Uksed ja aknad paigutatuna (sisendi järjekorras: uksed, siis aknad; kogus lahti laotud) */

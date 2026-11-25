@@ -1,12 +1,20 @@
 <div class="bar">
-  <mat-checkbox [ngModel]="showRoof()" (ngModelChange)="showRoof.set($event)">Katus</mat-checkbox>
+  <div class="layers" role="group" aria-label="Nähtavad osad">
+    @for (l of layerLabels; track l.key) {
+      @if (presentLayers().has(l.key)) {
+        <mat-checkbox [ngModel]="layers()[l.key]" (ngModelChange)="setLayer(l.key, $event)">{{ l.label }}</mat-checkbox>
+      }
+    }
+  </div>
+  <button type="button" class="reset" (click)="reset()">Algvaade</button>
+</div>
+<div class="info">
   @if (highlight(); as h) {
     <span class="sel"><b>{{ h }}</b> · {{ highlightCount() }} tk</span>
     <button type="button" class="reset" (click)="pick.emit(null)">Tühista valik</button>
   } @else {
-    <span class="hint">Lohista pööramiseks, ratas suumib, parem nupp nihutab · klõps palgil näitab tähist</span>
+    <span class="hint">Lohista pööramiseks, ratas suumib, parem nupp nihutab · klõps tükil näitab tähist</span>
   }
-  <button type="button" class="reset" (click)="reset()">Algvaade</button>
 </div>
 <div class="canvas" #canvasHost>
   @if (loading()) {

@@ -12,6 +12,20 @@
   flex-wrap: wrap;
 }
 
+.layers {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 4px;
+  flex: 1;
+}
+
+.info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+}
+
 .hint {
   font: var(--mat-sys-body-small);
   color: var(--mat-sys-on-surface-variant);
