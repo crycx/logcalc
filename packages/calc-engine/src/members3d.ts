@@ -37,8 +37,8 @@ export interface Member3D {
 const ROOF_BOARD_T = 17;
 /** katusepapp (Revit „Roofing sheet“ – kogust pole) */
 const PAPER_T = 3;
-/** katusepapi äär RF-i / räästalaua välispinnal (alla keeratud) */
-const PAPER_FLAP = 40;
+/** katusepapp ulatub üle RF-i / räästalaua välispinna */
+const PAPER_OVER = 20;
 /** Revit: põrandalaud FB 17x114, terrassilaud 28x120 */
 const FLOOR_BOARD_T = WINDBOARD.floorTop;
 const TERRACE_BOARD_T = 28;
@@ -232,24 +232,23 @@ export function buildMembers(
           out.push({ key: 'papikinnituslaud', mark: mark('papikinnituslaud', L), layer: 'roof', c: at(outer - (out1 * ew) / 2, edgeAt(L), ROOF_BOARD_T + PAPER_T + et / 2), u: s, v: a, size: [L, ew, et] });
         }
       });
-      // katusepapp laudade peal: üle RF-i ja räästa RR1/RF, ääred keeratud välispinnale alla (PAPER_FLAP)
+      // katusepapp laudade peal, katusega samas tasapinnas; ulatub üle RF-i ja räästalaua otsa PAPER_OVER võrra
+      // (Revit „Roof 2“ detail Facia – alla ei keerata, EE kinnitab peal)
       {
         const eaveOut = eb.supportLarge.count > 0 ? lt : eb.fasciaEave?.count ? ft : 0;
-        const ext0 = r.freeEnds[0] && eb.fascia.count > 0 ? ft + PAPER_T : 0;
-        const ext1 = r.freeEnds[1] && eb.fascia.count > 0 ? ft + PAPER_T : 0;
-        const e0 = r.eaves.includes(0) ? eaveOut + PAPER_T : 0;
-        const e1 = r.eaves.includes(1) ? eaveOut + PAPER_T : 0;
-        const alongC = (la + ext1 - ext0) / 2;
-        const slopeC = (ls + e1 - e0) / 2;
-        const top = ROOF_BOARD_T + PAPER_T / 2;
-        const paper = (cc: Vec3, u: Vec3, v: Vec3, size: Vec3) => out.push({ key: 'katusepapp', mark: '', layer: 'cover', c: cc, u, v, size });
-        paper(at(alongC, slopeC, top), s, a, [ls + e0 + e1, la + ext0 + ext1, PAPER_T]);
-        // viiluotstes RF-i välispinnal
-        if (ext0) paper(at(-ext0 + PAPER_T / 2, slopeC, ROOF_BOARD_T + PAPER_T - PAPER_FLAP / 2), s, n, [ls + e0 + e1, PAPER_FLAP, PAPER_T]);
-        if (ext1) paper(at(la + ext1 - PAPER_T / 2, slopeC, ROOF_BOARD_T + PAPER_T - PAPER_FLAP / 2), s, n, [ls + e0 + e1, PAPER_FLAP, PAPER_T]);
-        // räästas RR1/RF välispinnal
-        if (e0) paper(at(alongC, -e0 + PAPER_T / 2, ROOF_BOARD_T + PAPER_T - PAPER_FLAP / 2), a, n, [la + ext0 + ext1, PAPER_FLAP, PAPER_T]);
-        if (e1) paper(at(alongC, ls + e1 - PAPER_T / 2, ROOF_BOARD_T + PAPER_T - PAPER_FLAP / 2), a, n, [la + ext0 + ext1, PAPER_FLAP, PAPER_T]);
+        const ext0 = r.freeEnds[0] ? (eb.fascia.count > 0 ? ft : 0) + PAPER_OVER : 0;
+        const ext1 = r.freeEnds[1] ? (eb.fascia.count > 0 ? ft : 0) + PAPER_OVER : 0;
+        const e0 = r.eaves.includes(0) ? eaveOut + PAPER_OVER : 0;
+        const e1 = r.eaves.includes(1) ? eaveOut + PAPER_OVER : 0;
+        out.push({
+          key: 'katusepapp',
+          mark: '',
+          layer: 'cover',
+          c: at((la + ext1 - ext0) / 2, (ls + e1 - e0) / 2, ROOF_BOARD_T + PAPER_T / 2),
+          u: s,
+          v: a,
+          size: [ls + e0 + e1, la + ext0 + ext1, PAPER_T],
+        });
       }
       // räästas: toelaud laudade all ja suurem toelaud räästa otsas
       for (const e of r.eaves) {

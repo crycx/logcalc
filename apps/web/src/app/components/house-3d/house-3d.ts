@@ -480,7 +480,7 @@ export class House3d {
 
 /**
  * Palgi ristlõige (a, z): a = risti seinaga (−t/2 … t/2), z = kõrgus. Revit 40x114: kaks punni peal ja kaks soont
- * all (laius ~12 % paksusest, kõrgus ≤ 10 mm, keskkohad ±20 % paksusest), servad faasitud (≤ 6 mm).
+ * all (laius ~12 % paksusest, kõrgus ≤ 10 mm, keskkohad ±20 % paksusest), servad faasitud (≤ 15 × 8 mm).
  * `top` = kaldlõikega ülemine serv (räästa palk) – siis punne pole.
  */
 function logProfile(
@@ -490,20 +490,22 @@ function logProfile(
   o: { grooves: boolean; tongues: boolean; top?: (a: number) => number },
 ): [number, number][] {
   const h = y1 - y0;
-  const c = Math.min(6, t * 0.15, h * 0.1);
+  // faas: kõrgus ≤ 15 mm (nagu seinajoonisel / Revit „Facia“ detail – V ridade vahel), sügavus ≤ 8 mm
+  const cz = Math.min(15, h * 0.13);
+  const cx = Math.min(8, t * 0.2);
   const tw = Math.max(3, t * 0.12);
   const th = Math.min(10, h * 0.09);
   const g = [-t * 0.2, t * 0.2];
-  const pts: [number, number][] = [[-t / 2, y0 + c], [-t / 2 + c, y0]];
+  const pts: [number, number][] = [[-t / 2, y0 + cz], [-t / 2 + cx, y0]];
   if (o.grooves) for (const x of g) pts.push([x - tw / 2, y0], [x - tw / 2, y0 + th], [x + tw / 2, y0 + th], [x + tw / 2, y0]);
-  pts.push([t / 2 - c, y0], [t / 2, y0 + c]);
+  pts.push([t / 2 - cx, y0], [t / 2, y0 + cz]);
   if (o.top) {
     pts.push([t / 2, o.top(t / 2)], [-t / 2, o.top(-t / 2)]);
     return pts;
   }
-  pts.push([t / 2, y1 - c], [t / 2 - c, y1]);
+  pts.push([t / 2, y1 - cz], [t / 2 - cx, y1]);
   if (o.tongues) for (const x of [...g].reverse()) pts.push([x + tw / 2, y1], [x + tw / 2, y1 + th], [x - tw / 2, y1 + th], [x - tw / 2, y1]);
-  pts.push([-t / 2 + c, y1], [-t / 2, y1 - c]);
+  pts.push([-t / 2 + cx, y1], [-t / 2, y1 - cz]);
   return pts;
 }
 
