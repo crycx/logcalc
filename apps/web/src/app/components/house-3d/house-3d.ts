@@ -12,11 +12,12 @@ type Controls = import('three/examples/jsm/controls/OrbitControls.js').OrbitCont
 const ROOF_T = 30;
 
 /** Nähtavuse kihid: seinad (palgid, avad, tuuleliistud), katus (lauad, pärlinid, räästalauad), põrand, vundament */
-export type Layer = 'walls' | 'roof' | 'floor' | 'foundation';
-const LAYER_OF: Record<MemberLayer, Layer> = { foundation: 'foundation', floor: 'floor', roof: 'roof', trim: 'walls' };
+export type Layer = 'walls' | 'roof' | 'cover' | 'floor' | 'foundation';
+const LAYER_OF: Record<MemberLayer, Layer> = { foundation: 'foundation', floor: 'floor', roof: 'roof', trim: 'walls', cover: 'cover' };
 export const LAYER_LABELS: { key: Layer; label: string }[] = [
   { key: 'walls', label: 'Seinad' },
   { key: 'roof', label: 'Katus' },
+  { key: 'cover', label: 'Katusepapp' },
   { key: 'floor', label: 'Põrand' },
   { key: 'foundation', label: 'Vundament' },
 ];
@@ -26,6 +27,8 @@ const MEMBER_COLORS: Record<string, number> = {
   porandaLauad: 0xe9d3a8,
   terrassiLauad: 0xb58a5c,
   katuseLauad: 0xc9a576,
+  katuseLauadOrg: 0xc9a576,
+  katusepapp: 0x3b4048,
   parlinid: 0xa8773f,
   toelaud38: 0x9a7448,
   toelaud95: 0xb08a5a,
@@ -54,7 +57,7 @@ export class House3d {
   protected readonly highlightCount = signal(0);
 
   /** nähtavad kihid */
-  protected readonly layers = signal<Record<Layer, boolean>>({ walls: true, roof: true, floor: true, foundation: true });
+  protected readonly layers = signal<Record<Layer, boolean>>({ walls: true, roof: true, cover: false, floor: true, foundation: true });
   protected readonly layerLabels = LAYER_LABELS;
   /** mudelis olemas olevad kihid (põrand/vundament ainult siis, kui arvutatud) */
   protected readonly presentLayers = signal<Set<Layer>>(new Set(['walls', 'roof']));
@@ -178,6 +181,7 @@ export class House3d {
     const groups: Record<Layer, THREE_NS.Group> = {
       walls: new THREE.Group(),
       roof: new THREE.Group(),
+      cover: new THREE.Group(),
       floor: new THREE.Group(),
       foundation: new THREE.Group(),
     };

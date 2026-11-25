@@ -15,7 +15,7 @@ import { planGrid, solidBelow } from './plan-regions.js';
 import { WINDBOARD } from './windboards.js';
 import type { CalcResult, EngineConstants, HouseInput, PlanBox, PurlinsResult, RoofResult } from './types.js';
 
-export type MemberLayer = 'foundation' | 'floor' | 'roof' | 'trim';
+export type MemberLayer = 'foundation' | 'floor' | 'roof' | 'trim' | 'cover';
 
 export interface Member3D {
   /** materjali võti (hinnakiri), nt 'katuseLauad' */
@@ -35,6 +35,8 @@ export interface Member3D {
 /** kuvamiseks: katuse- ja põrandalaua paksus, tuuleliistu ristlõige, pärlin (kui sisendis pole) */
 /** Revit: katuselaud RB 17x114 */
 const ROOF_BOARD_T = 17;
+/** katusepapp (Revit „Roofing sheet“ – kogust pole) */
+const PAPER_T = 3;
 /** Revit: põrandalaud FB 17x114, terrassilaud 28x120 */
 const FLOOR_BOARD_T = WINDBOARD.floorTop;
 const TERRACE_BOARD_T = 28;
@@ -209,19 +211,35 @@ export function buildMembers(
         const own = i < nb;
         out.push({ key: own ? 'katuseLauad' : 'katuseLauadOrg', mark: own ? m : '', layer: 'roof', c: at(along, (span[0] + span[1]) / 2, ROOF_BOARD_T / 2), u: s, v: a, size: [L, bw, ROOF_BOARD_T] });
       }
-      // vabad viiluotsad: esiräästalaud (RF, püsti laudade otsas) ja papikinnituslaud (EE, laudade peal)
+      // vabad viiluotsad (Revit „Roof 2“ detail Facia): esiräästalaud RF püsti laudade otsas (ülemine serv laudadega
+      // tasa, ulatub alla), papikinnituslaud EE katusepapi peal, välispind RF-iga tasa. Pikkus = laud + 38:
+      // viilkatusel harjast räästa poole (katab räästa RR1 otsa), ühekaldel mõlemast otsast võrdselt
       const eb = rr.edgeBoards;
+      const edgeAt = (L: number) => (r.eaves.length > 1 ? ls / 2 : ls - L / 2);
       r.freeEnds.forEach((free, e) => {
         if (!free) return;
+        const out1 = e === 0 ? -1 : 1;
+        const face = e === 0 ? 0 : la;
         if (eb.fascia.count > 0) {
-          const along = e === 0 ? -ft / 2 : la + ft / 2;
-          out.push({ key: 'esiraastalaud', mark: mark('esiraastalaud', eb.fascia.pieceLength), layer: 'roof', c: at(along, ls / 2, ROOF_BOARD_T - fw / 2), u: s, v: n, size: [ls, fw, ft] });
+          const L = eb.fascia.pieceLength;
+          out.push({ key: 'esiraastalaud', mark: mark('esiraastalaud', L), layer: 'roof', c: at(face + (out1 * ft) / 2, edgeAt(L), ROOF_BOARD_T - fw / 2), u: s, v: n, size: [L, fw, ft] });
         }
         if (eb.felt.count > 0) {
-          const along = e === 0 ? ew / 2 : la - ew / 2;
-          out.push({ key: 'papikinnituslaud', mark: mark('papikinnituslaud', eb.felt.pieceLength), layer: 'roof', c: at(along, ls / 2, ROOF_BOARD_T + et / 2), u: s, v: a, size: [ls, ew, et] });
+          const L = eb.felt.pieceLength;
+          const outer = face + out1 * (eb.fascia.count > 0 ? ft : 0);
+          out.push({ key: 'papikinnituslaud', mark: mark('papikinnituslaud', L), layer: 'roof', c: at(outer - (out1 * ew) / 2, edgeAt(L), ROOF_BOARD_T + PAPER_T + et / 2), u: s, v: a, size: [L, ew, et] });
         }
       });
+      // katusepapp laudade peal (üle RF ja räästa RR1/RF otste) – eraldi kiht, materjalina ei arvestata
+      {
+        const ext0 = r.freeEnds[0] && eb.fascia.count > 0 ? ft : 0;
+        const ext1 = r.freeEnds[1] && eb.fascia.count > 0 ? ft : 0;
+        const e0 = r.eaves.includes(0) ? lt : 0;
+        const e1 = r.eaves.includes(1) ? lt : 0;
+        const alongC = (la + ext1 - ext0) / 2;
+        const slopeC = (ls + e1 - e0) / 2;
+        out.push({ key: 'katusepapp', mark: '', layer: 'cover', c: at(alongC, slopeC, ROOF_BOARD_T + PAPER_T / 2), u: s, v: a, size: [ls + e0 + e1, la + ext0 + ext1, PAPER_T] });
+      }
       // räästas: toelaud laudade all ja suurem toelaud räästa otsas
       for (const e of r.eaves) {
         const edge = e === 0 ? 0 : ls;
