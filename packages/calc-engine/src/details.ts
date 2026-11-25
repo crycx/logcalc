@@ -67,10 +67,12 @@ export function pieceDetails(
     const notches: PieceNotch[] = [];
     for (const j of wall.joints) {
       if (j.x - t / 2 < p.x0 + 1 || j.x + t / 2 > p.x1 - 1) continue;
-      // ristuva seina palk seina vahe kohal (±¼ palki): sälk selles servas
-      const at = (y: number) => !j.ranges || j.ranges.some(([a, b]) => a < y + nd - 1 && b > y - nd + 1);
-      if (p.kind !== 'gable' && at(p.y1)) notches.push({ x: j.x, w: t, side: 'top', depth: nd, kind: 'corner' });
-      if (at(p.y0)) notches.push({ x: j.x, w: t, side: 'bottom', depth: nd, kind: 'corner' });
+      // sälk servas, mida ristuva seina palk läbib (ristuv palk ulatub üle selle kõrguse); alumisel real lisaks, kui
+      // ristuv sein algab poole palgiga (selle pool palki istub siin alt) – pool palki ise alt ei sälgita
+      const passes = (y: number) => !j.ranges || j.ranges.some(([a, b]) => a < y - 1 && b > y + 1);
+      const halfBelow = p.y0 < 1 && !!j.ranges?.some(([a, b]) => a < 1 && b - a < logHeight * 0.75);
+      if (p.kind !== 'gable' && passes(p.y1)) notches.push({ x: j.x, w: t, side: 'top', depth: nd, kind: 'corner' });
+      if (passes(p.y0) || halfBelow) notches.push({ x: j.x, w: t, side: 'bottom', depth: nd, kind: 'corner' });
     }
     // ukse kohal: alt vajumisvaru ukse laiuses
     for (const d of doors) {

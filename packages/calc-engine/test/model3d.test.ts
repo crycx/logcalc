@@ -239,6 +239,17 @@ describe('detailid Revit-i järgi (Kolding 40 _D_ PDF)', () => {
     expect(corner.length).toBe(4);
     expect(corner.every((n) => n.w === 40 && n.depth === 28.5)).toBe(true);
   });
+  it('pool palki (BL): sälk ainult peal; alumine täispalk (ristuv sein algab poole palgiga): sälk ka all', () => {
+    const bl = w1.pieces.findIndex((p) => p.kind === 'half');
+    const blN = w1.details[bl]!.notches.filter((n) => n.kind === 'corner');
+    expect(blN.every((n) => n.side === 'top')).toBe(true);
+    expect(blN.length).toBeGreaterThan(0);
+    const A = m.walls.find((w) => w.id === 'A')!;
+    const first = A.pieces.findIndex((p) => p.y0 === 0);
+    const sides = A.details[first]!.notches.filter((n) => n.kind === 'corner').map((n) => n.side);
+    expect(sides).toContain('bottom');
+    expect(sides).toContain('top');
+  });
   it('ukse kohal olev palk: alt 12 mm sisselõige ukse laiuses', () => {
     const door = w1.openings.find((o) => o.kind === 'door')!;
     const i = w1.pieces.findIndex((p) => Math.abs(p.y0 - door.z1) < 1 && p.x0 <= door.x0 && p.x1 >= door.x1);
