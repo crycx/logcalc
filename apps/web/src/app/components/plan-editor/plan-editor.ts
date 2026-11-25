@@ -20,6 +20,7 @@ import {
   planBounds,
   planGeometry,
   planTemplate,
+  rectanglePlan,
   renumberWalls,
   reverseWall,
   roofVolumes,
@@ -113,7 +114,13 @@ export class PlanEditor {
 
   private readonly svg = viewChild<ElementRef<SVGSVGElement>>('svg');
 
-  protected readonly current = computed(() => this.live() ?? this.plan());
+  /** vaatamisrežiimis plaanita maja: ristküliku plaan mõõtudest (muidu oleks tühi joonis) */
+  protected readonly current = computed(() => {
+    const p = this.live() ?? this.plan();
+    if (p || !this.readonly()) return p;
+    const s = this.size();
+    return s.width > 0 && s.depth > 0 ? rectanglePlan(s.width, s.depth, this.thickness(), C) : null;
+  });
   protected readonly draftLen = computed(() => {
     const d = this.draft();
     return d ? Math.abs(d.to.x - d.from.x) + Math.abs(d.to.y - d.from.y) : 0;
