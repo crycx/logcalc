@@ -61,6 +61,7 @@ final class App
                 ['POST', '/users', $users->create(...)],
                 ['PATCH', '/users/{id}', $users->update(...)],
                 ['POST', '/users/{id}/invite', $users->invite(...)],
+                ['POST', '/users/{id}/copy-projects', $projects->copyToUser(...)],
                 ['GET', '/auth-events', $users->events(...)],
             ];
 

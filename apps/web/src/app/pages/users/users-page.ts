@@ -23,6 +23,7 @@ import { Api, Session, type AuthEvent, type AuthEventFilter, type ManagedUser, t
 import { AccountDialog } from '../../dialogs/account-dialog/account-dialog';
 import { confirmDialog } from '../../dialogs/confirm-dialog/confirm-dialog';
 import { PasswordDialog } from '../../dialogs/password-dialog/password-dialog';
+import { CopyProjectsDialog, type CopyProjectsDialogData } from '../../dialogs/copy-projects-dialog/copy-projects-dialog';
 import { InviteDialog, type InviteDialogData } from '../../dialogs/invite-dialog/invite-dialog';
 import { NameDialog, type NameDialogData } from '../../dialogs/name-dialog/name-dialog';
 import { UserDialog, type UserDialogData, type UserDialogResult } from '../../dialogs/user-dialog/user-dialog';
@@ -220,6 +221,17 @@ export class UsersPage {
     } catch (e) {
       this.snack.open(apiError(e), 'OK', { duration: 6000 });
     }
+  }
+
+  /** Majad kasutajale oma koopiateks (sõltumatud: originaali hilisemad muudatused neid ei mõjuta) */
+  protected async copyProjects(u: ManagedUser): Promise<void> {
+    const n = await firstValueFrom(
+      this.dialog.open<CopyProjectsDialog, CopyProjectsDialogData, number>(CopyProjectsDialog, { data: { user: u }, width: '620px', maxWidth: '94vw' }).afterClosed(),
+    );
+    if (!n) return;
+    this.replace({ ...u, projectCount: u.projectCount + n });
+    this.snack.open(`${n} maja kopeeriti kasutajale ${u.name || u.email}.`, undefined, { duration: 4000 });
+    void this.loadEvents();
   }
 
   private showInvite(email: string, invite: InviteDialogData['invite']): void {

@@ -12,6 +12,7 @@ export const AUTH_EVENT_INFO: Record<AuthEventType, { label: string; icon: strin
   user_updated: { label: 'Kasutaja muudetud', icon: 'manage_accounts', tone: 'info' },
   invite_sent: { label: 'Parooli link saadetud', icon: 'forward_to_inbox', tone: 'info' },
   password_set: { label: 'Parool määratud lingiga', icon: 'key', tone: 'ok' },
+  projects_copied: { label: 'Majad kopeeritud', icon: 'file_copy', tone: 'info' },
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

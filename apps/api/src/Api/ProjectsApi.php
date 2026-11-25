@@ -142,6 +142,52 @@ final class ProjectsApi
 
     // ------------------------------------------------------------------ abi
 
+    /**
+     * Majade kopeerimine teisele kasutajale (admin oma ettevõtte kasutajale, superadmin kõigile): igast valitud majast
+     * sõltumatu koopia, mille omanik on sihtkasutaja (tema ettevõttes). Kopeerida saab ainult maju, mida kopeerija näeb.
+     * Sama nimega maja olemasolul lisatakse nimele (2), (3) …
+     */
+    public function copyToUser(Request $req, array $p): array
+    {
+        $u = $this->auth->requireRole('admin', 'superadmin');
+        $st = $this->db->prepare('SELECT id, tenant_id, email, active FROM users WHERE id = ?');
+        $st->execute([$p['id']]);
+        $target = $st->fetch() ?: throw new HttpException(404, 'Kasutajat ei leitud.');
+        $tid = (int) $target['tenant_id'];
+        if ($u['role'] !== 'superadmin' && $tid !== $u['tenant_id']) {
+            throw new HttpException(404, 'Kasutajat ei leitud.');
+        }
+        $ids = $req->json()['projectIds'] ?? null;
+        if (!is_array($ids) || !$ids || count($ids) > 500) {
+            throw new HttpException(422, 'Vali kopeeritavad majad.');
+        }
+        $names = $this->db->prepare('SELECT name FROM projects WHERE owner_id = ?');
+        $names->execute([(int) $target['id']]);
+        $taken = array_flip(array_map('strval', $names->fetchAll(PDO::FETCH_COLUMN)));
+        $insert = $this->db->prepare('INSERT INTO projects (tenant_id, owner_id, name, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+        $now = gmdate('Y-m-d H:i:s');
+        $copied = 0;
+        $this->db->beginTransaction();
+        try {
+            foreach (array_unique(array_map('intval', $ids)) as $id) {
+                $row = $this->find($u, $id);
+                $name = (string) $row['name'];
+                for ($n = 2; isset($taken[$name]); $n++) {
+                    $name = mb_substr((string) $row['name'], 0, 190) . " ($n)";
+                }
+                $taken[$name] = true;
+                $insert->execute([$tid, (int) $target['id'], $name, (string) $row['data'], $now, $now]);
+                $copied++;
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+        $this->auth->log()->record('projects_copied', (int) $target['id'], $tid, (string) $target['email'], $u['id'], "majad kopeeritud: $copied");
+        return ['copied' => $copied];
+    }
+
     /** @return array<string, mixed> */
     private function find(array $u, int $id): array
     {

@@ -10,12 +10,12 @@ use PDO;
  *
  * Tüübid: login, login_failed, login_blocked, logout, password_changed,
  *         password_reset, user_created, user_updated, invite_sent (parooli link saadetud), password_set (parool
- *         määratud lingiga).
+ *         määratud lingiga), projects_copied (admin kopeeris kasutajale majad).
  * Logi kirjutamise viga ei tohi sisselogimist takistada -> vead ainult error_log-i.
  */
 final class AuthLog
 {
-    public const TYPES = ['login', 'login_failed', 'login_blocked', 'logout', 'password_changed', 'password_reset', 'user_created', 'user_updated', 'invite_sent', 'password_set'];
+    public const TYPES = ['login', 'login_failed', 'login_blocked', 'logout', 'password_changed', 'password_reset', 'user_created', 'user_updated', 'invite_sent', 'password_set', 'projects_copied'];
 
     public function __construct(
         private readonly PDO $db,

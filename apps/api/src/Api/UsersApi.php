@@ -255,7 +255,7 @@ final class UsersApi
         if ($type === 'failed') {
             $where[] = "e.type IN ('login_failed', 'login_blocked')";
         } elseif ($type === 'admin') {
-            $where[] = "e.type IN ('user_created', 'user_updated', 'password_reset', 'password_changed', 'invite_sent', 'password_set')";
+            $where[] = "e.type IN ('user_created', 'user_updated', 'password_reset', 'password_changed', 'invite_sent', 'password_set', 'projects_copied')";
         } elseif (in_array($type, AuthLog::TYPES, true)) {
             $where[] = 'e.type = ?';
             $args[] = $type;

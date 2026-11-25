@@ -1,0 +1,47 @@
+<h2 mat-dialog-title>Kopeeri majad: {{ data.user.name || data.user.email }}</h2>
+<mat-dialog-content class="body">
+  <p class="lead">
+    Valitud majadest tekivad kasutajale <b>{{ data.user.email }}</b> ({{ data.user.tenant.name }}) oma koopiad. Ta saab neid vabalt muuta – sinu
+    majad ei muutu ja sinu hilisemad muudatused tema koopiaid ei mõjuta.
+  </p>
+  <mat-form-field class="search" subscriptSizing="dynamic">
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput placeholder="Otsi maja" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+  </mat-form-field>
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" />
+  } @else {
+    <div class="all">
+      <mat-checkbox [checked]="allSelected()" [indeterminate]="someSelected()" (change)="toggleAll($event.checked)" [disabled]="!filtered().length">
+        Vali kõik ({{ filtered().length }})
+      </mat-checkbox>
+      <span class="count">valitud {{ selected().size }}</span>
+    </div>
+    <ul class="list">
+      @for (p of filtered(); track p.id) {
+        <li>
+          <mat-checkbox [checked]="selected().has(p.id)" (change)="toggle(p.id, $event.checked)">
+            <span class="name">{{ p.name }}</span>
+            <span class="meta">
+              @if (p.size) { {{ p.size.width }} × {{ p.size.depth }} · }
+              {{ date(p.updatedAt) | date: 'dd.MM.yyyy' }}
+              @if (p.owner && p.access.via !== 'owner') { · {{ p.owner.name || p.owner.email }} }
+            </span>
+          </mat-checkbox>
+        </li>
+      } @empty {
+        <li class="empty">Kopeeritavaid maju pole.</li>
+      }
+    </ul>
+  }
+  @if (error()) {
+    <p class="err" role="alert">{{ error() }}</p>
+  }
+</mat-dialog-content>
+@if (busy()) { <mat-progress-bar mode="indeterminate" /> }
+<mat-dialog-actions align="end">
+  <button mat-button type="button" [mat-dialog-close]="null">Loobu</button>
+  <button mat-flat-button type="button" (click)="submit()" [disabled]="busy() || !selected().size">
+    Kopeeri {{ selected().size || '' }} maja
+  </button>
+</mat-dialog-actions>

@@ -126,7 +126,8 @@ export type AuthEventType =
   | 'user_created'
   | 'user_updated'
   | 'invite_sent'
-  | 'password_set';
+  | 'password_set'
+  | 'projects_copied';
 
 /** Sisselogimise või kasutajahalduse sündmus */
 export interface AuthEvent {
@@ -206,6 +207,10 @@ export class Api {
   }
   async createUser(u: NewUser): Promise<{ user: ManagedUser; invite?: InviteInfo }> {
     return firstValueFrom(this.http.post<{ user: ManagedUser; invite?: InviteInfo }>('/api/users', u));
+  }
+  /** majade koopiad kasutajale (tema omad, tema ettevõttes); tagastab kopeeritud arvu */
+  async copyProjects(userId: number, projectIds: number[]): Promise<number> {
+    return (await firstValueFrom(this.http.post<{ copied: number }>(`/api/users/${userId}/copy-projects`, { projectIds }))).copied;
   }
   /** parooli link uuesti (kutse või uue parooli link); vana link kaotab kehtivuse */
   async sendPasswordLink(id: number): Promise<{ user: ManagedUser; invite: InviteInfo }> {
