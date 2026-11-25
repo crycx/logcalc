@@ -127,6 +127,9 @@ export class House3d {
       gable: new THREE.MeshStandardMaterial({ color: 0xe0bd88, roughness: 0.85 }),
       window: new THREE.MeshStandardMaterial({ color: 0x9cc6e6, transparent: true, opacity: 0.55, roughness: 0.1 }),
       door: new THREE.MeshStandardMaterial({ color: 0x7a5534, roughness: 0.7 }),
+      panel: new THREE.MeshStandardMaterial({ color: 0x6a4729, roughness: 0.75 }),
+      handle: new THREE.MeshStandardMaterial({ color: 0x2f2a24, roughness: 0.35, metalness: 0.6 }),
+      frame: new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: 0.6 }),
       roof: new THREE.MeshStandardMaterial({ color: 0x5b6470, roughness: 0.9, side: THREE.DoubleSide }),
       ground: new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 1 }),
     };
@@ -178,7 +181,7 @@ export class House3d {
     THREE: Three,
     group: THREE_NS.Group,
     w: Wall3D,
-    mat: Record<'log' | 'half' | 'gable' | 'window' | 'door', THREE_NS.Material>,
+    mat: Record<'log' | 'half' | 'gable' | 'window' | 'door' | 'panel' | 'handle' | 'frame', THREE_NS.Material>,
     edgeMat: THREE_NS.LineBasicMaterial,
   ): void {
     const u3 = new THREE.Vector3(w.u.x, 0, w.u.y);
@@ -243,12 +246,59 @@ export class House3d {
       group.add(edges);
     }
 
-    for (const o of w.openings) {
-      const geo = new THREE.BoxGeometry(o.x1 - o.x0, o.z1 - o.z0, o.kind === 'window' ? t * 0.15 : t * 0.3);
-      geo.translate((o.x0 + o.x1) / 2, (o.z0 + o.z1) / 2, 0);
-      const mesh = new THREE.Mesh(geo, o.kind === 'window' ? mat.window : mat.door);
+    /** kast seina koordinaatides: x, z (kõrgus) vahemikud, s = keskkoht risti seinaga, d = paksus */
+    const box = (x0: number, x1: number, z0: number, z1: number, s: number, d: number, m: THREE_NS.Material, edges = false) => {
+      const geo = new THREE.BoxGeometry(x1 - x0, z1 - z0, d);
+      geo.translate((x0 + x1) / 2, (z0 + z1) / 2, s);
+      const mesh = new THREE.Mesh(geo, m);
       place(mesh, 0, 0, 0);
       group.add(mesh);
+      if (edges) {
+        const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), doorEdge);
+        place(e, 0, 0, 0);
+        group.add(e);
+      }
+    };
+    const doorEdge = new THREE.LineBasicMaterial({ color: 0x3b2814 });
+    for (const o of w.openings) {
+      const W = o.x1 - o.x0;
+      const H = o.z1 - o.z0;
+      if (o.kind === 'window') {
+        // klaas, raam ja ristpostid
+        const f = Math.min(45, W * 0.08, H * 0.08);
+        const d = t * 0.5;
+        box(o.x0, o.x1, o.z0, o.z1, 0, t * 0.12, mat.window);
+        box(o.x0, o.x1, o.z0, o.z0 + f, 0, d, mat.frame);
+        box(o.x0, o.x1, o.z1 - f, o.z1, 0, d, mat.frame);
+        box(o.x0, o.x0 + f, o.z0, o.z1, 0, d, mat.frame);
+        box(o.x1 - f, o.x1, o.z0, o.z1, 0, d, mat.frame);
+        const mx = (o.x0 + o.x1) / 2;
+        const mz = (o.z0 + o.z1) / 2;
+        box(mx - f / 3, mx + f / 3, o.z0, o.z1, 0, d * 0.8, mat.frame);
+        box(o.x0, o.x1, mz - f / 3, mz + f / 3, 0, d * 0.8, mat.frame);
+        continue;
+      }
+      // uks: tiivad (topelt – kaks poolt, vahe keskel), paneelid ja käepidemed mõlemal pool
+      const n = o.leaves ?? 1;
+      const lw = W / n;
+      const d = t * 0.35;
+      const gap = 6;
+      for (let i = 0; i < n; i++) {
+        const lx0 = o.x0 + i * lw + (i > 0 ? gap / 2 : 0);
+        const lx1 = o.x0 + (i + 1) * lw - (i < n - 1 ? gap / 2 : 0);
+        box(lx0, lx1, o.z0, o.z1, 0, d, mat.door, true);
+        const pw = (lx1 - lx0) * 0.6;
+        const pc = (lx0 + lx1) / 2;
+        for (const side of [-1, 1]) {
+          const s = side * (d / 2 + 2);
+          box(pc - pw / 2, pc + pw / 2, o.z0 + H * 0.08, o.z0 + H * 0.44, s, 4, mat.panel, true);
+          box(pc - pw / 2, pc + pw / 2, o.z0 + H * 0.52, o.z0 + H * 0.92, s, 4, mat.panel, true);
+          const handleLeft = n === 2 ? i === 1 : o.hinge === 'end';
+          const hx = handleLeft ? lx0 + Math.min(70, lw * 0.12) : lx1 - Math.min(70, lw * 0.12);
+          const hz = o.z0 + Math.min(1050, H * 0.52);
+          box(hx - 12, hx + 12, hz - 60, hz + 60, side * (d / 2 + 12), 20, mat.handle);
+        }
+      }
     }
   }
 

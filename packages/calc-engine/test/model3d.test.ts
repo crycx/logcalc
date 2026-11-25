@@ -149,3 +149,26 @@ describe('3D: ühekalle', () => {
     expect(p0[2]).toBeGreaterThan(p2[2]);
   });
 });
+
+describe('3D: ühekalle (Annika I 28) – külgseina kolmnurk kõrgema esiseina poolses otsas', () => {
+  const annika: HouseInput = {
+    roofType: 'mono', lengthScenario: 'log', width: 2900, depth: 2000, sideWallHeight: 0,
+    frontBackWallHeight: 2109, roofHeight: 1881, log: { thickness: 28, height: 114 },
+    longBoards: [{ length: 3100, height: 114, count: 2 }],
+  };
+  const m = houseModel3d(annika, calculateHouse(annika), C);
+  it.each(['A', 'B'])('sein %s: kolmnurga palgid lõpevad esiseina otsas, katus neist kõrgemal', (id) => {
+    const w = m.walls.find((x) => x.id === id)!;
+    const tri = w.pieces.filter((p) => p.kind === 'gable');
+    expect(tri.map((p) => Math.round(p.x1 - p.x0))).toEqual([2000, 1429, 543]);
+    // A ja B jooksevad tagant ette: kõrgem ots = seina lõpp
+    for (const p of tri) expect(p.x1).toBeCloseTo(w.length, 0);
+    const roofAt = (X: number) => {
+      const l = w.roofLine!;
+      for (let i = 1; i < l.length; i++) if (X <= l[i]![0]) return l[i - 1]![1] + ((X - l[i - 1]![0]) / (l[i]![0] - l[i - 1]![0])) * (l[i]![1] - l[i - 1]![1]);
+      return l[l.length - 1]![1];
+    };
+    // iga tüki alumine serv on tüki kõrgemas otsas katuse all
+    for (const p of tri) expect(roofAt(p.x1)).toBeGreaterThan(p.y0);
+  });
+});

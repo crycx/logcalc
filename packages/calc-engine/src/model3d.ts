@@ -27,7 +27,8 @@ export interface Wall3D {
   /** palgitükid seina koordinaatides (x = piki seina, y = kõrgus) */
   pieces: PlacedPiece[];
   /** uksed ja aknad seina koordinaatides */
-  openings: { x0: number; x1: number; z0: number; z1: number; kind: 'door' | 'window' }[];
+  /** avad; uksel tiivad (1/2) ja hingede pool (seina alguse/lõpu pool) */
+  openings: { x0: number; x1: number; z0: number; z1: number; kind: 'door' | 'window'; leaves?: 1 | 2; hinge?: 'start' | 'end' }[];
   /**
    * Katuse alumine pind seina kohal (X, Z) murdjoonena, kui sein on viilu/kalde all – viilupalgid lõigatakse
    * selle järgi (palgi ülemine nurk katusepinnani). null = sein lõpeb räästa kõrgusel.
@@ -75,7 +76,14 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       thickness: t,
       length: spec.length,
       pieces: wallPieces(spec, { maxLogLength: c.maxLogLength }),
-      openings: spec.openings.map((o) => ({ x0: o.offset, x1: o.offset + o.width, z0: o.sill, z1: o.sill + o.height, kind: o.kind })),
+      openings: spec.openings.map((o) => ({
+        x0: o.offset,
+        x1: o.offset + o.width,
+        z0: o.sill,
+        z1: o.sill + o.height,
+        kind: o.kind,
+        ...(o.kind === 'door' ? { leaves: o.leaves ?? 1, hinge: o.hinge ?? 'start' } : {}),
+      })),
       roofLine: null,
       roofCross: [],
     });

@@ -386,7 +386,9 @@ export function buildWalls(
     } else {
       const n = Math.floor((input.roofHeight - p / 2) / p + 1e-9);
       rows = Array.from({ length: n }, (_, i) => ({ y0: i * p, y1: (i + 1) * p, length: L, kind: 'log' as const }));
-      if (w.gable ?? outerY) rows.push(...triangleRows(n * p));
+      // ühekalde kolmnurk: palgid kõrgema (esi)seina poolses otsas, mitte keskel (Revit Annika LG-2/LG-1)
+      const highAtEnd = g.b.y > g.a.y;
+      if (w.gable ?? outerY) rows.push(...triangleRows(n * p).map((r) => ({ ...r, x0: highAtEnd ? L - r.length : 0 })));
     }
 
     // tühjad alad seina tüübist: ainult ülemised read, lahtised osad, piirde vahed
