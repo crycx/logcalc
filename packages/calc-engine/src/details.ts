@@ -42,9 +42,11 @@ export interface PieceDetail {
   slots: [number, number][][];
 }
 
-export function endCutOf(wall: Pick<WallSpec, 'length' | 'buttStart' | 'buttEnd'>, p: PlacedPiece, start: boolean): EndCut {
+export function endCutOf(wall: Pick<WallSpec, 'length' | 'buttStart' | 'buttEnd' | 'voids'>, p: PlacedPiece, start: boolean): EndCut {
   if (p.kind === 'gable') return 'plain';
   const x = start ? p.x0 : p.x1;
+  // astmelise varikatuse rida: ots lahtise osa kõrval 45°
+  if ((wall.voids ?? []).some((v) => v.stepEnd && v.y0 < p.y1 - 1 && v.y1 > p.y0 + 1 && Math.abs((start ? v.x1 : v.x0) - x) < 1)) return 'ext';
   if (start ? p.spliceStart : p.spliceEnd) return 'plain';
   if (start ? wall.buttStart && Math.abs(x) < 1 : wall.buttEnd && Math.abs(x - wall.length) < 1) return 'plain';
   if (start ? x < -1 : x > wall.length + 1) return 'ext';

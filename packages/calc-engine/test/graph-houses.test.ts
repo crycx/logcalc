@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { calculateHouse, type HouseInput } from '../src/index.js';
-import { BODEN, J, LUND, NORA, TOL, plan, type Piece } from './graph-fixtures.js';
+import { BODEN, J, KOLDING, LUND, NORA, TOL, plan, type Piece } from './graph-fixtures.js';
 
 
 const expand = (pieces: { profile: string; count: number; length: number }[]) => {
@@ -15,7 +15,7 @@ const expand = (pieces: { profile: string; count: number; length: number }[]) =>
   return m;
 };
 
-describe.each([NORA, BODEN, LUND])('Graaf vs Revit: $name', ({ input, walls }) => {
+describe.each([NORA, BODEN, LUND, KOLDING])('Graaf vs Revit: $name', ({ input, walls }) => {
   const r = calculateHouse(input);
 
   it('seinad nagu Revitis', () => {

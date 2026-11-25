@@ -85,7 +85,21 @@ export function computeWindboards(
     const zs = (line ?? []).filter(([x]) => x >= j0 - 1 && x <= j1 + 1).map(([, z]) => z);
     if (zs.length < 2 || Math.max(...zs) - Math.min(...zs) < 50) continue;
     const z0 = W.floorTop + W.fromFloor;
-    for (const x of [j0 + t / 2 + W.fromCorner + W.width / 2, j1 - t / 2 - W.fromCorner - W.width / 2]) {
+    // lahtised osad (veranda, terrass), mis katavad liistu kõrguse: seal palke pole
+    const z0w = W.floorTop + W.fromFloor;
+    const open = (w.voids ?? []).filter((v) => v.kind === 'open' && v.y0 < z0w + 1000 && v.y1 > z0w + 1000);
+    const blocked = (a: number, b: number) => open.some((v) => v.x0 < b - 1 && v.x1 > a + 1);
+    const place = (start: boolean): number | null => {
+      const face = start ? j0 + t / 2 : j1 - t / 2;
+      const x = start ? face + W.fromCorner + W.width / 2 : face - W.fromCorner - W.width / 2;
+      if (!blocked(x - W.width / 2, x + W.width / 2)) return x;
+      // 200 mm kohal lahtine osa: nurgapost (Lund), kui mahub – muidu liistu pole (Kolding veranda raam)
+      const edge = start ? Math.min(...open.filter((v) => v.x1 > face).map((v) => v.x0)) : Math.max(...open.filter((v) => v.x0 < face).map((v) => v.x1));
+      const lo = start ? face : edge;
+      const hi = start ? edge : face;
+      return hi - lo >= W.width + 20 ? (lo + hi) / 2 : null;
+    };
+    for (const x of [place(true), place(false)].filter((v): v is number => v !== null)) {
       // katus liistu madalamas servas
       const roof = Math.min(roofAt(line, x - W.width / 2), roofAt(line, x + W.width / 2));
       const top = Math.min(z0 + W.stock, roof - W.underRoof);

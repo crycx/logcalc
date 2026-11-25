@@ -165,6 +165,23 @@
             <mat-form-field matTooltip="Alt alles jäävad read (nt piire)"><mat-label>Alt rida</mat-label><input matInput type="number" min="0" [value]="o.bottomRows ?? 0" (change)="setOpen(i, 'bottomRows', $event)" [disabled]="readonly()" /></mat-form-field>
             <mat-form-field matTooltip="Ülalt alles jäävad read (sillus, räästas)"><mat-label>Üleval</mat-label><input matInput type="number" min="0" [value]="o.topRows ?? 0" (change)="setOpen(i, 'topRows', $event)" [disabled]="readonly()" /></mat-form-field>
             <button mat-icon-button type="button" (click)="removeOpen(i)" matTooltip="Eemalda" aria-label="Eemalda lahtine osa" [disabled]="readonly()"><mat-icon>delete</mat-icon></button>
+            <div class="more">
+            <mat-form-field matTooltip="Astmeline varikatus: ülemiste ridade all olevad read ulatuvad lahtisse ossa (mm, alt üles), otsad 45° – nt 400, 800, 1200 (Kolding)">
+              <mat-label>Astmed, mm</mat-label>
+              <input matInput [value]="stepsText(o)" (change)="setOpenSteps(i, $event)" [disabled]="readonly()" />
+            </mat-form-field>
+            <mat-form-field matTooltip="Millisest otsast astmed algavad (ruumi pool)">
+              <mat-label>Astmed</mat-label>
+              <mat-select [value]="o.stepsFrom ?? 'start'" (selectionChange)="setOpenStepsFrom(i, $event.value)" [disabled]="readonly()">
+                <mat-option value="start">algusest</mat-option>
+                <mat-option value="end">lõpust</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field matTooltip="Piirde kate: alumiste ridade peale madal palk (mm), nt 50 (Kolding 40x50)">
+              <mat-label>Kate, mm</mat-label>
+              <input matInput type="number" min="0" [value]="o.cap ?? ''" (change)="setOpen(i, 'cap', $event)" [disabled]="readonly()" />
+            </mat-form-field>
+            </div>
           </div>
         }
         @if (!readonly()) {
@@ -178,10 +195,20 @@
             <mat-form-field><mat-label>Lõpp</mat-label><input matInput type="number" step="10" [value]="r.x1" (change)="setRailing(i, 'x1', $event)" [disabled]="readonly()" /></mat-form-field>
             <mat-form-field><mat-label>Read</mat-label><input matInput type="number" min="1" [value]="r.rows" (change)="setRailing(i, 'rows', $event)" [disabled]="readonly()" /></mat-form-field>
             <button mat-icon-button type="button" (click)="removeRailing(i)" matTooltip="Eemalda" aria-label="Eemalda piire" [disabled]="readonly()"><mat-icon>delete</mat-icon></button>
-            <mat-form-field class="span" matTooltip="Vahepalkide (300) algused seina koordinaatides, komaga eraldatud">
+            <mat-form-field class="span" matTooltip="Vahepalkide algused seina koordinaatides, komaga eraldatud">
               <mat-label>Vahepalgid, mm</mat-label>
               <input matInput [value]="spacersText(r)" (change)="setSpacers(i, $event)" [disabled]="readonly()" />
             </mat-form-field>
+            <div class="more two">
+            <mat-form-field matTooltip="Vahepalkide pikkused samas järjekorras (tühi = 300), nt 440, 344 (Kolding)">
+              <mat-label>Pikkused, mm</mat-label>
+              <input matInput [value]="spacerLengthsText(r)" (change)="setSpacerLengths(i, $event)" [disabled]="readonly()" />
+            </mat-form-field>
+            <mat-form-field matTooltip="Esimene vahedega rida (0 = alumine). Poole palgiga algaval seinal tavaliselt 2.">
+              <mat-label>1. vaherida</mat-label>
+              <input matInput type="number" min="0" step="1" [value]="r.firstSpacerRow ?? 1" (change)="setRailing(i, 'firstSpacerRow', $event)" [disabled]="readonly()" />
+            </mat-form-field>
+            </div>
           </div>
         }
         @if (!readonly()) {

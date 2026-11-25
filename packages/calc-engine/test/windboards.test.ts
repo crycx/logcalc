@@ -77,3 +77,12 @@ describe('räästalauad vs Revit (D17)', () => {
     expect(line(r, 'toelaud38')!.pieces).toEqual([{ count: 2, length: 4000 }]);
   });
 });
+
+describe('tuuleliistud lahtise seina juures', () => {
+  it('Kolding: veranda esiraam (sein 1) lahtine, nurgaposti pole -> liiste pole, kokku 4 (Revit)', async () => {
+    const { KOLDING } = await import('./graph-fixtures.js');
+    const r = calculateHouse(KOLDING.input);
+    expect(r.windboards.length).toBe(4);
+    expect(r.windboards.some((w) => w.wall === '1')).toBe(false);
+  });
+});

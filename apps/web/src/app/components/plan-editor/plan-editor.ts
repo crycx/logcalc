@@ -669,6 +669,38 @@ export class PlanEditor {
     this.apply((p) => updateWall(p, s.w.id, { open: list }));
   }
 
+  /** komaga eraldatud arvud (mm) */
+  private numList(e: Event): number[] {
+    return (e.target as HTMLInputElement).value
+      .split(/[;,\s]+/)
+      .map(Number)
+      .filter((x) => Number.isFinite(x) && x > 0);
+  }
+
+  /** astmeline varikatus: ridade pikendused lahtisse ossa (alt üles) */
+  protected setOpenSteps(i: number, e: Event): void {
+    const s = this.sel();
+    if (!s) return;
+    const steps = this.numList(e);
+    const list = (s.w.open ?? []).map((o, k): OpenSection => {
+      if (k !== i) return o;
+      const { steps: _s, ...rest } = o;
+      return steps.length ? { ...rest, steps } : rest;
+    });
+    this.apply((p) => updateWall(p, s.w.id, { open: list }));
+  }
+
+  protected setOpenStepsFrom(i: number, v: 'start' | 'end'): void {
+    const s = this.sel();
+    if (!s) return;
+    const list = (s.w.open ?? []).map((o, k): OpenSection => (k === i ? { ...o, stepsFrom: v } : o));
+    this.apply((p) => updateWall(p, s.w.id, { open: list }));
+  }
+
+  protected stepsText(o: OpenSection): string {
+    return (o.steps ?? []).join(', ');
+  }
+
   protected removeOpen(i: number): void {
     const s = this.sel();
     if (!s) return;
@@ -687,11 +719,11 @@ export class PlanEditor {
     this.apply((p) => updateWall(p, s.w.id, { railings: list }));
   }
 
-  protected setRailing(i: number, key: 'x0' | 'x1' | 'rows', e: Event): void {
+  protected setRailing(i: number, key: 'x0' | 'x1' | 'rows' | 'firstSpacerRow', e: Event): void {
     const s = this.sel();
     const v = this.num(e);
     if (!s || v === null) return;
-    const list = (s.w.railings ?? []).map((r, k) => (k === i ? { ...r, [key]: Math.max(0, key === 'rows' ? Math.round(v) : v) } : r));
+    const list = (s.w.railings ?? []).map((r, k) => (k === i ? { ...r, [key]: Math.max(0, key === 'rows' || key === 'firstSpacerRow' ? Math.round(v) : v) } : r));
     this.apply((p) => updateWall(p, s.w.id, { railings: list }));
   }
 
@@ -704,6 +736,23 @@ export class PlanEditor {
       .filter((x) => Number.isFinite(x) && x >= 0);
     const list = (s.w.railings ?? []).map((r, k): Railing => (k === i ? { ...r, spacers } : r));
     this.apply((p) => updateWall(p, s.w.id, { railings: list }));
+  }
+
+  /** vahepalkide pikkused (spacers järjekorras); tühi = kõik 300 */
+  protected setSpacerLengths(i: number, e: Event): void {
+    const s = this.sel();
+    if (!s) return;
+    const lengths = this.numList(e);
+    const list = (s.w.railings ?? []).map((r, k): Railing => {
+      if (k !== i) return r;
+      const { spacerLengths: _l, ...rest } = r;
+      return lengths.length ? { ...rest, spacerLengths: lengths } : rest;
+    });
+    this.apply((p) => updateWall(p, s.w.id, { railings: list }));
+  }
+
+  protected spacerLengthsText(r: Railing): string {
+    return (r.spacerLengths ?? []).join(', ');
   }
 
   protected removeRailing(i: number): void {

@@ -63,6 +63,10 @@ export interface WallVoid {
   y0: number;
   y1: number;
   kind: 'door' | 'window' | 'open';
+  /** astmelise varikatuse rida: palgi ots tühja ala kõrval lõigatud 45° (nagu pikendatud ots) */
+  stepEnd?: boolean;
+  /** piirde kate: tühja ala esimeses reas madal palk (mm) */
+  cap?: number;
 }
 
 export interface WallSpec {
@@ -212,9 +216,11 @@ export function buildWalls(
    */
   const placeLong = (rows: WallRow[], wallLength: number, frontAtEnd: boolean) => {
     const longRows = rows.filter((r) => r.length > wallLength + EPS && r.x0 === undefined);
-    longRows.forEach((r, i) => {
+    const topLen = longRows[longRows.length - 1]?.length ?? 0;
+    longRows.forEach((r) => {
       const ext = r.length - wallLength;
-      const top = i === longRows.length - 1;
+      // ülemine ja sama pikad (Kolding LG9 = TL 5900): taha kuni 100, ülejäänu ette; lühemad tagant tasa
+      const top = Math.abs(r.length - topLen) < EPS;
       const back = top ? Math.min(ext / 2, 100) : 0;
       r.x0 = (frontAtEnd ? -back : -(ext - back)) + 0; // + 0: ei -0
     });
@@ -424,14 +430,25 @@ export function buildWalls(
     for (const o of w.open ?? []) {
       const b = Math.max(o.bottomRows ?? 0, 0);
       const t = Math.max(o.topRows ?? 0, 0);
+      // astmed: ülemiste ridade all olevad read ulatuvad lahtisse ossa (alt üles)
+      const steps = (o.steps ?? []).filter((s) => s > 0);
+      const k = Math.min(steps.length, Math.max(0, n - t - b));
       const y0 = b < n ? rect[b]!.y0 : Infinity;
-      const y1 = n - t - 1 >= 0 ? rect[n - t - 1]!.y1 : -Infinity;
-      if (y1 > y0 + EPS) voids.push({ x0: o.x0, x1: o.x1, y0, y1, kind: 'open' });
+      const y1 = n - t - k - 1 >= 0 ? rect[n - t - k - 1]!.y1 : -Infinity;
+      const cap = o.cap && b > 0 ? { cap: o.cap } : {};
+      if (y1 > y0 + EPS) voids.push({ x0: o.x0, x1: o.x1, y0, y1, kind: 'open', ...cap });
+      for (let j = 0; j < k; j++) {
+        const row = rect[n - t - k + j]!;
+        const fromEnd = o.stepsFrom === 'end';
+        const x0 = fromEnd ? o.x0 : o.x0 + steps[j]!;
+        const x1 = fromEnd ? o.x1 - steps[j]! : o.x1;
+        if (x1 - x0 > EPS) voids.push({ x0, x1, y0: row.y0, y1: row.y1, kind: 'open', stepEnd: true });
+      }
     }
     for (const r of w.railings ?? []) {
       const len = r.spacerLength ?? 300;
-      const solid = r.spacers.map((x) => [x, x + len] as const).sort((a, b) => a[0] - b[0]);
-      for (let i = 1; i < Math.min(r.rows, n); i += 2) {
+      const solid = r.spacers.map((x, i) => [x, x + (r.spacerLengths?.[i] ?? len)] as const).sort((a, b) => a[0] - b[0]);
+      for (let i = Math.max(0, r.firstSpacerRow ?? 1); i < Math.min(r.rows, n); i += 2) {
         let x = r.x0;
         for (const [a, b] of [...solid, [r.x1, r.x1] as const]) {
           if (a - x > EPS) voids.push({ x0: x, x1: Math.min(a, r.x1), y0: rect[i]!.y0, y1: rect[i]!.y1, kind: 'open' });
@@ -535,6 +552,22 @@ export function wallPieces(wall: WallSpec, opts: { maxLogLength?: number } = {})
             ...(e - b > EPS ? [[b, e] as [number, number]] : []),
           ];
         });
+      }
+    }
+    // piirde kate: tühja ala esimeses reas madal palk ala ulatuses (teised tühjad alad välja)
+    for (const v of voids) {
+      if (!v.cap || Math.abs(v.y0 - row.y0) > EPS || row.kind === 'gable') continue;
+      let cs: [number, number][] = [[Math.max(v.x0, x0), Math.min(v.x1, x0 + row.length)]];
+      for (const o of voids) {
+        if (o === v || o.cap || !(o.y0 < row.y0 + v.cap - EPS && o.y1 > row.y0 + EPS)) continue;
+        cs = cs.flatMap(([s, e]): [number, number][] =>
+          o.x1 <= s + EPS || o.x0 >= e - EPS ? [[s, e]] : [...(o.x0 - s > EPS ? [[s, o.x0] as [number, number]] : []), ...(e - o.x1 > EPS ? [[o.x1, e] as [number, number]] : [])],
+        );
+      }
+      for (const [s, e] of cs) {
+        if (e - s < EPS) continue;
+        const notches = joints.filter((x) => x > s + EPS && x < e - EPS).length;
+        out.push({ x0: s, x1: e, y0: row.y0, y1: row.y0 + v.cap, kind: 'top', notches, spliceStart: false, spliceEnd: false });
       }
     }
     for (const [s0, e0] of segs) {

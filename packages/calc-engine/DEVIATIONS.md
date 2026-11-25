@@ -77,3 +77,13 @@ peal ja all; tavaline palgiots nurgafaas 12 mm; pikendatud ots (varikatus, pärl
 alt sälk seina paksus × 48 viiluseina kohal, viilupalkides pilu 40 × 95 (143 − 48); hari terav (külg 137); ukse kohal
 olev palk alt 12 mm vajumisvaru ukse laiuses. Varem: sälk 19 mm, otsa faas 15 mm, varikatuse ots 0,43 × h, pilu kogu
 pärlini kõrguses. Kolding A/B LG-8 „sisselõige 7 + punni kõrgus“ – eesmärk teadmata, ei arvutata.
+
+## D19. Kolding 40 plaanina (2026-11-25)
+
+`test/graph-fixtures.ts` KOLDING – kõik seinad (1, 2, 3, A, B) tükk tüki haaval nagu Revit (±15 mm). Uued plaani
+võimalused: lahtise osa `steps` (astmeline varikatus, otsad 45°), `cap` (piirde kate 40x50), piirde `spacerLengths`
+(vahepalgid 440 / 344) ja `firstSpacerRow` (poole palgiga algaval seinal 2); pikemad palgid sama pikad kui ülemine
+(LG9 = TL 5900) ulatuvad mõlemale poole 100. Teadlikud erinevused: Hari h 2670 (esivaate 2103 + 576 on harjalauani);
+Revit ATL1 profiil 40x123 – mudelis 40x114; ALG7 (3) ja ALG8 (1) on mudelis üks tähis (LG8 „sisselõige 7 + punn“ –
+eesmärk teadmata). Tuuleliist: kui 200 mm kohal on lahtine osa, pannakse nurgapostile (Lund), posti puudumisel ei
+panda (Kolding veranda raam) – Revit Kolding 4, Lund 6.

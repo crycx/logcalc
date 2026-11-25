@@ -45,6 +45,14 @@ export interface OpenSection {
   bottomRows?: number;
   /** ülalt alles jäävad read (sillus, räästas) */
   topRows?: number;
+  /**
+   * Astmeline varikatus (Revit Kolding A/B LG4–LG6): ülemiste ridade all olevad read ulatuvad lahtisse ossa
+   * nii palju (mm, alt üles), otsad 45° (65 püsti). Vaikimisi algusest (x0) – `stepsFrom: 'end'` lõpust.
+   */
+  steps?: number[];
+  stepsFrom?: 'start' | 'end';
+  /** Piirde kate (mm): alumiste ridade peale madal palk (Revit Kolding 1TL1 40x50) */
+  cap?: number;
 }
 
 /** Piire: `rows` alumist rida; paaritud read (2., 4., ...) on vahedega, vahepalgid algavad kohtades `spacers`. */
@@ -55,6 +63,10 @@ export interface Railing {
   spacers: number[];
   /** vahepalgi pikkus (Viktra: 300) */
   spacerLength?: number;
+  /** vahepalkide pikkused eraldi (spacers järjekorras; Revit Kolding 440 / 344) */
+  spacerLengths?: number[];
+  /** esimene vahedega rida (0 = alumine); vaikimisi 1 – poole palgiga algaval seinal (Kolding 1) 2 */
+  firstSpacerRow?: number;
 }
 
 export interface HousePlan {

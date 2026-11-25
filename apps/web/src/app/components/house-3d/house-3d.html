@@ -2,7 +2,7 @@
   <div class="layers" role="group" aria-label="Nähtavad osad">
     @for (l of layerLabels; track l.key) {
       @if (presentLayers().has(l.key)) {
-        <mat-checkbox [ngModel]="layers()[l.key]" (ngModelChange)="setLayer(l.key, $event)">{{ l.label }}</mat-checkbox>
+        <mat-checkbox [ngModel]="layers()[l.key]" [ngModelOptions]="{ standalone: true }" (ngModelChange)="setLayer(l.key, $event)">{{ l.label }}</mat-checkbox>
       }
     }
   </div>

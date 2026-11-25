@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Lisab näidismajad (Bente IV 28, Placas I 40, Brantevik II 40) kasutaja salvestatud majadeks.
+ * Lisab näidismajad (Bente IV 28, Placas I 40, Brantevik II 40, Annika, Carina, Kolding 40) kasutaja salvestatud majadeks.
  * Olemasolevat sama nimega maja ei dubleerita.
  *
  *   php bin/seed-examples.php [--email=kasutaja@firma.ee]
@@ -82,6 +82,18 @@ $examples = [
         'windows' => [$row(920, 456, 1)],
         'floorDirection' => 'AB', 'ring' => true, 'joistMode' => 'count', 'joistCount' => 10, 'joistMaxSpacing' => 600,
         'roofOverhang' => 0, 'roofBoardWidth' => 0,
+    ],
+    // Plaaniga, Revit-iga tükk tüki haaval kinnitatud (packages/calc-engine/test/graph-fixtures.ts KOLDING)
+    'Kolding 40 (veranda)' => [
+        'width' => 3800, 'depth' => 5700, 'sideWallHeight' => 2166, 'frontBackWallHeight' => 2109, 'roofHeight' => 2670,
+        'fbAuto' => false, 'logThickness' => 40,
+        'longBoards' => [$row(5900, 114, 4)],
+        'doors' => [['a' => 1440, 'b' => 1995, 'count' => 1, 'wall' => '2', 'offset' => 1180, 'sill' => 0]],
+        'windows' => [
+            ['a' => 520, 'b' => 1938, 'count' => 1, 'wall' => '2', 'offset' => 440, 'sill' => 57],
+            ['a' => 520, 'b' => 1938, 'count' => 1, 'wall' => '2', 'offset' => 2840, 'sill' => 57],
+        ],
+        'plan' => json_decode('{"nodes":[{"id":"3a","x":120,"y":120},{"id":"3b","x":3680,"y":120},{"id":"2a","x":120,"y":3680},{"id":"2b","x":3680,"y":3680},{"id":"1a","x":120,"y":5580},{"id":"1b","x":3680,"y":5580}],"walls":[{"id":"3","a":"3a","b":"3b"},{"id":"2","a":"2a","b":"2b","gable":true},{"id":"1","a":"1a","b":"1b","open":[{"x0":0,"x1":3800,"bottomRows":6,"topRows":1,"cap":50},{"x0":1180,"x1":2620,"topRows":1}],"railings":[{"x0":0,"x1":1180,"rows":6,"firstSpacerRow":2,"spacers":[0,836],"spacerLengths":[440,344]},{"x0":2620,"x1":3800,"rows":6,"firstSpacerRow":2,"spacers":[2620,3360],"spacerLengths":[344,440]}]},{"id":"A","a":"3a","b":"1a","open":[{"x0":3800,"x1":5700,"bottomRows":6,"topRows":2,"steps":[400,800,1200]}],"railings":[{"x0":3800,"x1":5700,"rows":5,"spacers":[4358,5260],"spacerLengths":[344,440]}]},{"id":"B","a":"3b","b":"1b","open":[{"x0":3800,"x1":5700,"bottomRows":6,"topRows":2,"steps":[400,800,1200]}],"railings":[{"x0":3800,"x1":5700,"rows":5,"spacers":[4358,5260],"spacerLengths":[344,440]}]}]}', true, 512, JSON_THROW_ON_ERROR),
     ],
 ];
 

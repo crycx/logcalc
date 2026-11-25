@@ -333,6 +333,18 @@
   .span {
     grid-column: 1 / -1;
   }
+
+  /* lisaväljad (astmed, kate; vahepalkide pikkused) oma reas */
+  .more {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px 80px;
+    gap: 4px;
+
+    &.two {
+      grid-template-columns: minmax(0, 1fr) 96px;
+    }
+  }
 }
 
 .actions {

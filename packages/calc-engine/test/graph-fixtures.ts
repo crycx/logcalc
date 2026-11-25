@@ -157,3 +157,57 @@ export const LUND: Case = {
     AB: [['40x114', 6, 300], ['40x57', 1, 300]],
   },
 };
+
+// Kolding 40 (360x360): ees lahtine veranda piirdega, külgedel astmeline varikatus, seinal 2 uks + 2 akent, 3 viilu
+// (Vanad joonised/Kolding_40_360x360_4200027_S_191112.pdf, lk 4–8)
+export const KOLDING_GABLE = [796, 1591, 2386, 3182, 3800];
+export const KOLDING_SIDE = {
+  // veranda kohal: alt piire (5 rida) + LG8, üleval LG9 + TL; astmed LG4/LG5/LG6 ulatuvad 400/800/1200 verandale
+  open: [{ x0: 3800, x1: 5700, bottomRows: 6, topRows: 2, steps: [400, 800, 1200] }],
+  railings: [{ x0: 3800, x1: 5700, rows: 5, spacers: [4358, 5260], spacerLengths: [344, 440] }],
+};
+export const KOLDING: Case = {
+  name: 'Kolding 40 (veranda piirdega, astmeline varikatus)',
+  input: {
+    // Hari h 2670 (16°; viilupalgid 796/1591/2386/3182 nagu Revitis) – esivaate 2103 + 576 on harjalauani
+    roofType: 'gable', lengthScenario: 'log', width: 3800, depth: 5700,
+    sideWallHeight: 2166, frontBackWallHeight: 2109, roofHeight: 2670, log: { thickness: 40, height: 114 },
+    longBoards: [{ length: 5900, height: 114, count: 4 }],
+    plan: (() => {
+      const p = plan(3800, 5700, [
+        { id: '3', y: J },
+        { id: '2', y: 3680, extra: { gable: true } },
+        {
+          id: '1',
+          y: 5700 - J,
+          extra: {
+            open: [
+              { x0: 0, x1: 3800, bottomRows: 6, topRows: 1, cap: 50 },
+              { x0: 1180, x1: 2620, topRows: 1 },
+            ],
+            railings: [
+              { x0: 0, x1: 1180, rows: 6, firstSpacerRow: 2, spacers: [0, 836], spacerLengths: [440, 344] },
+              { x0: 2620, x1: 3800, rows: 6, firstSpacerRow: 2, spacers: [2620, 3360], spacerLengths: [344, 440] },
+            ],
+          },
+        },
+      ]);
+      for (const w of p.walls) if (w.id === 'A' || w.id === 'B') Object.assign(w, KOLDING_SIDE);
+      return p;
+    })(),
+    doors: [{ width: 1440, height: 1995, count: 1, wall: '2', offset: 1180, sill: 0 }],
+    windows: [
+      { width: 520, height: 1938, count: 1, wall: '2', offset: 440, sill: 57 },
+      { width: 520, height: 1938, count: 1, wall: '2', offset: 2840, sill: 57 },
+    ],
+  },
+  walls: {
+    // Revit 1TL1 40x50 piirde kate; 1LG4 3800 ülemine rida; viil 1LG3/6/7/8/9*
+    '1': [['40x57', 2, 1180], ['40x114', 4, 344], ['40x114', 4, 440], ['40x114', 6, 1180], ['40x114', 1, 3800], ['40x50', 2, 1180], ...g(KOLDING_GABLE)],
+    '2': [['40x57', 2, 1180], ['40x114', 34, 220], ['40x114', 34, 440], ['40x114', 1, 3800], ...g(KOLDING_GABLE)],
+    '3': [['40x57', 1, 3800], ['40x114', 18, 3800], ...g(KOLDING_GABLE)],
+    // Revit ATL1 profiil 40x123 (kaldlõikega) – mudelis 40x114 (D19); ALG7 3 + ALG8 1 = 4 × 5700
+    A: [['40x114', 2, 344], ['40x114', 2, 440], ['40x114', 10, 3800], ['40x114', 1, 4200], ['40x114', 1, 4600], ['40x114', 1, 5000], ['40x114', 4, 5700], ['40x114', 2, 5900]],
+    B: [['40x114', 2, 344], ['40x114', 2, 440], ['40x114', 10, 3800], ['40x114', 1, 4200], ['40x114', 1, 4600], ['40x114', 1, 5000], ['40x114', 4, 5700], ['40x114', 2, 5900]],
+  },
+};
