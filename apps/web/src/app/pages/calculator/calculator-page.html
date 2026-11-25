@@ -180,6 +180,11 @@
                 <mat-form-field><mat-label>Kaugus A–B</mat-label><input matInput type="number" min="0" formControlName="distAB" /><span matTextSuffix>mm</span></mat-form-field>
               </div>
               <mat-checkbox formControlName="ring">Vundamendi ring (2 ristprussi)</mat-checkbox>
+              @if (form.controls.ring.value && hasPlan()) {
+                <mat-checkbox formControlName="ringJoined" matTooltip="Ääreprussid ühes tükis üle vaheseina (nt Kolding); muidu iga lõigu (toa, terrassi) kaupa (nt Lund)">
+                  Ääreprussid ühes tükis
+                </mat-checkbox>
+              }
             }
 
             <mat-slide-toggle formControlName="floorOn">Põrandalauad</mat-slide-toggle>

@@ -181,5 +181,17 @@ describe('Kolding vundament (Revit Foundation)', () => {
     expect(r.foundation!.joistLength).toBe(3450);
     // toas kesktelgede vahe Revit 517 + 70 = 587
     expect(Math.abs(bays[0]!.spacing - 587)).toBeLessThanOrEqual(5);
+    // vaikimisi ääreprussid lõigu kaupa (nagu Lund)
+    expect(bays.map((b) => b.ringPieces?.length)).toEqual([3570, 1910]);
+  });
+
+  it('ääreprussid ühes tükis (Revit Kolding IFB1 2 × 5490)', async () => {
+    const { KOLDING } = await import('./graph-fixtures.js');
+    const r = calculateHouse({ ...KOLDING.input, floorDirection: '12', foundation: { joistWidth: 70, joistHeight: 40, ring: true, ringContinuous: true, maxSpacing: 620 } });
+    const f = r.foundation!;
+    expect(f.ringPieces).toEqual({ count: 2, length: 5490 });
+    expect(r.bom.find((l) => l.key === 'vundament')!.pieces).toEqual(expect.arrayContaining([{ count: 11, length: 3450 }, { count: 2, length: 5490 }]));
+    // jm: 11 × 3450 + 2 × 5490
+    expect(f.totalJm).toBeCloseTo((11 * 3450 + 2 * 5490) / 1000, 3);
   });
 });

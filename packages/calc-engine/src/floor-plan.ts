@@ -161,6 +161,30 @@ export function planFoundation(
     return { ...r, box: box(S0, sLen, A0, aLen), joists, ring };
   });
   if (!result.length) return null;
+  // ääreprussid ühes tükis üle vaheseina (Revit Kolding 2 × 5490): kõrvuti lõigud, sama koht risti, kokku ≤ max pikkus
+  if (f.ring && f.ringContinuous) {
+    const [s0k, s1k, ak] = spacingX ? (['x0', 'x1', 'y0'] as const) : (['y0', 'y1', 'x0'] as const);
+    for (let i = 0; i < result.length; i++) {
+      const A = result[i]!;
+      if (!A.ring.length || !A.ringPieces) continue;
+      for (let j = i + 1; j < result.length; j++) {
+        const B = result[j]!;
+        if (B.ring.length !== A.ring.length || !B.ringPieces) continue;
+        const same = A.ring.every((r, k) => Math.abs(r[ak] - B.ring[k]![ak]) < 1);
+        const touch = A.ring.every((r, k) => Math.abs(B.ring[k]![s0k] - r[s1k]) < 15);
+        if (!same || !touch) continue;
+        const len = B.ring[0]![s1k] - A.ring[0]![s0k];
+        if (len > c.maxLogLength) break;
+        const before = (A.ringPieces.count * A.ringPieces.length + B.ringPieces.count * B.ringPieces.length) / 1000;
+        A.ring = A.ring.map((r, k) => ({ ...r, [s1k]: B.ring[k]![s1k] }));
+        A.ringPieces = { count: A.ring.length, length: len };
+        A.totalJm += (A.ringPieces.count * len) / 1000 - before + (B.ringPieces.count * B.ringPieces.length) / 1000;
+        B.totalJm -= (B.ringPieces.count * B.ringPieces.length) / 1000;
+        B.ring = [];
+        B.ringPieces = null;
+      }
+    }
+  }
   for (const w of local) if (!warnings.some((x) => x.code === w.code)) warnings.push(w);
   const ringPieces = result.some((b) => b.ringPieces)
     ? { count: result.reduce((s, b) => s + (b.ringPieces?.count ?? 0), 0), length: Math.max(...result.map((b) => b.ringPieces?.length ?? 0)) }

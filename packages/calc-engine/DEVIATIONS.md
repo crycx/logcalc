@@ -95,6 +95,8 @@ otsa), esiseina käsipuu katkeb selle kohal – lühike tükk väljas, pikk sees
 reguleeritava jala (45) peal: ristuva seina tükk sõlmes, esiseina tükk palgi otsa pool (kokku 80 × 70); pikkused
 1233 / 1176 nagu Revitis. Katkestatud käsipuu otsad 54 üle (plaanilt mõõdetud) – mudelis 103 / 1043, Revit 105 / 1040.
 U-profiil 40x76 × 625 piirde vabades otstes (ukse kõrval), 2 tk. Vundament: Kolding näidismaja seaded nagu Revit
-(IFB 70x40, ääreprussid, vahe ≤ 620) -> 11 × 3450 (toas 7, terrassil 4). Erinevus: ääreprussid mudelis lõigu kaupa
-(2 × 3570 + 2 × 1910, nagu Revit Lund), Revit Kolding ühes tükis 2 × 5490; seina 2 all mudelis topeltpruss kõrvuti
-(Lund), Revit Koldingul terrassi esimene pruss 55 mm eemal.
+(IFB 70x40, ääreprussid, vahe ≤ 620) -> 11 × 3450 (toas 7, terrassil 4). Ääreprussid: vaikimisi lõigu kaupa (Revit Lund
+3388 + 2352), valikuga „Ääreprussid ühes tükis“ (`foundation.ringContinuous`) üle vaheseina (Revit Kolding 2 × 5490) –
+Kolding näidismajal sees. Seina 2 all mudelis topeltpruss kõrvuti (Lund), Revit Koldingul terrassi esimene pruss 55 mm
+eemal (terrassil vahe mudelis 617, Revit 592). Postijalg on reguleeritav: joonisel käsipuu pealt posti alla (Kolding
+38 mm – külgseina käsipuu 7 mm kõrgemal kui esiseina oma).

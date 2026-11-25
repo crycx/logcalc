@@ -113,6 +113,8 @@ export interface HouseFormValue {
   dist12: number;
   distAB: number;
   ring: boolean;
+  /** ääreprussid ühes tükis üle vaheseina (plaanist maja) */
+  ringJoined: boolean;
   floorOn: boolean;
   floorBoardWidth: number;
   floorGap: number;
@@ -161,6 +163,7 @@ export const DEFAULT_VALUE: HouseFormValue = {
   dist12: 0,
   distAB: 0,
   ring: false,
+  ringJoined: false,
   floorOn: true,
   floorBoardWidth: 110,
   floorGap: 5,
@@ -275,6 +278,7 @@ export function buildHouseForm(fb: NonNullableFormBuilder, v: HouseFormValue = D
     dist12: fb.control(v.dist12),
     distAB: fb.control(v.distAB),
     ring: fb.control(v.ring),
+    ringJoined: fb.control(v.ringJoined ?? false),
     floorOn: fb.control(v.floorOn),
     floorBoardWidth: fb.control(v.floorBoardWidth),
     floorGap: fb.control(v.floorGap),
@@ -381,6 +385,7 @@ export function toEngineInput(value: HouseFormValue): { input: HouseInput; optio
       distanceFromWall12: n(v.dist12),
       distanceFromWallAB: n(v.distAB),
       ring: v.ring,
+      ...(v.ring && v.ringJoined ? { ringContinuous: true } : {}),
     };
   }
   if (v.floorOn) {

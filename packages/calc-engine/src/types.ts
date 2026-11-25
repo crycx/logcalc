@@ -76,6 +76,11 @@ export interface FoundationInput {
   distanceFromWallAB?: number;
   /** Vundamendi ring – lisaks 2 ristprussi (vundamendiRing) */
   ring?: boolean;
+  /**
+   * Plaanist maja: ääreprussid (ring) ühes tükis üle vaheseina (Revit Kolding 2 × 5490), kui lõigud on kõrvuti ja
+   * sama laiad. Vaikimisi lõigu kaupa (Revit Lund 3388 + 2352).
+   */
+  ringContinuous?: boolean;
   /** Prusside max kesktelgede vahe automaatsel arvutusel. Vaikimisi constants.maxJoistSpacing (500). */
   maxSpacing?: number;
 }

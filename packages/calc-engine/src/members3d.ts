@@ -351,10 +351,12 @@ export function buildMembers(
       const fy = p.y + (p.out.y * t) / 2;
       const footMark = mark('postijalg', VERANDA.foot);
       const plate = 6;
+      const fz = p.footZ ?? p.z0 - VERANDA.foot;
+      const fh = p.z0 - fz;
       for (const [z, sz] of [
-        [p.z0 - VERANDA.foot + plate / 2, [2 * t, VERANDA.postWidth, plate]],
+        [fz + plate / 2, [2 * t, VERANDA.postWidth, plate]],
         [p.z0 - plate / 2, [2 * t, VERANDA.postWidth, plate]],
-        [p.z0 - VERANDA.foot / 2, [16, 16, VERANDA.foot - 2 * plate]],
+        [(fz + p.z0) / 2, [16, 16, Math.max(1, fh - 2 * plate)]],
       ] as [number, Vec3][]) {
         out.push({ key: 'postijalg', mark: footMark, layer: 'trim', c: [fx, fy, z], u: ua, v: ub, size: sz });
       }

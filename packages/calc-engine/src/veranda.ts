@@ -48,6 +48,8 @@ export interface VerandaPost {
   out: { x: number; y: number };
   /** postijala pealispind (tükkide alumine ots) */
   z0: number;
+  /** postijala alumine pind: käsipuu (kõrgeim nurgas) pealispind; jalg on reguleeritav (z0 − footZ ≤ 45) */
+  footZ: number;
   /** tükid: iga nurgas kohtuva seina kohta (selle seina palgi alla) */
   pieces: { wall: string; length: number; u: { x: number; y: number } }[];
 }
@@ -137,6 +139,7 @@ export function computeVeranda(plan: HousePlan, geo: WallGeometry[], wallModel: 
         const gap = onRail ? 0 : V.settle;
         // nurgas kohtuvad seinad: iga seina palk sõlme kohal pärast z0 -> tüki pikkus
         const pieces: VerandaPost['pieces'] = [];
+        let footZ = z0 - V.foot;
         for (const og of geo) {
           if (!crossesAt(og, cand.n)) continue;
           const os = specById.get(og.id);
@@ -150,14 +153,19 @@ export function computeVeranda(plan: HousePlan, geo: WallGeometry[], wallModel: 
           if (len > 100) pieces.push({ wall: og.id, length: Math.round(len), u: unit(og) });
           // ristuv sein: selle käsipuu jookseb sõlmest läbi, piirde seina käsipuu katkeb selle laiuses
           if (og.id !== w.id && onRail) {
-            const hasRail = plan.walls.find((x) => x.id === og.id)?.railings?.some((rr) => rr.handrail && rr.x0 < X + 1 && rr.x1 > X - 1);
-            if (hasRail) cuts.set(w.id, [...(cuts.get(w.id) ?? []), [cand.X - V.handrailWidth / 2, cand.X + V.handrailWidth / 2]]);
+            const rr = plan.walls.find((x) => x.id === og.id)?.railings?.find((q) => q.handrail && q.x0 < X + 1 && q.x1 > X - 1);
+            if (rr) {
+              cuts.set(w.id, [...(cuts.get(w.id) ?? []), [cand.X - V.handrailWidth / 2, cand.X + V.handrailWidth / 2]]);
+              // post seisab selle käsipuul: jalg algab käsipuu pealt (Kolding A 684 + 40, esiseina oma 677 + 40)
+              const ot = railTop(os, rr.x0, rr.x1);
+              if (ot !== null) footZ = Math.max(footZ, Math.min(z0 - 20, ot + V.handrailThickness));
+            }
           }
         }
         if (!pieces.length) continue;
         const u = unit(g);
         const into = end === 'start' ? 1 : -1;
-        posts.push({ node: nodeId, x: cand.n.x, y: cand.n.y, wall: w.id, out: { x: -u.x * into + 0, y: -u.y * into + 0 }, z0, pieces });
+        posts.push({ node: nodeId, x: cand.n.x, y: cand.n.y, wall: w.id, out: { x: -u.x * into + 0, y: -u.y * into + 0 }, z0, footZ, pieces });
         // käsipuuta: käsipuu (kui hiljem lisatakse) katkeb posti kohal (post 80 piki seina sõlmest palgi otsa poole)
         if (!onRail) cuts.set(w.id, [...(cuts.get(w.id) ?? []), into > 0 ? [cand.X - 1.5 * t, cand.X + 0.5 * t] : [cand.X - 0.5 * t, cand.X + 1.5 * t]]);
       }

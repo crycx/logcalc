@@ -89,7 +89,7 @@ $examples = [
         'fbAuto' => false, 'logThickness' => 40,
         'longBoards' => [$row(5900, 114, 4)],
         // Revit Foundation: IFB 70x40, ääreprussid + 11 × 3450 (toas 7, terrassil 4; vahe ≤ 620 kesktelgedest)
-        'floorDirection' => '12', 'joistWidth' => 70, 'joistHeight' => 40, 'ring' => true, 'joistMode' => 'auto', 'joistMaxSpacing' => 620,
+        'floorDirection' => '12', 'joistWidth' => 70, 'joistHeight' => 40, 'ring' => true, 'ringJoined' => true, 'joistMode' => 'spacing', 'joistMaxSpacing' => 620,
         'doors' => [['a' => 1440, 'b' => 1995, 'count' => 1, 'wall' => '2', 'offset' => 1180, 'sill' => 0]],
         'windows' => [
             ['a' => 520, 'b' => 1938, 'count' => 1, 'wall' => '2', 'offset' => 440, 'sill' => 57],
