@@ -28,6 +28,12 @@ export class WallView {
   /** esiletõstetud tähis (lõikenimekirjast); klõps palgil -> pick */
   readonly highlight = input<string | null>(null);
   readonly pick = output<string | null>();
+  /** palgi paksus (nurgaliite sälgu laius); 0 = sälke ei joonistata */
+  readonly thickness = input(0);
+  /** räästa kaldlõige (Wall3D.roofCross) – ülemise palgi faasi joon */
+  readonly cross = input<{ x0: number; x1: number; z0: number; k: number }[]>([]);
+  /** pärlinite sälgud viilupalkides (Wall3D.notches) */
+  readonly notches = input<{ pts: [number, number][] }[]>([]);
 
   protected readonly Math = Math;
 
@@ -60,10 +66,71 @@ export class WallView {
     const fs = m * 0.035;
     const Y = (y: number) => H - y; // SVG y alla
 
-    const rects = shapes
-      .filter((s) => !s.poly)
-      .map((s) => ({ x: s.rect.x0, y: Y(s.rect.y1), w: s.rect.x1 - s.rect.x0, h: s.rect.y1 - s.rect.y0, cls: cls(s), mark: s.mark }));
-    const polys = shapes.filter((s) => s.poly).map((s) => ({ cls: cls(s), mark: s.mark, points: s.poly!.map(([x, y]) => `${x},${Y(y)}`).join(' ') }));
+    // palgi otsad (Revit): seina otsas profiili faasid (ridade vahel V), pikendatud palk (varikatus) 45° lõikega
+    // alumisest nurgast, avade/jätkude kohal sirge
+    type End = 'log' | 'ext' | 'plain';
+    const endOf = (s: (typeof shapes)[number], start: boolean): End => {
+      const x = start ? s.rect.x0 : s.rect.x1;
+      if (start ? s.spliceStart || w.buttStart : s.spliceEnd || w.buttEnd) return Math.abs(start ? x : x - w.length) < 1 ? 'plain' : endOfFree(x, start);
+      return endOfFree(x, start);
+    };
+    const endOfFree = (x: number, start: boolean): End =>
+      start ? (x < -1 ? 'ext' : Math.abs(x) < 1 ? 'log' : 'plain') : x > w.length + 1 ? 'ext' : Math.abs(x - w.length) < 1 ? 'log' : 'plain';
+    const outline = (s: (typeof shapes)[number]): [number, number][] => {
+      const { x0: a, x1: b, y0, y1 } = s.rect;
+      const h = y1 - y0;
+      const c = Math.min(15, h * 0.13);
+      const d = h * 0.43;
+      const L = endOf(s, true);
+      const R = endOf(s, false);
+      const left: [number, number][] = L === 'log' ? [[a + c, y1], [a, y1 - c], [a, y0 + c], [a + c, y0]] : L === 'ext' ? [[a, y1], [a, y0 + d], [a + d, y0]] : [[a, y1], [a, y0]];
+      const right: [number, number][] = R === 'log' ? [[b - c, y0], [b, y0 + c], [b, y1 - c], [b - c, y1]] : R === 'ext' ? [[b - d, y0], [b, y0 + d], [b, y1]] : [[b, y0], [b, y1]];
+      return [...left, ...right];
+    };
+    const pts = (p: [number, number][]) => p.map(([x, y]) => `${x},${Y(y)}`).join(' ');
+    const rects: { x: number; y: number; w: number; h: number; cls: string; mark: string }[] = [];
+    const polys = shapes.map((s) => ({ cls: cls(s), mark: s.mark, points: pts(s.poly ?? outline(s)) }));
+
+    // nurgaliite sälgud: liite teljel palgi üla- ja alaservas (naaberpalkide sälgud = ruut rea vahel; Revit)
+    const t = this.thickness();
+    const notchRects: { x: number; y: number; w: number; h: number }[] = [];
+    const spans: [number, number, number][] = [];
+    if (t > 0) {
+      for (const j of w.joints) {
+        for (const s of shapes) {
+          const { x0: a, x1: b, y0, y1 } = s.rect;
+          if (j.x - t / 2 < a + 1 || j.x + t / 2 > b - 1) continue;
+          if (j.ranges && !j.ranges.some(([r0, r1]) => r0 < y1 - 1 && r1 > y0 + 1)) continue;
+          // viilupalk ainult siis, kui see on liite kohal (alumine viilurida)
+          const nd = Math.min(20, (y1 - y0) * 0.17);
+          if (!s.poly) spans.push([j.x, y1 - nd, y1]);
+          spans.push([j.x, y0, y0 + nd]);
+        }
+      }
+      // naaberpalkide pooled üheks sälguks (rea vahel ruut, ülemisel/alumisel palgil U)
+      spans.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+      for (let i = 0; i < spans.length; ) {
+        const [x, a] = spans[i]!;
+        let b = spans[i]![2];
+        let k = i + 1;
+        while (k < spans.length && Math.abs(spans[k]![0] - x) < 0.5 && spans[k]![1] <= b + 0.5) b = Math.max(b, spans[k++]![2]);
+        notchRects.push({ x: x - t / 2, y: Y(b), w: t, h: b - a });
+        i = k;
+      }
+    }
+    // pärlinite sälgud
+    const purlinNotches = this.notches().map((n) => pts(n.pts));
+    // ülemise palgi kaldlõige: välispinna ülemine serv (katus toetub siseservale)
+    const bevels: { x1: number; x2: number; y: number }[] = [];
+    for (const r of this.cross()) {
+      const zLow = r.z0 - (Math.abs(r.k) * (t || 0)) / 2;
+      for (const s of shapes) {
+        if (s.poly || s.rect.y1 <= zLow + 1 || s.rect.y0 >= zLow) continue;
+        const a = Math.max(s.rect.x0, r.x0);
+        const b = Math.min(s.rect.x1, r.x1);
+        if (b - a > 1) bevels.push({ x1: a, x2: b, y: Y(zLow) });
+      }
+    }
     const openings = w.openings.map((o) => {
       const x = o.offset;
       // uks: tiivad (topelt = kaks poolt, käepidemed keskel), ühepoolsel käepide hingede vastas
@@ -133,6 +200,9 @@ export class WallView {
       H,
       fs,
       hiCount,
+      notchRects,
+      purlinNotches,
+      bevels,
     };
   });
 

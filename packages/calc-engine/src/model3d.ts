@@ -45,6 +45,8 @@ export interface Wall3D {
    * viilusein – viilupalgid lõigatakse alati `roofLine` järgi.
    */
   roofCross: { x0: number; x1: number; z0: number; k: number }[];
+  /** sälgud seina tasandis (X, Z) – pärlinite/harja ristlõiked viilupalkides */
+  notches: { kind: 'purlin'; pts: [number, number][] }[];
 }
 
 export interface RoofPlane3D {
@@ -97,6 +99,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       })),
       roofLine: null,
       roofCross: [],
+      notches: [],
     });
   }
 
@@ -259,6 +262,30 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
 
   const zMax = Math.max(zTop, ...roofs.flatMap((r) => r.pts.map((p) => p[2])));
   const members = opts.members === false ? [] : buildMembers(input, result, c, { plan, geo, walls, roofs, roofZ });
+  // pärlinite sälgud: pärlin läbib risti seina (viilusein) -> ristlõige seina tasandis
+  for (const mb of members) {
+    if (mb.key !== 'parlinid') continue;
+    const [ux, uy] = [mb.u[0], mb.u[1]];
+    const w3: Vec3 = [mb.u[1] * mb.v[2] - mb.u[2] * mb.v[1], mb.u[2] * mb.v[0] - mb.u[0] * mb.v[2], mb.u[0] * mb.v[1] - mb.u[1] * mb.v[0]];
+    for (const w of walls) {
+      // sein risti pärliniga ja pärlin ulatub üle seina joone
+      if (Math.abs(w.u.x * ux + w.u.y * uy) > 0.01) continue;
+      const n = { x: -w.u.y, y: w.u.x };
+      const dist = (mb.c[0] - w.origin.x) * n.x + (mb.c[1] - w.origin.y) * n.y;
+      const half = mb.size[0] / 2;
+      const along = ux * n.x + uy * n.y; // ±1
+      if (Math.abs(dist) > half + EPS || Math.abs(along) < 0.5) continue;
+      const toW = (p: Vec3): [number, number] => [(p[0] - w.origin.x) * w.u.x + (p[1] - w.origin.y) * w.u.y, p[2]];
+      const corner = (sv: number, sw: number): Vec3 => [
+        mb.c[0] + (mb.v[0] * sv * mb.size[1]) / 2 + (w3[0] * sw * mb.size[2]) / 2,
+        mb.c[1] + (mb.v[1] * sv * mb.size[1]) / 2 + (w3[1] * sw * mb.size[2]) / 2,
+        mb.c[2] + (mb.v[2] * sv * mb.size[1]) / 2 + (w3[2] * sw * mb.size[2]) / 2,
+      ];
+      const pts = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)].map(toW);
+      if (pts.every(([x]) => x < -EPS || x > w.length + EPS)) continue;
+      w.notches.push({ kind: 'purlin', pts });
+    }
+  }
   return { walls, roofs, members, bounds: { x0: bx0 - ov, y0: by0 - ov, z0: 0, x1: bx1 + ov, y1: by1 + ov, z1: zMax } };
 }
 

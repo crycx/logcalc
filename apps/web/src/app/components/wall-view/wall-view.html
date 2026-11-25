@@ -2,7 +2,7 @@
 <svg [attr.viewBox]="v.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="'Sein ' + wall().id">
   <!-- liidete teljed (ristuvad seinad) -->
   @for (j of v.joints; track $index) {
-    <line class="joint" [attr.x1]="j.x" [attr.x2]="j.x" [attr.y1]="-v.fs * 0.6" [attr.y2]="v.H" />
+    <line class="joint" [attr.x1]="j.x" [attr.x2]="j.x" [attr.y1]="-v.fs * 0.6" [attr.y2]="thickness() > 0 ? 0 : v.H" />
     <text class="joint-label" [attr.x]="j.x" [attr.y]="-v.fs * 0.8" [attr.font-size]="v.fs * 0.8" text-anchor="middle">{{ j.wall }}</text>
   }
   @for (r of v.rects; track $index) {
@@ -33,6 +33,16 @@
       <line class="mullion" [attr.x1]="o.x + o.w / 2" [attr.x2]="o.x + o.w / 2" [attr.y1]="o.y" [attr.y2]="o.y + o.h" />
       <line class="mullion" [attr.x1]="o.x" [attr.x2]="o.x + o.w" [attr.y1]="o.y + o.h / 2" [attr.y2]="o.y + o.h / 2" />
     }
+  }
+  <!-- sälgud: nurgaliited (rea vahel), pärlinid viilus; ülemise palgi kaldlõike joon -->
+  @for (n of v.notchRects; track $index) {
+    <rect class="notch" [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" />
+  }
+  @for (p of v.purlinNotches; track $index) {
+    <polygon class="notch" [attr.points]="p" />
+  }
+  @for (b of v.bevels; track $index) {
+    <line class="bevel" [attr.x1]="b.x1" [attr.x2]="b.x2" [attr.y1]="b.y" [attr.y2]="b.y" />
   }
   <!-- jätkukohad (pikk sein, vaheseina teljel) -->
   @for (s of v.splices; track $index) {

@@ -184,3 +184,20 @@ describe('3D: tükkide tähised lõikenimekirjast', () => {
     }
   });
 });
+
+describe('3D: pärlinite sälgud viilupalkides', () => {
+  const bente: HouseInput = {
+    roofType: 'gable', lengthScenario: 'log', width: 2950, depth: 3800, sideWallHeight: 1824, frontBackWallHeight: 1767, roofHeight: 2223,
+    log: { thickness: 28, height: 114 }, longBoards: [{ length: 4000, height: 114, count: 2 }], roof: {}, purlins: {},
+  };
+  const m = houseModel3d(bente, calculateHouse(bente), C);
+  it('viiluseintel 1 ja 2 kummalgi 3 sälku (2 pärlinit + hari), külgseintel pole', () => {
+    expect(m.walls.find((w) => w.id === '1')!.notches.length).toBe(3);
+    expect(m.walls.find((w) => w.id === '2')!.notches.length).toBe(3);
+    expect(m.walls.find((w) => w.id === 'A')!.notches.length).toBe(0);
+    // harja sälk keskel, ülemine serv katuse tipus
+    const w1 = m.walls.find((w) => w.id === '1')!;
+    const ridge = w1.notches.map((n) => n.pts).find((p) => Math.abs((p[0]![0] + p[2]![0]) / 2 - w1.length / 2) < 1)!;
+    expect(Math.max(...ridge.map(([, z]) => z))).toBeCloseTo(2223, -1);
+  });
+});

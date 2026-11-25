@@ -279,9 +279,12 @@ export function buildMembers(
       const L = pr.length;
       const startAlong = r.freeEnds[0] && !r.freeEnds[1] ? 0 : !r.freeEnds[0] && r.freeEnds[1] ? la - L : (la - L) / 2;
       const m = mark('parlinid', L);
-      const place = (slope: number) => {
+      // pärlin kaldu (ülemine pind katuse alumisel pinnal, Revit „Roof“ / viilupalkide sälgud kaldu);
+      // harjapärlin püsti
+      const place = (slope: number, ridge = false) => {
         const top = at(startAlong + L / 2, slope, 0);
-        out.push({ key: 'parlinid', mark: m, layer: 'roof', c: sub(top, mul(Z, ph / 2)), u: a, v: sHor, size: [L, pw, ph] });
+        if (ridge) out.push({ key: 'parlinid', mark: m, layer: 'roof', c: sub(top, mul(Z, ph / 2)), u: a, v: sHor, size: [L, pw, ph] });
+        else out.push({ key: 'parlinid', mark: m, layer: 'roof', c: sub(top, mul(n, ph / 2)), u: a, v: s, size: [L, pw, ph] });
       };
       // räästa serv on seina kesktelljest (t/2 + üleulatus) väljas; pärlinid seina siseservast spacing kaupa
       const spacing = pr.spacing ?? 0;
@@ -292,7 +295,7 @@ export function buildMembers(
       }
       if (gable && pr.hasRidge && !ridgeDone.has(r.part)) {
         ridgeDone.add(r.part);
-        place(ls);
+        place(ls, true);
       }
     }
   }

@@ -12,7 +12,8 @@
         <figcaption>Sein {{ fw.id }}</figcaption>
         @let fm = model3dWalls().get(fw.id);
         <app-wall-view class="plan-mini" [wall]="fw" [roofLine]="roofLines().get(fw.id) ?? null" [dimensions]="true"
-          [pieces]="fm?.pieces ?? null" [marks]="fm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)" />
+          [pieces]="fm?.pieces ?? null" [marks]="fm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)"
+          [thickness]="fm?.thickness ?? 0" [cross]="fm?.roofCross ?? []" [notches]="fm?.notches ?? []" />
       </figure>
     }
     } @else {
@@ -42,7 +43,8 @@
           @if (hc) { <span class="hi-badge">{{ highlight() }} · {{ hc }} tk</span> }
         </figcaption>
         <app-wall-view class="wall-mini" [wall]="w" [roofLine]="roofLines().get(w.id) ?? null" [dimensions]="true"
-          [pieces]="wm?.pieces ?? null" [marks]="wm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)" />
+          [pieces]="wm?.pieces ?? null" [marks]="wm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)"
+          [thickness]="wm?.thickness ?? 0" [cross]="wm?.roofCross ?? []" [notches]="wm?.notches ?? []" />
       </figure>
     }
   }

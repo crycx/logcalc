@@ -306,12 +306,8 @@ export class House3d {
         // räästaseina ülemine palk: katus toetub siseservale, välisserv lõigatud kaldu (faas)
         const zs = (s: number) => Math.max(p.y0, Math.min(p.y1, rc.z0 + rc.k * s));
         // ristlõige (a, z), a = −s (alus −n, üles, u -> parempoolne), pressitud piki seina
-        const shape = new THREE.Shape();
-        shape.moveTo(t / 2, p.y0);
-        shape.lineTo(-t / 2, p.y0);
-        shape.lineTo(-t / 2, zs(t / 2));
-        shape.lineTo(t / 2, zs(-t / 2));
-        shape.closePath();
+        // all sooned ja faasid (profiil), pealt kaldlõige
+        const shape = shapeOf(THREE, logProfile(t, p.y0, p.y1, { grooves: true, tongues: false, top: (a) => zs(-a) }));
         geo = new THREE.ExtrudeGeometry(shape, { depth: p.x1 - p.x0, bevelEnabled: false });
         geo.translate(0, 0, p.x0);
         const mesh = new THREE.Mesh(geo, material);
@@ -324,8 +320,19 @@ export class House3d {
         this.pieces.push({ mesh, edges, mark, base: material });
         return;
       } else {
-        geo = new THREE.BoxGeometry(p.x1 - p.x0, p.y1 - p.y0, t);
-        geo.translate((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, 0);
+        // palgi profiil (Revit „Log Profile“): peal kaks punni, all kaks soont, servad faasitud; pool palki alt sile
+        const shape = shapeOf(THREE, logProfile(t, p.y0, p.y1, { grooves: p.kind !== 'half', tongues: true }));
+        geo = new THREE.ExtrudeGeometry(shape, { depth: p.x1 - p.x0, bevelEnabled: false });
+        geo.translate(0, 0, p.x0);
+        const mesh = new THREE.Mesh(geo, material);
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
+        for (const o of [mesh, edges]) {
+          o.applyMatrix4(crossBasis);
+          o.position.add(origin);
+          group.add(o);
+        }
+        this.pieces.push({ mesh, edges, mark, base: material });
+        return;
       }
       const mesh = new THREE.Mesh(geo, material);
       place(mesh, 0, 0, 0);
@@ -469,6 +476,43 @@ export class House3d {
     this.renderer?.dispose();
     this.renderer?.domElement.remove();
   }
+}
+
+/**
+ * Palgi ristlõige (a, z): a = risti seinaga (−t/2 … t/2), z = kõrgus. Revit 40x114: kaks punni peal ja kaks soont
+ * all (laius ~12 % paksusest, kõrgus ≤ 10 mm, keskkohad ±20 % paksusest), servad faasitud (≤ 6 mm).
+ * `top` = kaldlõikega ülemine serv (räästa palk) – siis punne pole.
+ */
+function logProfile(
+  t: number,
+  y0: number,
+  y1: number,
+  o: { grooves: boolean; tongues: boolean; top?: (a: number) => number },
+): [number, number][] {
+  const h = y1 - y0;
+  const c = Math.min(6, t * 0.15, h * 0.1);
+  const tw = Math.max(3, t * 0.12);
+  const th = Math.min(10, h * 0.09);
+  const g = [-t * 0.2, t * 0.2];
+  const pts: [number, number][] = [[-t / 2, y0 + c], [-t / 2 + c, y0]];
+  if (o.grooves) for (const x of g) pts.push([x - tw / 2, y0], [x - tw / 2, y0 + th], [x + tw / 2, y0 + th], [x + tw / 2, y0]);
+  pts.push([t / 2 - c, y0], [t / 2, y0 + c]);
+  if (o.top) {
+    pts.push([t / 2, o.top(t / 2)], [-t / 2, o.top(-t / 2)]);
+    return pts;
+  }
+  pts.push([t / 2, y1 - c], [t / 2 - c, y1]);
+  if (o.tongues) for (const x of [...g].reverse()) pts.push([x + tw / 2, y1], [x + tw / 2, y1 + th], [x - tw / 2, y1 + th], [x - tw / 2, y1]);
+  pts.push([-t / 2 + c, y1], [-t / 2, y1 - c]);
+  return pts;
+}
+
+function shapeOf(THREE: Three, pts: [number, number][]): THREE_NS.Shape {
+  const s = new THREE.Shape();
+  s.moveTo(pts[0]![0], pts[0]![1]);
+  for (const [x, y] of pts.slice(1)) s.lineTo(x, y);
+  s.closePath();
+  return s;
 }
 
 function disposeGroup(g: THREE_NS.Object3D): void {
