@@ -520,4 +520,10 @@ export class CalculatorPage {
   protected exitFullscreen(e: Event): void {
     if (this.fullscreen() && !e.defaultPrevented) this.fullscreen.set(false);
   }
+
+  /** viilu- (kolmnurga-) seinte arv: plaanist maja – seinad, millel on viilupalke (Kolding 3); muidu 2 */
+  protected gableWalls(r: CalcResult): number {
+    if (!this.hasPlan()) return 2;
+    return r.wallModel.filter((w) => w.rows.some((row) => row.kind === 'gable')).length || 2;
+  }
 }

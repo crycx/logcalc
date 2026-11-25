@@ -5,7 +5,7 @@
     <!-- plaanist maja: plaan graafist ja seina 1 vaade mudelist -->
     <figure class="view">
       <figcaption>Plaan</figcaption>
-      <app-plan-editor class="plan-mini" [plan]="hp" [thickness]="v().logThickness" [size]="planSize()" [openings]="r().placedOpenings" [readonly]="true" [compact]="true" />
+      <app-plan-editor class="plan-mini" [plan]="hp" [thickness]="v().logThickness" [size]="planSize()" [openings]="r().placedOpenings" [readonly]="true" [compact]="true" [roofOutline]="roofOutline()" />
     </figure>
     @if (frontWall(); as fw) {
       <figure class="view">

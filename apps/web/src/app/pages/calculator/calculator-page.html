@@ -312,7 +312,7 @@
               <app-house-3d [model]="m" [highlight]="activeMark()" [fill]="fullscreen()" (pick)="pieceMark.set($event)" />
             }
           } @else {
-            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
+            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" [highlight]="activeMark()" [fill]="fullscreen()" (pick)="pieceMark.set($event)" />
           }
         </div>
         @if (!readonly()) {
@@ -347,7 +347,7 @@
                 </dl>
               }
             </mat-tab>
-            <mat-tab [label]="(isGable() ? 'Viilupalgid' : 'Kolmnurga palgid') + ' (' + r.walls.gableCourses.length + ' × 2)'">
+            <mat-tab [label]="(isGable() ? 'Viilupalgid' : 'Kolmnurga palgid') + ' (' + r.walls.gableCourses.length + ' × ' + gableWalls(r) + ')'">
               <dl class="kv cols">
                 @for (c of r.walls.gableCourses; track c.index) {
                   <dt>{{ c.index }}. palk <span class="muted-inline">{{ c.distanceFromTop | number: '1.0-0' }} mm tipust</span></dt>

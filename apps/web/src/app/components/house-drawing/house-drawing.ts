@@ -27,6 +27,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-house-drawing',
+  host: { '[class.fill]': 'fill()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, NgTemplateOutlet, DimLines, PlanEditor, WallView],
   templateUrl: './house-drawing.html',
@@ -38,11 +39,15 @@ export class HouseDrawing {
   readonly view = input<DrawingView>('overview');
   /** 3D mudel (katusejoon seinte kohal: viilupalgid kaldu) */
   readonly model = input<HouseModel3D | null>(null);
+  /** täisekraan: joonised nii suured kui aken lubab */
+  readonly fill = input(false);
 
   /** lõikenimekirja valik (tähis) – seinte joonistel esile; klõps palgil -> pick */
   readonly highlight = input<string | null>(null);
   readonly pick = output<string | null>();
 
+  /** katusetasandid plaanil (x, y) */
+  protected readonly roofOutline = computed(() => (this.model()?.roofs ?? []).map((r) => r.pts.map((p) => [p[0], p[1]] as [number, number])));
   protected readonly roofLines = computed(() => new Map((this.model()?.walls ?? []).map((w) => [w.id, w.roofLine] as const)));
   /** seinte tükid ja tähised mudelist (sama järjekord mis lõikenimekirjas) */
   protected readonly model3dWalls = computed(() => new Map<string, Wall3D>((this.model()?.walls ?? []).map((w) => [w.id, w])));

@@ -57,6 +57,9 @@
         (pointerup)="onUp()"
         (pointercancel)="onUp()"
       >
+        @for (r of v.roofs; track $index) {
+          <polygon class="roof-outline" [attr.points]="r" />
+        }
         @for (r of v.ridges; track $index) {
           <line class="ridge" [attr.x1]="r.x1" [attr.y1]="r.y1" [attr.x2]="r.x2" [attr.y2]="r.y2" />
         }

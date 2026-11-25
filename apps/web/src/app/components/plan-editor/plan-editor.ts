@@ -100,6 +100,8 @@ export class PlanEditor {
   readonly compact = input(false);
   /** täidab vanema kõrguse (täisekraan) */
   readonly fill = input(false);
+  /** katusetasandite piirjooned plaanil (mudelist, räästa üleulatusega) – ülevaates nagu hari */
+  readonly roofOutline = input<[number, number][][]>([]);
 
   protected readonly templates = PLAN_TEMPLATES;
   protected readonly tool = signal<Tool>('select');
@@ -166,6 +168,15 @@ export class PlanEditor {
     }
     // ukse kaared võivad ulatuda plaanist välja (avaneb välja) – vaateala laiendus
     const ext = { x0: b.x0 - pad, y0: b.y0 - pad, x1: b.x1 + pad, y1: b.y1 + pad };
+    const roofs = this.roofOutline().map((poly) => poly.map(([x, y]) => `${x},${y}`).join(' '));
+    for (const poly of this.roofOutline()) {
+      for (const [x, y] of poly) {
+        ext.x0 = Math.min(ext.x0, x - pad / 2);
+        ext.y0 = Math.min(ext.y0, y - pad / 2);
+        ext.x1 = Math.max(ext.x1, x + pad / 2);
+        ext.y1 = Math.max(ext.y1, y + pad / 2);
+      }
+    }
     const walls = geo.map((g) => {
       const ux = (g.b.x - g.a.x) / g.span;
       const uy = (g.b.y - g.a.y) / g.span;
@@ -267,6 +278,7 @@ export class PlanEditor {
     return {
       viewBox: `${ext.x0} ${ext.y0} ${ext.x1 - ext.x0} ${ext.y1 - ext.y0}`,
       ridges,
+      roofs,
       walls,
       nodes: pts,
       dims,
