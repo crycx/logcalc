@@ -9,6 +9,10 @@
       @for (c of g.cards; track c.mark) {
         <figure class="card" [class.sel]="isSel(c.mark)" (click)="toggle(c.mark)">
           <figcaption><b>{{ c.mark }}</b>&nbsp;&nbsp;<span class="muted">{{ c.sub }}</span></figcaption>
+          @if (isSel(c.mark)) {
+            <!-- valitud tähise info kaardi sees (mitte lehe päises) -->
+            <app-piece-info class="info" [mark]="c.mark" [result]="result()" [model]="model()" [showDetails]="false" (clear)="pick.emit(null)" (click)="$event.stopPropagation()" />
+          }
           <div class="row">
             <svg class="side" [attr.viewBox]="c.view.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="'Detail ' + c.mark">
               @if (c.view.outline) {

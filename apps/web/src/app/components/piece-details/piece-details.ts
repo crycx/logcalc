@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { DETAIL, extCut, type CalcResult, type EndCut, type HouseModel3D, type PieceDetail, type PlacedPiece, type Wall3D } from '@logcalc/calc-engine';
 import { logProfile } from '../../helpers/log-profile';
 import { roofAtFn, underRoof } from '../../helpers/roof-cut';
+import { PieceInfo } from '../piece-info/piece-info';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 
 /** Ühe detaili joonis (Revit „Details“): vaade küljelt mõõtudega + ristlõige */
@@ -43,7 +44,7 @@ const WALL_NAMES: Record<string, string> = { '1': 'esisein', '2': 'tagasein', A:
 @Component({
   selector: 'app-piece-details',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DimLines],
+  imports: [DimLines, PieceInfo],
   templateUrl: './piece-details.html',
   styleUrl: './piece-details.scss',
 })

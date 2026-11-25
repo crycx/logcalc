@@ -291,12 +291,12 @@
             </button>
           </div>
           @if (activeMark(); as mk) {
-            @if (view() === 'walls' || view() === '3d' || view() === 'details') {
+            @if (view() === 'walls' || view() === '3d') {
               <app-piece-info
                 [mark]="mk"
                 [result]="r"
                 [model]="model3d()"
-                [showDetails]="view() !== 'details' && !readonly()"
+                [showDetails]="!readonly()"
                 (clear)="pieceMark.set(null)"
                 (details)="view.set('details')"
               />
