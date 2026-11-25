@@ -748,16 +748,20 @@ function slotInto(out: [number, number][], a: [number, number], b: [number, numb
   const h1 = hit(a, d);
   const h2 = hit(b, c);
   if (!h1 || !h2) return out;
-  // ringil h1 -> h2 (lühem kaar = pilu kohal olev osa) asendatakse: h, alumised nurgad, h
+  // ringil h1 -> h2 edasi: kas see kaar on pilu sees (siis välja) või väljas (siis välja teine pool)
   const n = out.length;
-  const fwd = (h2.i + h2.f - (h1.i + h1.f) + n) % n;
-  const [first, second, c1, c2] = fwd <= n / 2 ? [h1, h2, a, b] : [h2, h1, b, a];
+  const ahead = (p: { i: number; f: number }, q: { i: number; f: number }) => p.i === q.i && q.f > p.f;
+  const probe: [number, number] = ahead(h1, h2)
+    ? [(h1.pt[0] + h2.pt[0]) / 2, (h1.pt[1] + h2.pt[1]) / 2]
+    : [(h1.pt[0] + out[(h1.i + 1) % n]![0]) / 2, (h1.pt[1] + out[(h1.i + 1) % n]![1]) / 2];
+  const side = (p: [number, number], q: [number, number], r: [number, number]) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  const mid: [number, number] = [(a[0] + b[0] + c[0] + d[0]) / 4, (a[1] + b[1] + c[1] + d[1]) / 4];
+  const inSlot = side(a, d, probe) * side(a, d, mid) > 0 && side(b, c, probe) * side(b, c, mid) > 0;
+  // välja jääb kaar first -> second; alles kaar second -> first, siis pilu põhi (first-i poolne nurk enne)
+  const [first, second, c1, c2] = inSlot ? [h1, h2, a, b] : [h2, h1, b, a];
   const next: [number, number][] = [second.pt];
-  let k = (second.i + 1) % n;
-  while (k !== (first.i + 1) % n) {
-    next.push(out[k]!);
-    k = (k + 1) % n;
-  }
+  const steps = ahead(second, first) ? 0 : second.i === first.i ? n : (first.i - second.i + n) % n;
+  for (let k = 1; k <= steps; k++) next.push(out[(second.i + k) % n]!);
   next.push(first.pt, c1, c2);
   return next;
 }
