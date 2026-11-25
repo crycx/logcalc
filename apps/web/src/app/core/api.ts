@@ -114,7 +114,7 @@ export interface LinkInfo {
   expiresAt: string;
 }
 
-export type UserPatch = Partial<{ name: string; role: Role; active: boolean; password: string }>;
+export type UserPatch = Partial<{ name: string; role: Role; active: boolean; password: string; tenantId: number }>;
 
 export type AuthEventType =
   | 'login'

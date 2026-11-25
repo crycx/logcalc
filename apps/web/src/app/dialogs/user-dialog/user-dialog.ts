@@ -91,7 +91,13 @@ export class UserDialog {
     try {
       const u = this.data.user;
       const result: UserDialogResult = u
-        ? { user: await this.api.updateUser(u.id, { name: this.name.trim(), ...(this.role !== u.role ? { role: this.role } : {}) }) }
+        ? {
+            user: await this.api.updateUser(u.id, {
+              name: this.name.trim(),
+              ...(this.role !== u.role ? { role: this.role } : {}),
+              ...(this.data.tenants?.length && this.tenantId !== u.tenant.id ? { tenantId: this.tenantId } : {}),
+            }),
+          }
         : await this.api.createUser({
             email: this.email.trim(),
             name: this.name.trim(),

@@ -19,7 +19,7 @@
         </mat-select>
         <mat-hint>{{ role === 'user' ? 'Arvutab ja salvestab oma maju' : role === 'admin' ? 'Lisaks: kasutajad, hinnad, kataloog' : 'Kõik ettevõtted' }}</mat-hint>
       </mat-form-field>
-      @if (isNew && data.tenants?.length) {
+      @if (data.tenants?.length) {
         <mat-form-field>
           <mat-label>Ettevõte</mat-label>
           <mat-select name="tenant" [(ngModel)]="tenantId">
@@ -27,6 +27,9 @@
               <mat-option [value]="t.id">{{ t.name }}</mat-option>
             }
           </mat-select>
+          @if (data.user && tenantId !== data.user.tenant.id) {
+            <mat-hint>Kasutaja enda majad liiguvad kaasa</mat-hint>
+          }
         </mat-form-field>
       }
     </div>

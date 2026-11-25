@@ -187,6 +187,35 @@ final class UsersApi
             $this->db->prepare('UPDATE users SET active = ? WHERE id = ?')->execute([$d['active'] ? 1 : 0, $target['id']]);
             $changes[] = $d['active'] ? 'aktiveeritud' : 'välja lülitatud';
         }
+        // ettevõtte vahetus (ainult superadmin): kasutaja enda majad liiguvad kaasa (uue ettevõtte admin näeb neid)
+        if (array_key_exists('tenantId', $d) && (int) $d['tenantId'] !== $tid) {
+            if ($me['role'] !== 'superadmin') {
+                throw new HttpException(403, 'Ettevõtet saab muuta ainult superadmin.');
+            }
+            if ($target['id'] === $me['id']) {
+                throw new HttpException(422, 'Oma ettevõtet ei saa muuta.');
+            }
+            $newTid = (int) $d['tenantId'];
+            $st = $this->db->prepare('SELECT name FROM tenants WHERE id = ?');
+            $st->execute([$newTid]);
+            $newName = $st->fetchColumn();
+            if (!is_string($newName)) {
+                throw new HttpException(422, 'Ettevõtet ei leitud.');
+            }
+            $this->db->beginTransaction();
+            try {
+                $this->db->prepare('UPDATE users SET tenant_id = ? WHERE id = ?')->execute([$newTid, $target['id']]);
+                $st = $this->db->prepare('UPDATE projects SET tenant_id = ? WHERE owner_id = ?');
+                $st->execute([$newTid, $target['id']]);
+                $moved = $st->rowCount();
+                $this->db->commit();
+            } catch (\Throwable $e) {
+                $this->db->rollBack();
+                throw $e;
+            }
+            $changes[] = 'ettevõte: ' . $target['tenant']['name'] . ' → ' . $newName . ($moved ? ", majad kaasa ($moved)" : '');
+            $tid = $newTid;
+        }
         if ($changes) {
             $this->auth->log()->record('user_updated', $target['id'], $tid, $target['email'], $me['id'], implode(', ', $changes));
         }

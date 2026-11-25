@@ -228,7 +228,10 @@ export class UsersPage {
 
   protected async edit(u: ManagedUser): Promise<void> {
     const roles = this.isMe(u) ? [u.role] : this.roles();
-    const r: UserDialogResult | undefined = await firstValueFrom(this.dialog.open(UserDialog, { data: { user: u, roles }, width: '520px', maxWidth: '94vw' }).afterClosed());
+    // superadmin saab teise kasutaja ettevõtet vahetada
+    const tenants = this.session.isSuperadmin() && !this.isMe(u) && this.tenants.length > 1 ? { tenants: this.tenants } : {};
+    const data: UserDialogData = { user: u, roles, ...tenants };
+    const r: UserDialogResult | undefined = await firstValueFrom(this.dialog.open(UserDialog, { data, width: '520px', maxWidth: '94vw' }).afterClosed());
     if (!r) return;
     this.replace(r.user);
     this.snack.open('Salvestatud.', undefined, { duration: 2500 });
