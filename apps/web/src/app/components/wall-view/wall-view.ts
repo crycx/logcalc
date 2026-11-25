@@ -147,19 +147,49 @@ export class WallView {
     const dims: Dim[] = [];
     const full = this.dimensions();
     const ops = [...w.openings].sort((a, b) => a.offset - b.offset);
-    // all: avade kett (palgi otsast -> ava -> ... -> palgi otsani), siis kogupikkus
-    let level = 2.2;
-    if (full && ops.length) {
-      const pts = [0, ...ops.flatMap((o) => [o.offset, o.offset + o.width]), w.length]
-        .map((x) => Math.min(Math.max(x, 0), w.length))
+    /** mõõtekett punktide vahel (sama koht üks kord) */
+    const chain = (xs: number[], y: number, offset: number, lo: number, hi: number) => {
+      const p = xs
+        .map((x) => Math.min(Math.max(x, lo), hi))
         .sort((a, b) => a - b)
         .filter((x, i, arr) => i === 0 || x - arr[i - 1]! > 0.5);
-      for (let i = 1; i < pts.length; i++) {
-        const a = pts[i - 1]!;
-        const b = pts[i]!;
-        dims.push({ x1: a, y1: H, x2: b, y2: H, offset: fs * level, shift: b - a < fs * 2.6 ? (i === pts.length - 1 ? 'end' : 'start') : undefined });
+      if (p.length < 3) return false;
+      // tekst nihutatakse välja ainult siis, kui see lõiku ei mahu (kiri 0,8 fs, märk ~0,44 fs); naabritega vaheldumisi
+      const fits = (len: number) => len >= (Math.round(len).toLocaleString('et-EE').length * 0.44 + 0.2) * fs;
+      let prev: 'start' | 'end' | undefined;
+      for (let i = 1; i < p.length; i++) {
+        const a = p[i - 1]!;
+        const b = p[i]!;
+        const shift = fits(b - a) ? undefined : i === p.length - 1 || prev === 'start' || (i > 1 && !fits(p[i - 1]! - p[i - 2]!)) ? 'end' : 'start';
+        dims.push({ x1: a, y1: y, x2: b, y2: y, offset, shift });
+        prev = shift;
       }
-      level += 2;
+      return true;
+    };
+    // lahtised osad (veranda, terrass): piire all, varikatus / astmed üleval
+    const open = (w.voids ?? []).filter((v) => v.kind === 'open' && !v.railing && !v.stepEnd);
+    const logs = shapes.filter((s) => s.kind !== 'gable');
+    // all (Revit seinajoonis): palgi otsast avade ja piirde palkide otsteni (Kolding A 440 | 558 | 344 | 558 | 3800), siis
+    // kogupikkus
+    let level = 2.2;
+    if (full) {
+      const xs = [0, w.length, ...ops.flatMap((o) => [o.offset, o.offset + o.width])];
+      const railTop = Math.max(0, ...open.filter((v) => v.y0 > 1).map((v) => v.y0));
+      if (railTop > 0) for (const s of logs) if (s.rect.y1 <= railTop + 1) xs.push(s.rect.x0, s.rect.x1);
+      if (chain(xs, H, fs * level, 0, w.length)) level += 2;
+    }
+    // üleval: lahtise osa kohal astmete ja pikendatud palkide otsad (Kolding A 800 | 400 | 400 | 400 | 3800 | 100)
+    let topChain = false;
+    if (full) {
+      // piirdega lahtine osa (alt kinni), mille kohal on palke; seina otsas lahtise osa serv ei ole mõõdetav punkt
+      const above = open.filter((v) => v.y0 > 1 && v.y1 < H - 1);
+      if (above.length) {
+        const yTop = Math.min(...above.map((v) => v.y1));
+        const inner = (x: number) => x > 1 && x < w.length - 1;
+        const xs = [x0, x1, ...above.flatMap((v) => [v.x0, v.x1]).filter(inner)];
+        for (const s of logs) if (s.rect.y0 >= yTop - 1) xs.push(s.rect.x0, s.rect.x1);
+        topChain = chain(xs, 0, -fs * 2.6, x0, x1);
+      }
     }
     dims.push({ x1: 0, y1: H, x2: w.length, y2: H, offset: fs * level });
     const bottom = level;
@@ -185,7 +215,7 @@ export class WallView {
     }
     const padL = fs * (1.5 + left + (left ? 1.2 : 0));
     const padR = fs * 1.5;
-    const padT = fs * 2;
+    const padT = fs * (topChain ? 4.4 : 2);
     const padB = fs * (bottom + 2);
     return {
       viewBox: `${x0 - padL} ${-padT} ${x1 - x0 + padL + padR} ${H + padT + padB}`,

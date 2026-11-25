@@ -357,7 +357,8 @@ export class House3d {
       const T0 = (topAt(-t / 2) + topAt(t / 2)) / 2;
       const T1 = (topAt(t / 2) - topAt(-t / 2)) / t;
       const cons: Cons[] = [];
-      ([[endOf(p, true), p.x0, 1], [endOf(p, false), p.x1, -1]] as const).forEach(([e, x, dir]) => {
+      // otsad mootori detailidest (astmed, pikendatud otste pinu); detailideta seinal kohalik reegel
+      ([[det?.start ?? endOf(p, true), p.x0, 1], [det?.end ?? endOf(p, false), p.x1, -1]] as const).forEach(([e, x, dir]) => {
         // kohalik s = dir × (S − x) ≥ 0 otsast sisse; g = ka·a + kz·z + ks·S + k0 ≥ 0
         if (e === 'log') {
           cons.push({ ka: T1, kz: -1, ks: dir, k0: T0 - c - dir * x }); // z ≤ T(a) − c + s

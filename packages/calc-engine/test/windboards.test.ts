@@ -136,3 +136,19 @@ describe('veranda postid ja käsipuud (Revit Kolding Roof 1 / Details 5)', () =>
     expect(r.materials.find((g) => g.key === 'postijalg')!.rows).toEqual([{ mark: 'PJ-1', count: 2, length: 45 }]);
   });
 });
+
+describe('pikendatud otste pinu (Revit Kolding Wall A, Details 3)', () => {
+  it('ALG9 otsad 65 + 45°, selle peal ATL1 otsad sirged', async () => {
+    const { KOLDING } = await import('./graph-fixtures.js');
+    const r = calculateHouse(KOLDING.input);
+    const { houseModel3d, DEFAULT_CONSTANTS } = await import('../src/index.js');
+    const m = houseModel3d(KOLDING.input, r, DEFAULT_CONSTANTS, { members: false });
+    const a = m.walls.find((w) => w.id === 'A')!;
+    const top = a.pieces.reduce((t, p) => (p.y1 > t.y1 ? p : t));
+    const iTop = a.pieces.indexOf(top);
+    const iLg9 = a.pieces.findIndex((p) => Math.abs(p.y1 - top.y0) < 1 && Math.abs(p.x0 - top.x0) < 1);
+    expect(iLg9).toBeGreaterThanOrEqual(0);
+    expect([a.details[iTop]!.start, a.details[iTop]!.end]).toEqual(['plain', 'plain']);
+    expect([a.details[iLg9]!.start, a.details[iLg9]!.end]).toEqual(['ext', 'ext']);
+  });
+});

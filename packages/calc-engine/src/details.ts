@@ -5,7 +5,8 @@
  * Revit-i reeglid:
  * - nurgaliite sälk: laius = ristuva palgi paksus, sügavus h/4 peal ja all (kahe palgi sälgud kokku = ½ palki);
  * - palgi tavaline ots (nurga ülejääk): nurgad faasitud ~12 mm;
- * - pikendatud ots (varikatus, pärlin): ülevalt 65 mm püsti, siis 45° alumisse nurka;
+ * - pikendatud ots (varikatus, pärlin): ülevalt 65 mm püsti, siis 45° alumisse nurka; kui otse all on sama kaugele
+ *   ulatuv palk, on ülemise ots sirge (Kolding A: LG9 45°, ATL1 peal sirge – Details 3, Wall A);
  * - pärlin 40x143: viiluseina kohal alt sälk (seina paksus) × 48, viilupalkides pilu 40 × 95 (143 − 48);
  * - ukse kohal olev palk: alt 12 mm sisselõige ukse laiuses (vajumisvaru).
  */
@@ -65,7 +66,7 @@ export function pieceDetails(
 ): PieceDetail[] {
   const nd = logHeight / 4;
   const doors = wall.openings.filter((o) => o.kind === 'door');
-  return pieces.map((p) => {
+  const details = pieces.map((p) => {
     const notches: PieceNotch[] = [];
     for (const j of wall.joints) {
       if (j.x - t / 2 < p.x0 + 1 || j.x + t / 2 > p.x1 - 1) continue;
@@ -91,4 +92,13 @@ export function pieceDetails(
     });
     return { start: endCutOf(wall, p, true), end: endCutOf(wall, p, false), notches, slots: pieceSlots };
   });
+  // pikendatud otsade pinu: 45° ainult alumisel, selle peal sama kaugele ulatuv palk sirge
+  const below = (p: PlacedPiece, start: boolean) =>
+    pieces.some((q) => q !== p && Math.abs(q.y1 - p.y0) < 1 && Math.abs(start ? q.x0 - p.x0 : q.x1 - p.x1) < 1);
+  pieces.forEach((p, i) => {
+    const d = details[i]!;
+    if (d.start === 'ext' && below(p, true)) d.start = 'plain';
+    if (d.end === 'ext' && below(p, false)) d.end = 'plain';
+  });
+  return details;
 }
