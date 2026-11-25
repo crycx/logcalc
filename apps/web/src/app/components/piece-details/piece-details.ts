@@ -14,8 +14,9 @@ interface Card {
     outline: string;
     /** mitu kontuuri (viilu koostejoonis) */
     polys?: string[];
-    notches: { x: number; y: number; w: number; h: number }[];
-    slots: string[];
+    /** sälgud: valge täidis (fill, veidi üle serva) + lahtine U-kontuur (line) */
+    notches: { fill: string; line: string }[];
+    slots: { fill: string; line: string }[];
     dims: Dim[];
     fs: number;
     notes: { x: number; y: number; text: string }[];
@@ -130,9 +131,9 @@ function gableCard(w: Wall3D, idx: number[], walls: { w: Wall3D; idx: number[] }
   const fs = Math.max(L, 600) * 0.022;
   const outline = parts.map((q) => pts(q.poly.map(([x, z]) => [X(x), Y(z)] as [number, number])));
   const notches = parts.flatMap((q) =>
-    (q.det?.notches ?? []).filter((n) => n.side === 'bottom').map((n) => ({ x: X(n.x) - n.w / 2, y: Y(q.p.y0 + n.depth), w: n.w, h: n.depth })),
+    (q.det?.notches ?? []).filter((n) => n.side === 'bottom').map((n) => uNotch(X(n.x) - n.w / 2, n.w, Y(q.p.y0), -n.depth, fs)),
   );
-  const slots = w.notches.map((n) => pts(n.pts.map(([x, z]) => [X(x), Y(z)] as [number, number])));
+  const slots = w.notches.map((n) => slotShape(n.pts.map(([x, z]) => [X(x), Y(z)] as [number, number]), fs));
   const dims: Dim[] = [];
   // all: alumise viilurea liidete kett
   const bottom = parts.reduce((a, b) => (b.p.y0 < a.p.y0 ? b : a));
@@ -179,6 +180,32 @@ function gableCard(w: Wall3D, idx: number[], walls: { w: Wall3D; idx: number[] }
   };
 }
 
+/**
+ * Sälk servas (SVG): x, laius w, serva y; d > 0 = sälk alla (ülaserv), d < 0 = üles (alaserv). Täidis ulatub veidi
+ * üle serva (katab palgi kontuuri), kontuur lahtine U – välisservale joont pole.
+ */
+function uNotch(x: number, w: number, y: number, d: number, fs: number): { fill: string; line: string } {
+  const e = fs * 0.06 * Math.sign(d);
+  const inner = y + d;
+  return {
+    fill: pts([[x, y - e], [x + w, y - e], [x + w, inner], [x, inner]]),
+    line: pts([[x, y], [x, inner], [x + w, inner], [x + w, y]]),
+  };
+}
+
+/** Pilu (pärlin) viilupalgis: 4 nurka [all, all, üleval, üleval] – ülemine serv (katusejoon) lahtine */
+function slotShape(q: [number, number][], fs: number): { fill: string; line: string } {
+  const [a, b, c, d] = q as [[number, number], [number, number], [number, number], [number, number]];
+  // täidis veidi üle katusejoone
+  const up = (p: [number, number], from: [number, number]): [number, number] => {
+    const dx = p[0] - from[0];
+    const dy = p[1] - from[1];
+    const l = Math.hypot(dx, dy) || 1;
+    return [p[0] + (dx / l) * fs * 0.06, p[1] + (dy / l) * fs * 0.06];
+  };
+  return { fill: pts([a, b, up(c, b), up(d, a)]), line: pts([d, a, b, c]) };
+}
+
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 
 /** Otsalõigetega kontuur (detaili koordinaadid: x 0…L, z 0…h) */
@@ -218,11 +245,8 @@ function wallCard(w: Wall3D, p: PlacedPiece, det: PieceDetail | null, mark: stri
   const zTop = Math.max(h, ...shape.map((q) => q[1]));
   const Y = (z: number) => zTop - z;
   const fs = Math.max(L, 600) * 0.022;
-  const notches = (det?.notches ?? []).map((n) => {
-    const x = X(n.x) - n.w / 2;
-    return n.side === 'top' ? { x, y: Y(h), w: n.w, h: n.depth } : { x, y: Y(n.depth), w: n.w, h: n.depth };
-  });
-  const slots = (det?.slots ?? []).map((s) => pts(s.map(([x, z]) => [X(x), Y(z - p.y0)] as [number, number])));
+  const notches = (det?.notches ?? []).map((n) => uNotch(X(n.x) - n.w / 2, n.w, n.side === 'top' ? Y(h) : Y(0), n.side === 'top' ? n.depth : -n.depth, fs));
+  const slots = (det?.slots ?? []).map((s) => slotShape(s.map(([x, z]) => [X(x), Y(z - p.y0)] as [number, number]), fs));
   // mõõdud: all nurgaliite sälgud, üleval ukse vajumisvaru, kogupikkus
   const corner = (det?.notches ?? []).filter((n) => n.kind === 'corner');
   const door = (det?.notches ?? []).filter((n) => n.kind === 'door');
@@ -276,7 +300,7 @@ function purlinCard(mark: string, mb: Member, sub: string): Card {
   const d = det.cut;
   const shape: [number, number][] = d > 0 ? [[0, h], [0, d], [d, 0], [L - d, 0], [L, d], [L, h]] : [[0, h], [0, 0], [L, 0], [L, h]];
   const Y = (z: number) => h - z;
-  const notches = det.notches.map((n) => ({ x: n.x - n.w / 2, y: Y(n.depth), w: n.w, h: n.depth }));
+  const notches = det.notches.map((n) => uNotch(n.x - n.w / 2, n.w, Y(0), -n.depth, fs));
   const below = chain([0, L, ...det.notches.flatMap((n) => [n.x - n.w / 2, n.x + n.w / 2])], Y(0), fs * 1.8, fs);
   const dims: Dim[] = [...below, { x1: 0, y1: Y(0), x2: L, y2: Y(0), offset: fs * 3.8 }];
   const n0 = det.notches[0];

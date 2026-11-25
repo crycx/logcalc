@@ -18,10 +18,12 @@
                 <polygon class="wood" [attr.points]="q" />
               }
               @for (n of c.view.notches; track $index) {
-                <rect class="cut" [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" />
+                <polygon class="cut-fill" [attr.points]="n.fill" />
+                <polyline class="cut-line" [attr.points]="n.line" />
               }
               @for (s of c.view.slots; track $index) {
-                <polygon class="cut" [attr.points]="s" />
+                <polygon class="cut-fill" [attr.points]="s.fill" />
+                <polyline class="cut-line" [attr.points]="s.line" />
               }
               @for (n of c.view.notes; track $index) {
                 <text class="note" [attr.x]="n.x" [attr.y]="n.y" [attr.font-size]="c.view.fs * 0.8" text-anchor="middle">{{ n.text }}</text>

@@ -124,3 +124,18 @@ svg {
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
+
+/* nurgaliite sälk: täidis + kontuur (ülemise/alumise palgi välisserv lahtine) */
+.notch-fill {
+  fill: #fff;
+  stroke: none;
+  pointer-events: none;
+}
+
+.notch-line {
+  fill: none;
+  stroke: #6b5232;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}

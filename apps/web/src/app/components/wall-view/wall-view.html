@@ -36,7 +36,8 @@
   }
   <!-- sälgud: nurgaliited (rea vahel), pärlinid viilus; ülemise palgi kaldlõike joon -->
   @for (n of v.notchRects; track $index) {
-    <rect class="notch" [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" />
+    <polygon class="notch-fill" [attr.points]="n.fill" />
+    <polyline class="notch-line" [attr.points]="n.line" />
   }
   @for (p of v.purlinNotches; track $index) {
     <polygon class="notch" [attr.points]="p" />

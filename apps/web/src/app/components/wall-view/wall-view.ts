@@ -88,7 +88,7 @@ export class WallView {
     // sälgud (Revit): nurgaliide laius = palgi paksus, sügavus h/4 peal ja all (naaberpalkide sälgud = ruut rea
     // vahel); ukse kohal alt vajumisvaru 12 mm
     const t = this.thickness();
-    const notchRects: { x: number; y: number; w: number; h: number }[] = [];
+    const notchRects: { fill: string; line: string }[] = [];
     const spans: [number, number, number, number][] = []; // x, w, y0, y1
     if (t > 0) {
       for (const s of shapes) {
@@ -103,7 +103,17 @@ export class WallView {
         let b = spans[i]![3];
         let k = i + 1;
         while (k < spans.length && Math.abs(spans[k]![0] - x) < 0.5 && Math.abs(spans[k]![1] - wd) < 0.5 && spans[k]![2] <= b + 0.5) b = Math.max(b, spans[k++]![3]);
-        notchRects.push({ x: x - wd / 2, y: Y(b), w: wd, h: b - a });
+        // serv, mille kohal/all palki pole (ülemise palgi pealt, alumise alt), jääb lahtiseks – sinna joont ei tule
+        const covered = (y: number) => shapes.some((s) => s.rect.x0 < x && s.rect.x1 > x && s.rect.y0 < y && s.rect.y1 > y);
+        const topOpen = !covered(b + 1);
+        const botOpen = !covered(a - 1);
+        const l = x - wd / 2;
+        const r = x + wd / 2;
+        const e = fs * 0.05;
+        notchRects.push({
+          fill: pts([[l, b + (topOpen ? e : 0)], [r, b + (topOpen ? e : 0)], [r, a - (botOpen ? e : 0)], [l, a - (botOpen ? e : 0)]]),
+          line: topOpen ? pts([[l, b], [l, a], [r, a], [r, b]]) : botOpen ? pts([[l, a], [l, b], [r, b], [r, a]]) : pts([[l, a], [l, b], [r, b], [r, a], [l, a]]),
+        });
         i = k;
       }
     }

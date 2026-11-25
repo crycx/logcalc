@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { DETAIL, extCut, type HouseModel3D, type Member3D, type MemberLayer, type Wall3D } from '@logcalc/calc-engine';
+import { DETAIL, extCut, type HouseModel3D, type Member3D, type MemberLayer, type PieceDetail, type Wall3D } from '@logcalc/calc-engine';
 import type * as THREE_NS from 'three';
 import { logProfile } from '../../helpers/log-profile';
 import { roofAtFn, underRoof } from '../../helpers/roof-cut';
@@ -316,7 +316,7 @@ export class House3d {
      * kaldtasandid (pikkuse suunas): seina otsas üla- ja alanurk ~15 mm (V ridade vahel), varikatusel alumine nurk
      * 45°. Punnid ja sooned lõigatakse tasandiga puhtalt läbi; keskosa ja otsa vahel pole joont.
      */
-    const profiled = (p: Wall3D['pieces'][number], mark: string, material: THREE_NS.Material, ring: [number, number][], topAt: (a: number) => number) => {
+    const profiled = (p: Wall3D['pieces'][number], mark: string, material: THREE_NS.Material, ring: [number, number][], topAt: (a: number) => number, det?: PieceDetail) => {
       const h = p.y1 - p.y0;
       const c = Math.min(DETAIL.endChamfer, h * 0.2);
       const d = extCut(h);
@@ -332,7 +332,13 @@ export class House3d {
           cons.push({ ka: 0, kz: 1, ks: dir, k0: -(p.y0 + d) - dir * x }); // z ≥ y0 + d − s
         }
       });
-      add(logSolid(THREE, ring, p.x0, p.x1, cons), material, mark, true);
+      // sälgud (nurgaliide peal/all h/4, ukse kohal alt vajumisvaru): selles vahemikus ristlõige lühem
+      const cuts: RingCut[] = (det?.notches ?? []).map((n) => ({
+        s0: n.x - n.w / 2,
+        s1: n.x + n.w / 2,
+        h: n.side === 'top' ? { ka: 0, kz: -1, k0: p.y1 - n.depth } : { ka: 0, kz: 1, k0: -(p.y0 + n.depth) },
+      }));
+      add(logSolid(THREE, ring, p.x0, p.x1, cons, cuts), material, mark, true);
     };
 
     w.pieces.forEach((p, i) => {
@@ -356,11 +362,11 @@ export class House3d {
         const zs = (s: number) => Math.max(p.y0, Math.min(p.y1, rc.z0 + rc.k * s));
         // ristlõige (a, z), a = −s (alus −n, üles, u -> parempoolne), pressitud piki seina
         // all sooned ja faasid (profiil), pealt kaldlõige
-        profiled(p, mark, material, logProfile(t, p.y0, p.y1, { grooves: true, tongues: false, top: (a) => zs(-a) }), (a) => zs(-a));
+        profiled(p, mark, material, logProfile(t, p.y0, p.y1, { grooves: true, tongues: false, top: (a) => zs(-a) }), (a) => zs(-a), w.details[i]);
         return;
       } else {
         // palgi profiil (Revit „Log Profile“): peal kaks punni, all kaks soont, servad faasitud; pool palki alt sile
-        profiled(p, mark, material, logProfile(t, p.y0, p.y1, { grooves: p.kind !== 'half', tongues: true }), () => p.y1);
+        profiled(p, mark, material, logProfile(t, p.y0, p.y1, { grooves: p.kind !== 'half', tongues: true }), () => p.y1, w.details[i]);
         return;
       }
       const mesh = new THREE.Mesh(geo, material);
@@ -450,7 +456,9 @@ export class House3d {
             { ka: 0, kz: 1, ks: -1, k0: -(-ht / 2 + k) + L / 2 }, // lõpp: z ≥ −h/2 + k − (L/2 − s)
           ]
         : [];
-      geo = logSolid(THREE, ring, -L / 2, L / 2, cons);
+      // pärlini sälgud alt viiluseinte kohal
+      const cuts: RingCut[] = x.detail.notches.map((n) => ({ s0: n.x - n.w / 2 - L / 2, s1: n.x + n.w / 2 - L / 2, h: { ka: 0, kz: 1, k0: -(-ht / 2 + n.depth) } }));
+      geo = logSolid(THREE, ring, -L / 2, L / 2, cons, cuts);
       // ristlõike koordinaadid (a = v, z = u × v, s = u)
       const v3 = to3(x.v).normalize();
       const u3 = to3(x.u).normalize();
@@ -544,6 +552,13 @@ interface Cons {
   k0: number;
 }
 
+/** Sälk palgi lõigus s0…s1: ristlõikest jääb alles osa, kus ka·a + kz·z + k0 ≥ 0 */
+interface RingCut {
+  s0: number;
+  s1: number;
+  h: { ka: number; kz: number; k0: number };
+}
+
 /** Hulknurga lõikamine sirgega: jääb f ≥ 0 (f lineaarne) – Sutherland–Hodgman */
 function clipPoly(poly: [number, number][], f: (p: [number, number]) => number): [number, number][] {
   const out: [number, number][] = [];
@@ -565,7 +580,7 @@ function clipPoly(poly: [number, number][], f: (p: [number, number]) => number):
  * Prisma: ristlõige `ring` (a, z) pressitud s0 … s1, lõigatud piirangutega (pooltasandid). Küljed, lõiketahud ja
  * otsatahud ühe geomeetriana (koordinaadid nagu ExtrudeGeometry: x = a, y = z, z = s – paigutus crossBasis'ega).
  */
-function logSolid(THREE: Three, ring: [number, number][], s0: number, s1: number, cons: Cons[]): THREE_NS.BufferGeometry {
+function logSolid(THREE: Three, ring: [number, number][], s0: number, s1: number, cons: Cons[], cuts: RingCut[] = []): THREE_NS.BufferGeometry {
   const pos: number[] = [];
   const n = ring.length;
   let area = 0;
@@ -595,36 +610,66 @@ function logSolid(THREE: Three, ring: [number, number][], s0: number, s1: number
       tri([P[0], P[1], sOf(P[0], P[1])], [Q[0], Q[1], sOf(Q[0], Q[1])], [R[0], R[1], sOf(R[0], R[1])], out);
     }
   };
-  // küljed: iga ristlõike serv ribana (u ∈ 0…1, s), lõigatud piirangutega
-  for (let i = 0; i < n; i++) {
-    const [ai, zi] = ring[i]!;
-    const [aj, zj] = ring[(i + 1) % n]!;
-    const da = aj - ai;
-    const dz = zj - zi;
-    if (Math.hypot(da, dz) < 1e-9) continue;
-    let poly: [number, number][] = [[0, s0], [1, s0], [1, s1], [0, s1]];
-    for (const k of cons) poly = clipPoly(poly, ([u, s]) => g(k, ai + u * da, zi + u * dz, s));
-    poly = dedupe(poly);
-    if (poly.length < 3) continue;
-    const P3 = poly.map(([u, s]) => [ai + u * da, zi + u * dz, s]);
-    const out = [dz * sg, -da * sg, 0];
-    for (let k = 1; k + 1 < P3.length; k++) tri(P3[0]!, P3[k]!, P3[k + 1]!, out);
-  }
-  // lõiketahud: piirangu tasandil, s = s_k(a, z)
-  cons.forEach((k, ki) => {
-    if (Math.abs(k.ks) < 1e-9) return;
-    const sOf = (a: number, z: number) => -(k.ka * a + k.kz * z + k.k0) / k.ks;
-    let poly = ring.slice();
-    poly = clipPoly(poly, ([a, z]) => sOf(a, z) - s0);
-    poly = clipPoly(poly, ([a, z]) => s1 - sOf(a, z));
-    cons.forEach((m, mi) => {
-      if (mi !== ki) poly = clipPoly(poly, ([a, z]) => g(m, a, z, sOf(a, z)));
-    });
-    face(poly, sOf, [-k.ka, -k.kz, -k.ks]);
+  // lõigud piki palki: sälkude vahemikes ristlõige lõigatud (pealt / alt), lõikude vahel sälgu seinad
+  const lin = (h: RingCut['h']) => ([a, z]: [number, number]) => h.ka * a + h.kz * z + h.k0;
+  const bps = [...new Set([s0, s1, ...cuts.flatMap((c) => [c.s0, c.s1]).filter((x) => x > s0 + 1e-6 && x < s1 - 1e-6)])].sort((x, y) => x - y);
+  const segs = bps.slice(1).map((sb, i) => {
+    const sa = bps[i]!;
+    const active = cuts.filter((c) => c.s0 <= sa + 1e-6 && c.s1 >= sb - 1e-6);
+    let r = ring.slice();
+    for (const c of active) r = clipPoly(r, lin(c.h));
+    return { sa, sb, active, ring: dedupe(r) };
   });
+  for (const seg of segs) {
+    const rg = seg.ring;
+    if (rg.length < 3) continue;
+    // küljed: iga ristlõike serv ribana (u ∈ 0…1, s), lõigatud piirangutega
+    for (let i = 0; i < rg.length; i++) {
+      const [ai, zi] = rg[i]!;
+      const [aj, zj] = rg[(i + 1) % rg.length]!;
+      const da = aj - ai;
+      const dz = zj - zi;
+      if (Math.hypot(da, dz) < 1e-9) continue;
+      let poly: [number, number][] = [[0, seg.sa], [1, seg.sa], [1, seg.sb], [0, seg.sb]];
+      for (const k of cons) poly = clipPoly(poly, ([u, sv]) => g(k, ai + u * da, zi + u * dz, sv));
+      poly = dedupe(poly);
+      if (poly.length < 3) continue;
+      const P3 = poly.map(([u, sv]) => [ai + u * da, zi + u * dz, sv]);
+      const out = [dz * sg, -da * sg, 0];
+      for (let k = 1; k + 1 < P3.length; k++) tri(P3[0]!, P3[k]!, P3[k + 1]!, out);
+    }
+    // lõiketahud: piirangu tasandil, s = s_k(a, z)
+    cons.forEach((k, ki) => {
+      if (Math.abs(k.ks) < 1e-9) return;
+      const sOf = (a: number, z: number) => -(k.ka * a + k.kz * z + k.k0) / k.ks;
+      let poly = rg.slice();
+      poly = clipPoly(poly, ([a, z]) => sOf(a, z) - seg.sa);
+      poly = clipPoly(poly, ([a, z]) => seg.sb - sOf(a, z));
+      cons.forEach((m, mi) => {
+        if (mi !== ki) poly = clipPoly(poly, ([a, z]) => g(m, a, z, sOf(a, z)));
+      });
+      face(poly, sOf, [-k.ka, -k.kz, -k.ks]);
+    });
+  }
+  // sälgu seinad lõikude vahel: suurema ristlõike osa, mis väiksemast puudub
+  for (let i = 0; i + 1 < segs.length; i++) {
+    const L = segs[i]!;
+    const R = segs[i + 1]!;
+    const s = L.sb;
+    for (const [big, small, dir] of [[L, R, 1], [R, L, -1]] as const) {
+      for (const c of small.active) {
+        if (big.active.includes(c)) continue;
+        let poly = big.ring.slice();
+        poly = clipPoly(poly, ([a, z]) => -lin(c.h)([a, z]));
+        for (const k of cons) poly = clipPoly(poly, ([a, z]) => g(k, a, z, s));
+        face(poly, () => s, [0, 0, dir]);
+      }
+    }
+  }
   // otsatahud
-  for (const [s, dir] of [[s0, -1], [s1, 1]] as const) {
-    let poly = ring.slice();
+  for (const [seg, s, dir] of [[segs[0], s0, -1], [segs[segs.length - 1], s1, 1]] as const) {
+    if (!seg) continue;
+    let poly = seg.ring.slice();
     for (const k of cons) poly = clipPoly(poly, ([a, z]) => g(k, a, z, s));
     face(poly, () => s, [0, 0, dir]);
   }

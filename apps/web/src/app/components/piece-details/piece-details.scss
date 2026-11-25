@@ -20,6 +20,7 @@
 
 .card {
   margin: 0;
+  background: var(--mat-sys-surface);
   padding: 8px 10px;
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 10px;
@@ -74,9 +75,14 @@ svg {
   vector-effect: non-scaling-stroke;
 }
 
-/* sälgud ja pilud – välja lõigatud */
-.cut {
-  fill: #fff;
+/* sälgud ja pilud – välja lõigatud: täidis taustavärviga, kontuur lahtine (välisservale joont pole) */
+.cut-fill {
+  fill: var(--mat-sys-surface);
+  stroke: none;
+}
+
+.cut-line {
+  fill: none;
   stroke: #5e4529;
   stroke-width: 1px;
   vector-effect: non-scaling-stroke;
