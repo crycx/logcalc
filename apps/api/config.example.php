@@ -33,7 +33,8 @@ return [
     // Rakenduse aadress e-kirjade linkide jaoks (parooli määramine). Puudumisel päringu Origin / esimene lubatud.
     // 'app_url' => 'https://uuslogcalc.sinpal.ee',
 
-    // E-kirjad (kutse ja uue parooli link): PHP mail(). Puudumisel From: noreply@<rakenduse host>.
+    // E-kirjad (kutse ja uue parooli link): PHP mail(). Puudumisel From: noreply@<rakenduse põhidomeen> (uuslogcalc.sinpal.ee
+    // -> sinpal.ee, mille SPF lubab majutuse serverit). Reply-To on kutse saatnud admin.
     // 'driver' => 'log' kirjutab kirjad faili data/mail.log (arendus), 'off' ei saada (link kuvatakse ainult adminile).
     // 'mail' => ['from' => 'noreply@sinpal.ee', 'from_name' => 'LogCalc'],
 

@@ -141,7 +141,8 @@ final class UsersApi
                 'Kui sa seda ei palunud, võid kirja kustutada – vana parool jääb kehtima.',
             ];
         $subject = $purpose === 'invite' ? 'LogCalc: määra oma parool' : 'LogCalc: uue parooli määramine';
-        $mailed = $this->mailer->send((string) $user['email'], $subject, implode("\n", $lines) . "\n");
+        // Reply-To: kutse saatnud admin (vastus ei lähe noreply aadressile)
+        $mailed = $this->mailer->send((string) $user['email'], $subject, implode("\n", $lines) . "\n", (string) $me['email']);
         $this->auth->log()->record(
             'invite_sent',
             $user['id'],
