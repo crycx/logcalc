@@ -243,7 +243,8 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
     if (floor.terrace && terr.length) {
       add('terrassiLauad', floor.terrace.totalJm, {
         pieces: mergePieces(terr.map((p) => ({ count: p.boardCount, length: p.boardLength }))),
-        profile: `laius ${terr[0]!.boardWidth}`,
+        // Revit Lund: terrassilaud TB 28x120
+        profile: `28x${terr[0]!.boardWidth}`,
       });
     }
   }

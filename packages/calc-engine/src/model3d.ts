@@ -258,7 +258,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
   }
 
   const zMax = Math.max(zTop, ...roofs.flatMap((r) => r.pts.map((p) => p[2])));
-  const members = opts.members === false ? [] : buildMembers(input, result, c, { plan, geo, walls, roofs });
+  const members = opts.members === false ? [] : buildMembers(input, result, c, { plan, geo, walls, roofs, roofZ });
   return { walls, roofs, members, bounds: { x0: bx0 - ov, y0: by0 - ov, z0: 0, x1: bx1 + ov, y1: by1 + ov, z1: zMax } };
 }
 

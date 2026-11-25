@@ -62,7 +62,7 @@ export function buildMembers(
   input: HouseInput,
   result: CalcResult,
   c: EngineConstants,
-  ctx: { plan: HousePlan; geo: WallGeometry[]; walls: Wall3D[]; roofs: RoofPlane3D[] },
+  ctx: { plan: HousePlan; geo: WallGeometry[]; walls: Wall3D[]; roofs: RoofPlane3D[]; roofZ: (x: number, y: number) => number | null },
 ): Member3D[] {
   const out: Member3D[] = [];
   const mark = (key: string, length: number) => materialMark(result.materials, key, length);
@@ -159,14 +159,55 @@ export function buildMembers(
     const sHor = unit([s[0], s[1], 0]);
     const at = (along: number, slope: number, normal: number): Vec3 => sum(p0, mul(a, along), mul(s, slope), mul(n, normal));
 
+    // ühe vaba otsaga osa (tiib orus): lauad vabast viiluotsast oru poole; mõlemad vabad – keskel
+    const fromLo = r.freeEnds[0] && !r.freeEnds[1];
+    const fromHi = !r.freeEnds[0] && r.freeEnds[1];
+    const alongFromFree = (d: number) => (fromHi ? la - d : d);
+    /**
+     * Laua nähtav osa kaldpinnal [s0, s1] (räästast): orus on tiiva laua alumine osa põhikatuse all –
+     * nähtav orujoonest harjani; null = kogu laud teise katuse all
+     */
+    const openSpan = (along: number): [number, number] | null => {
+      const covered = (sl: number) => {
+        const p = at(along, sl, 0);
+        const z = ctx.roofZ(p[0], p[1]);
+        return z !== null && z > p[2] + 3;
+      };
+      const edge = (from: number, to: number) => {
+        // üleminek kaetust katmata (või vastupidi) – poolitamine
+        let lo = from;
+        let hi = to;
+        const c0 = covered(from);
+        for (let k = 0; k < 24; k++) {
+          const mid = (lo + hi) / 2;
+          if (covered(mid) === c0) lo = mid;
+          else hi = mid;
+        }
+        return (lo + hi) / 2;
+      };
+      const bottom = covered(1);
+      const top = covered(ls - 1);
+      if (!bottom && !top) return [0, ls];
+      if (bottom && top) return null;
+      return bottom ? [edge(1, ls - 1), ls] : [0, edge(1, ls - 1)];
+    };
+
     if (rr) {
-      // katuselauad: räästast harjani, kõrvuti piki räästast
+      // katuselauad: räästast harjani, kõrvuti piki räästast; tiival vabast otsast 110 sammuga, orus lõigatud
+      // teise katuse alla (oru lauad = põhiosa laudade jäägid, Revit – eraldi tähiseta)
       const nb = Math.max(1, Math.round(gable ? rr.boardCount / 2 : rr.boardCount));
-      const pitch = la / nb;
+      const oneSided = fromLo || fromHi;
+      const pitch = oneSided ? c.roofBoardWidth : la / nb;
+      const total = oneSided ? Math.max(nb, Math.floor(la / pitch + 1e-9)) : nb;
       const bw = Math.max(1, Math.min(c.roofBoardWidth, pitch) - 1);
       const m = mark('katuseLauad', rr.boardLength);
-      for (let i = 0; i < nb; i++) {
-        out.push({ key: 'katuseLauad', mark: m, layer: 'roof', c: at(pitch * (i + 0.5), ls / 2, ROOF_BOARD_T / 2), u: s, v: a, size: [ls, bw, ROOF_BOARD_T] });
+      for (let i = 0; i < total; i++) {
+        const along = alongFromFree(pitch * (i + 0.5));
+        const span = openSpan(along);
+        if (!span || span[1] - span[0] < 30) continue;
+        const L = span[1] - span[0];
+        const own = i < nb;
+        out.push({ key: own ? 'katuseLauad' : 'katuseLauadOrg', mark: own ? m : '', layer: 'roof', c: at(along, (span[0] + span[1]) / 2, ROOF_BOARD_T / 2), u: s, v: a, size: [L, bw, ROOF_BOARD_T] });
       }
       // vabad viiluotsad: esiräästalaud (RF, püsti laudade otsas) ja papikinnituslaud (EE, laudade peal)
       const eb = rr.edgeBoards;
@@ -185,11 +226,16 @@ export function buildMembers(
       for (const e of r.eaves) {
         const edge = e === 0 ? 0 : ls;
         const inward = e === 0 ? 1 : -1;
+        // tiival vabast otsast (oru poole kuni teise mahu räästani), muidu keskel
+        const eaveAt = (L: number) => (fromLo ? L / 2 : fromHi ? la - L / 2 : la / 2);
+        const eaveLen = (L: number) => (fromLo || fromHi ? Math.min(la, L) : la);
         if (eb.supportSmall.count > 0) {
-          out.push({ key: 'toelaud38', mark: mark('toelaud38', eb.supportSmall.pieceLength), layer: 'roof', c: at(la / 2, edge + (inward * st) / 2, -st / 2), u: a, v: s, size: [la, st, st] });
+          const L = eb.supportSmall.pieceLength;
+          out.push({ key: 'toelaud38', mark: mark('toelaud38', L), layer: 'roof', c: at(eaveAt(eaveLen(L)), edge + (inward * st) / 2, -st / 2), u: a, v: s, size: [eaveLen(L), st, st] });
         }
         if (eb.supportLarge.count > 0) {
-          out.push({ key: 'toelaud95', mark: mark('toelaud95', eb.supportLarge.pieceLength), layer: 'roof', c: at(la / 2, edge - (inward * lt) / 2, ROOF_BOARD_T - lw / 2), u: a, v: n, size: [la, lw, lt] });
+          const L = eb.supportLarge.pieceLength;
+          out.push({ key: 'toelaud95', mark: mark('toelaud95', L), layer: 'roof', c: at(eaveAt(eaveLen(L)), edge - (inward * lt) / 2, ROOF_BOARD_T - lw / 2), u: a, v: n, size: [eaveLen(L), lw, lt] });
         }
         // ühekalle: esiräästalaud räästas (laudade otsas püsti)
         if (eb.fasciaEave && eb.fasciaEave.count > 0) {
