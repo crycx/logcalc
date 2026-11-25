@@ -292,7 +292,7 @@
             />
           } @else if (view() === '3d') {
             @if (model3d(); as m) {
-              <app-house-3d [model]="m" />
+              <app-house-3d [model]="m" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
             }
           } @else {
             <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" />
@@ -364,7 +364,7 @@
               </mat-tab>
             }
             <mat-tab label="Lõikenimekiri">
-              <app-cut-list [walls]="r.cutList" />
+              <app-cut-list [walls]="r.cutList" [selected]="activeMark()" [linked]="view() === '3d'" (select)="pieceMark.set($event)" />
             </mat-tab>
           </mat-tab-group>
         </div>

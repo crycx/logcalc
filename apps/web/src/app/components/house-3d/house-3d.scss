@@ -18,6 +18,15 @@
   flex: 1;
 }
 
+.sel {
+  flex: 1;
+  font: var(--mat-sys-body-medium);
+
+  b {
+    color: #c25a00;
+  }
+}
+
 .reset {
   font: var(--mat-sys-label-large);
   color: var(--mat-sys-primary);

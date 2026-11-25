@@ -172,3 +172,15 @@ describe('3D: ühekalle (Annika I 28) – külgseina kolmnurk kõrgema esiseina 
     for (const p of tri) expect(roofAt(p.x1)).toBeGreaterThan(p.y0);
   });
 });
+
+describe('3D: tükkide tähised lõikenimekirjast', () => {
+  it('iga tüki tähis on lõikenimekirjas ja tähise tükkide arv = kogus', () => {
+    const r = calculateHouse(base);
+    const m = houseModel3d(base, r, C);
+    for (const w of m.walls) {
+      expect(w.marks.length).toBe(w.pieces.length);
+      const cl = r.cutList.find((c) => c.wall === w.id)!;
+      for (const p of cl.pieces) expect(w.marks.filter((k) => k === p.mark).length).toBe(p.count);
+    }
+  });
+});

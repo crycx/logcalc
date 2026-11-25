@@ -135,6 +135,13 @@ export class CalculatorPage {
 
   protected readonly priceKeys = PRICE_KEYS;
   protected readonly view = signal<DrawingView | 'plan' | '3d'>('overview');
+  /** lõikenimekirja ja 3D vaate ühine valik: palgi tähis (nt "1LG-3") */
+  protected readonly pieceMark = signal<string | null>(null);
+  /** valitud tähis, kui see on veel lõikenimekirjas (maja muutmisel võib kaduda) */
+  protected readonly activeMark = computed(() => {
+    const m = this.pieceMark();
+    return m && this.result()?.cutList.some((w) => w.pieces.some((p) => p.mark === m)) ? m : null;
+  });
 
   protected readonly form = buildHouseForm(this.fb, DEMO);
 

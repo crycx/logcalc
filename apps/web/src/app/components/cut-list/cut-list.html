@@ -2,6 +2,11 @@
   Kokku <b>{{ pieceCount() }} tk</b>, <b>{{ total() | number: '1.2-2' }} jm</b>.
   BL = pool palki, LG = palk, TL = ülemine pikem palk, * = viilu-/kolmnurga palk.
   <span class="muted">Sälk = nurgaliite sälk palgi otsas.</span>
+  @if (linked()) {
+    &nbsp;<span class="muted">Klõpsa real – tükid tõstetakse 3D vaates esile.</span>
+  } @else {
+    &nbsp;<span class="muted">Ava 3D vaade ja klõpsa real – näed, kus tükid on.</span>
+  }
 </p>
 <div class="walls">
   @for (w of walls(); track w.wall) {
@@ -16,7 +21,18 @@
         </thead>
         <tbody>
           @for (p of w.pieces; track p.mark) {
-            <tr [class.gable]="p.kind === 'gable'" [class.top]="p.kind === 'top'" [class.half]="p.kind === 'half'">
+            <tr
+              [class.gable]="p.kind === 'gable'"
+              [class.top]="p.kind === 'top'"
+              [class.half]="p.kind === 'half'"
+              [class.sel]="selected() === p.mark"
+              [attr.data-mark]="p.mark"
+              [attr.aria-selected]="selected() === p.mark"
+              tabindex="0"
+              (click)="toggle(p.mark)"
+              (keydown.enter)="toggle(p.mark)"
+              (keydown.space)="$event.preventDefault(); toggle(p.mark)"
+            >
               <td class="mark">{{ p.mark }}</td>
               <td>{{ p.profile }}</td>
               <td class="num">{{ p.count }}</td>

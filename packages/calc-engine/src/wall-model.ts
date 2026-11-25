@@ -101,6 +101,8 @@ export interface WallCutList {
   totalJm: number;
   /** tükid, mis on pikemad kui max palk ja mida ei saanud vaheseina kohalt jätkata */
   overLength: number;
+  /** iga wallPieces() tüki tähis (samas järjekorras) – 3D/joonise esiletõstmiseks */
+  pieceMarks: string[];
 }
 
 const EPS = 0.5; // mm
@@ -547,11 +549,13 @@ export function wallCutList(
   const max = opts.maxLogLength ?? Infinity;
   const groups = new Map<string, Omit<CutPiece, 'mark'>>();
   let overLength = 0;
+  const keys: string[] = [];
   for (const piece of wallPieces(wall, opts)) {
     const length = Math.round(piece.x1 - piece.x0);
     if (length > max + EPS) overLength++;
     const profile = `${t}x${Math.round(piece.y1 - piece.y0)}`;
     const key = `${piece.kind}|${profile}|${length}|${piece.notches}`;
+    keys.push(key);
     const g = groups.get(key);
     if (g) g.count++;
     else groups.set(key, { profile, count: 1, length, kind: piece.kind, notches: piece.notches });
@@ -559,15 +563,18 @@ export function wallCutList(
 
   // tähised nagu Revitis: BL (pool palki), LG (palgid pikkuse järgi), TL (ülemine pikem palk); viil "*"
   const order = (k: CutPiece['kind']) => (k === 'half' ? 0 : k === 'top' ? 2 : 1);
-  const sorted = [...groups.values()].sort((a, b) => order(a.kind) - order(b.kind) || a.length - b.length || Number(a.kind === 'gable') - Number(b.kind === 'gable'));
+  const sorted = [...groups.entries()].map(([key, g]) => ({ ...g, key })).sort((a, b) => order(a.kind) - order(b.kind) || a.length - b.length || Number(a.kind === 'gable') - Number(b.kind === 'gable'));
   const counters = { BL: 0, LG: 0, TL: 0 };
-  const pieces: CutPiece[] = sorted.map((g) => {
+  const markOf = new Map<string, string>();
+  const pieces: CutPiece[] = sorted.map(({ key, ...g }) => {
     const prefix = g.kind === 'half' ? 'BL' : g.kind === 'top' ? 'TL' : 'LG';
     counters[prefix]++;
-    return { ...g, mark: `${wall.id}${prefix}-${counters[prefix]}${g.kind === 'gable' ? '*' : ''}` };
+    const mark = `${wall.id}${prefix}-${counters[prefix]}${g.kind === 'gable' ? '*' : ''}`;
+    markOf.set(key, mark);
+    return { ...g, mark };
   });
   const totalJm = pieces.reduce((s, x) => s + (x.count * x.length) / 1000, 0);
-  return { wall: wall.id, pieces, totalJm, overLength };
+  return { wall: wall.id, pieces, totalJm, overLength, pieceMarks: keys.map((k) => markOf.get(k)!) };
 }
 
 /**

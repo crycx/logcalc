@@ -70,6 +70,30 @@ table {
     font-variant-numeric: tabular-nums;
   }
 
+  tbody tr {
+    cursor: pointer;
+
+    &:hover td {
+      background: var(--mat-sys-surface-container-high);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: -2px;
+    }
+  }
+
+  /* valitud = sama oranž mis 3D esiletõstmisel (rakendus on hele) */
+  tbody tr.sel td {
+    background: #ffd9b8;
+    color: #5a2a00;
+    font-weight: 600;
+  }
+
+  tbody tr.sel td:first-child {
+    box-shadow: inset 3px 0 0 #ff7a1a;
+  }
+
   tr.half td {
     background: var(--mat-sys-surface-container);
   }

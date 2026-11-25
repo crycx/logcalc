@@ -26,7 +26,8 @@ export interface Wall3D {
   length: number;
   /** palgitükid seina koordinaatides (x = piki seina, y = kõrgus) */
   pieces: PlacedPiece[];
-  /** uksed ja aknad seina koordinaatides */
+  /** tükkide tähised lõikenimekirjast (pieces järjekorras), nt "1LG-3" */
+  marks: string[];
   /** avad; uksel tiivad (1/2) ja hingede pool (seina alguse/lõpu pool) */
   openings: { x0: number; x1: number; z0: number; z1: number; kind: 'door' | 'window'; leaves?: 1 | 2; hinge?: 'start' | 'end' }[];
   /**
@@ -76,6 +77,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       thickness: t,
       length: spec.length,
       pieces: wallPieces(spec, { maxLogLength: c.maxLogLength }),
+      marks: result.cutList.find((cl) => cl.wall === spec.id)?.pieceMarks ?? [],
       openings: spec.openings.map((o) => ({
         x0: o.offset,
         x1: o.offset + o.width,

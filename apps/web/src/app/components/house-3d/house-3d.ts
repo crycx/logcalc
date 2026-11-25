@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, effect, inject, input, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import type { HouseModel3D, Wall3D } from '@logcalc/calc-engine';
@@ -24,6 +24,11 @@ const ROOF_T = 30;
 })
 export class House3d {
   readonly model = input.required<HouseModel3D>();
+  /** esiletõstetud tähis (lõikenimekirjast), nt "1LG-3"; null = kõik tavalised */
+  readonly highlight = input<string | null>(null);
+  /** klõps palgil: selle tähis (sama uuesti / tühi koht = null) */
+  readonly pick = output<string | null>();
+  protected readonly highlightCount = signal(0);
 
   protected readonly showRoof = signal(true);
   protected readonly loading = signal(true);
@@ -39,12 +44,22 @@ export class House3d {
   private roof: THREE_NS.Group | null = null;
   private fitted = false;
   private resize: ResizeObserver | null = null;
+  /** palgitükkide võrgud tähisega (esiletõstmine, klõpsuga valik) */
+  private pieces: { mesh: THREE_NS.Mesh; edges: THREE_NS.LineSegments; mark: string; base: THREE_NS.Material }[] = [];
+  private hiMat: THREE_NS.Material | null = null;
+  private dimMat: THREE_NS.Material | null = null;
+  private roofMat: THREE_NS.MeshStandardMaterial | null = null;
+  private down: { x: number; y: number } | null = null;
 
   constructor() {
     afterNextRender(() => void this.init());
     effect(() => {
       const m = this.model();
       if (this.three) this.build(m);
+    });
+    effect(() => {
+      const h = this.highlight();
+      this.applyHighlight(h);
     });
     effect(() => {
       const on = this.showRoof();
@@ -81,6 +96,16 @@ export class House3d {
       controls.maxPolarAngle = Math.PI * 0.495;
       controls.addEventListener('change', () => this.render());
       this.controls = controls;
+      // klõps (mitte lohistamine) palgil -> tähis
+      renderer.domElement.addEventListener('pointerdown', (e) => (this.down = { x: e.clientX, y: e.clientY }));
+      renderer.domElement.addEventListener('pointerup', (e) => {
+        const d = this.down;
+        this.down = null;
+        if (e.button !== 0 || !d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return;
+        this.onClick(e);
+      });
+      this.hiMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0x7a2e00, roughness: 0.6 });
+      this.dimMat = new THREE.MeshStandardMaterial({ color: 0xd9b27a, roughness: 0.9, transparent: true, opacity: 0.14, depthWrite: false });
 
       this.resize = new ResizeObserver(() => this.onResize());
       this.resize.observe(el);
@@ -120,6 +145,7 @@ export class House3d {
     }
     const house = new THREE.Group();
     const roofGroup = new THREE.Group();
+    this.pieces = [];
 
     const mat = {
       log: new THREE.MeshStandardMaterial({ color: 0xd9b27a, roughness: 0.85 }),
@@ -130,7 +156,7 @@ export class House3d {
       panel: new THREE.MeshStandardMaterial({ color: 0x6a4729, roughness: 0.75 }),
       handle: new THREE.MeshStandardMaterial({ color: 0x2f2a24, roughness: 0.35, metalness: 0.6 }),
       frame: new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: 0.6 }),
-      roof: new THREE.MeshStandardMaterial({ color: 0x5b6470, roughness: 0.9, side: THREE.DoubleSide }),
+      roof: new THREE.MeshStandardMaterial({ color: 0x5b6470, roughness: 0.9, side: THREE.DoubleSide, transparent: true, opacity: 1 }),
       ground: new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 1 }),
     };
     const edgeMat = new THREE.LineBasicMaterial({ color: 0x8a6a3c, transparent: true, opacity: 0.45 });
@@ -169,6 +195,8 @@ export class House3d {
     scene.add(house, roofGroup);
     this.house = house;
     this.roof = roofGroup;
+    this.roofMat = mat.roof;
+    this.applyHighlight(this.highlight(), false);
 
     if (!this.fitted) {
       this.fit(m);
@@ -199,13 +227,14 @@ export class House3d {
     };
     const roofAt = w.roofLine ? roofAtFn(w.roofLine) : () => Infinity;
 
-    for (const p of w.pieces) {
+    w.pieces.forEach((p, i) => {
+      const mark = w.marks[i] ?? '';
       const material = p.kind === 'half' ? mat.half : p.kind === 'gable' ? mat.gable : mat.log;
       let geo: THREE_NS.BufferGeometry;
       // räästa lõik (mitte viilupalk): ristlõike faas; muidu katusejoon piki seina
       const rc = p.kind === 'gable' ? undefined : w.roofCross.find((s) => Math.min(p.x1, s.x1) - Math.max(p.x0, s.x0) > 1);
       const cut = !rc && w.roofLine ? underRoof(p, w.roofLine, roofAt) : null;
-      if (cut === 'none') continue;
+      if (cut === 'none') return;
       if (cut) {
         // palk katusejoone all: otsad kaldu (viilupalgid, viilu täisrea otsad nurkades)
         const shape = new THREE.Shape();
@@ -233,7 +262,8 @@ export class House3d {
           o.position.add(origin);
           group.add(o);
         }
-        continue;
+        this.pieces.push({ mesh, edges, mark, base: material });
+        return;
       } else {
         geo = new THREE.BoxGeometry(p.x1 - p.x0, p.y1 - p.y0, t);
         geo.translate((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, 0);
@@ -244,7 +274,8 @@ export class House3d {
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
       place(edges, 0, 0, 0);
       group.add(edges);
-    }
+      this.pieces.push({ mesh, edges, mark, base: material });
+    });
 
     /** kast seina koordinaatides: x, z (kõrgus) vahemikud, s = keskkoht risti seinaga, d = paksus */
     const box = (x0: number, x1: number, z0: number, z1: number, s: number, d: number, m: THREE_NS.Material, edges = false) => {
@@ -300,6 +331,40 @@ export class House3d {
         }
       }
     }
+  }
+
+  /** Esiletõstmine: valitud tähisega tükid oranžid, ülejäänud läbipaistvad, katus peaaegu nähtamatu */
+  private applyHighlight(mark: string | null, render = true): void {
+    if (!this.hiMat || !this.dimMat) return;
+    let n = 0;
+    for (const p of this.pieces) {
+      const hit = !!mark && p.mark === mark;
+      if (hit) n++;
+      p.mesh.material = !mark ? p.base : hit ? this.hiMat : this.dimMat;
+      p.edges.visible = !mark || hit;
+    }
+    if (this.roofMat) {
+      this.roofMat.opacity = mark ? 0.12 : 1;
+      this.roofMat.depthWrite = !mark;
+    }
+    this.highlightCount.set(n);
+    if (render) this.render();
+  }
+
+  /** Klõps: lähim palgitükk kiirel -> tähis (sama tähis uuesti või tühi koht -> tühista) */
+  private onClick(e: PointerEvent): void {
+    const THREE = this.three;
+    if (!THREE || !this.camera || !this.renderer) return;
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    const cur = this.highlight();
+    // esiletõstmise ajal on läbipaistvad tükid ka klõpsatavad (valitud tükid eelistatud)
+    const hits = ray.intersectObjects(this.pieces.map((p) => p.mesh), false);
+    const hit = hits.find((h) => !cur || this.pieces.find((p) => p.mesh === h.object)?.mark === cur) ?? hits[0];
+    const mark = hit ? (this.pieces.find((p) => p.mesh === hit.object)?.mark ?? null) : null;
+    this.pick.emit(mark && mark !== cur ? mark : null);
   }
 
   /** Kaamera eest-vasakult ülevalt, kogu maja kaadris */
