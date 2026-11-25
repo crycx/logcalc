@@ -234,6 +234,10 @@ export class Api {
   async tenants(): Promise<TenantSummary[]> {
     return (await firstValueFrom(this.http.get<{ tenants: TenantSummary[] }>('/api/tenants'))).tenants;
   }
+  /** uus ettevõte (superadmin); slug = sisemine lühinimi (alamdomeeni pole vaja) */
+  async createTenant(name: string, slug: string): Promise<Tenant> {
+    return (await firstValueFrom(this.http.post<{ tenant: Tenant }>('/api/tenants', { name, slug }))).tenant;
+  }
 
   async tenant(): Promise<Tenant> {
     return (await firstValueFrom(this.http.get<{ tenant: Tenant }>('/api/tenant'))).tenant;

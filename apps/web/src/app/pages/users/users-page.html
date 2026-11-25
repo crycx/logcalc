@@ -31,6 +31,11 @@
         </mat-form-field>
         <mat-slide-toggle [checked]="showInactive()" (change)="showInactive.set($event.checked)">Näita välja lülitatuid</mat-slide-toggle>
         <span class="spacer"></span>
+        @if (session.isSuperadmin()) {
+          <button mat-stroked-button (click)="addCompany()" matTooltip="Uus ettevõte oma hindade, kataloogi ja kasutajatega (ettevõte tuleb kasutaja järgi, alamdomeeni pole vaja)">
+            <mat-icon>domain_add</mat-icon> Lisa ettevõte
+          </button>
+        }
         <button mat-flat-button (click)="addUser()"><mat-icon>person_add</mat-icon> Lisa kasutaja</button>
       </section>
 

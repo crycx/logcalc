@@ -22,6 +22,8 @@ export interface UserDialogData {
   /** superadmin: kliendid, kuhu kasutaja luua */
   tenants?: TenantSummary[];
   defaultTenantId?: number;
+  /** uue kasutaja vaikimisi roll (uue ettevõtte esimene kasutaja: admin) */
+  defaultRole?: Role;
 }
 
 /** Dialoogi tulemus: salvestatud kasutaja; uuel kutsega kasutajal ka link */
@@ -62,7 +64,7 @@ export class UserDialog {
 
   protected email = this.data.user?.email ?? '';
   protected name = this.data.user?.name ?? '';
-  protected role: Role = this.data.user?.role ?? 'user';
+  protected role: Role = this.data.user?.role ?? this.data.defaultRole ?? 'user';
   protected tenantId = this.data.user?.tenant.id ?? this.data.defaultTenantId ?? this.data.tenants?.[0]?.id ?? 0;
   protected password = this.isNew ? generatePassword() : '';
   /** uus kasutaja: 'link' – e-postiga link parooli määramiseks (vaikimisi), 'password' – admin annab algse parooli */

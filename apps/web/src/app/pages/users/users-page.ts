@@ -17,12 +17,14 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Api, Session, type AuthEvent, type AuthEventFilter, type ManagedUser, type Role, type TenantSummary } from '../../core/api';
 import { AccountDialog } from '../../dialogs/account-dialog/account-dialog';
 import { confirmDialog } from '../../dialogs/confirm-dialog/confirm-dialog';
 import { PasswordDialog } from '../../dialogs/password-dialog/password-dialog';
 import { InviteDialog, type InviteDialogData } from '../../dialogs/invite-dialog/invite-dialog';
+import { NameDialog, type NameDialogData } from '../../dialogs/name-dialog/name-dialog';
 import { UserDialog, type UserDialogData, type UserDialogResult } from '../../dialogs/user-dialog/user-dialog';
 import { AUTH_EVENT_INFO, ROLE_LABELS } from '../../helpers/auth-events';
 import { serverDate } from '../../helpers/date';
@@ -164,10 +166,40 @@ export class UsersPage {
     this.users.update((list) => list.map((x) => (x.id === u.id ? u : x)));
   }
 
-  protected async addUser(): Promise<void> {
+  /**
+   * Uus ettevõte (superadmin): oma hinnad, kataloog ja kasutajad; ettevõte tuleb kasutaja järgi (alamdomeeni pole
+   * vaja). Kohe järel esimese kasutaja (admin) lisamine sellesse ettevõttesse.
+   */
+  protected async addCompany(): Promise<void> {
+    const name = await firstValueFrom(
+      this.dialog.open<NameDialog, NameDialogData, string>(NameDialog, { data: { title: 'Uus ettevõte', name: '', action: 'Lisa ettevõte' }, width: '420px' }).afterClosed(),
+    );
+    if (!name) return;
+    const base = slugify(name) || 'ettevote';
+    try {
+      let tenant = null;
+      for (let i = 1; !tenant && i <= 20; i++) {
+        try {
+          tenant = await this.api.createTenant(name, i === 1 ? base : `${base}-${i}`);
+        } catch (e) {
+          // sama lühinimi olemas -> järgmine number
+          if (!(e instanceof HttpErrorResponse && e.status === 409)) throw e;
+        }
+      }
+      if (!tenant) throw new Error('Lühinime ei leitud.');
+      this.tenants = [...this.tenants, { id: tenant.id, slug: tenant.slug, name: tenant.name, users: 0 }];
+      this.snack.open(`Ettevõte „${tenant.name}“ on lisatud. Lisa sellele esimene kasutaja (admin).`, undefined, { duration: 4000 });
+      await this.addUser(tenant.id);
+    } catch (e) {
+      this.snack.open(apiError(e), 'OK', { duration: 6000 });
+    }
+  }
+
+  protected async addUser(tenantId?: number): Promise<void> {
     const data: UserDialogData = {
       roles: this.roles(),
-      ...(this.session.isSuperadmin() && this.tenants.length > 1 ? { tenants: this.tenants, defaultTenantId: this.session.user()?.tenant.id } : {}),
+      ...(this.session.isSuperadmin() && this.tenants.length > 1 ? { tenants: this.tenants, defaultTenantId: tenantId ?? this.session.user()?.tenant.id } : {}),
+      ...(tenantId ? { defaultRole: 'admin' as Role } : {}),
     };
     const r: UserDialogResult | undefined = await firstValueFrom(this.dialog.open(UserDialog, { data, width: '520px', maxWidth: '94vw' }).afterClosed());
     if (!r) return;
@@ -256,4 +288,15 @@ export class UsersPage {
     await this.router.navigateByUrl('/');
     this.snack.open('Oled välja logitud.', undefined, { duration: 2500 });
   }
+}
+
+/** Ettevõtte nimest lühinimi (a-z, 0-9, sidekriips): „Sinpal OÜ“ -> „sinpal-ou“ */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50);
 }
