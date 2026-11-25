@@ -310,34 +310,27 @@ export class House3d {
     };
     /** profiiliga palk: keskosa ristlõike pressimisena, otsad seina tasandi kujuna (kaldlõiked) läbi paksuse */
     /**
-     * Profiiliga palk: keskosa ristlõike pressimisena; otsad sama ristlõikega (laius ei muutu), ainult pikkuse suunas
-     * üla- ja alanurk kaldu (seina otsas ~15 mm) või alumine nurk 45° (varikatus) – ristlõige läheb otsa poole
-     * sujuvalt lõigatud ristlõikeks (punnid/sooned kaovad faasi sees).
+     * Profiiliga palk ühe kehana: ristlõige (kaldlõige, faasid, punnid, sooned) kogu pikkuses, otstes lõikavad
+     * kaldtasandid (pikkuse suunas): seina otsas üla- ja alanurk ~15 mm (V ridade vahel), varikatusel alumine nurk
+     * 45°. Punnid ja sooned lõigatakse tasandiga puhtalt läbi; keskosa ja otsa vahel pole joont.
      */
     const profiled = (p: Wall3D['pieces'][number], mark: string, material: THREE_NS.Material, ring: [number, number][], topAt: (a: number) => number) => {
       const h = p.y1 - p.y0;
       const c = Math.min(15, h * 0.13);
       const d = h * 0.43;
-      const mid = (p.y0 + p.y1) / 2;
-      const ends = [endOf(p, true), endOf(p, false)] as const;
-      const len = (e: End) => (e === 'log' ? c : e === 'ext' ? d : 0);
-      const bx0 = p.x0 + len(ends[0]);
-      const bx1 = p.x1 - len(ends[1]);
-      if (bx1 - bx0 > 1) {
-        const geo = new THREE.ExtrudeGeometry(shapeOf(THREE, ring), { depth: bx1 - bx0, bevelEnabled: false });
-        geo.translate(0, 0, bx0);
-        add(geo, material, mark, true);
-      }
-      ends.forEach((e, k) => {
-        if (e === 'plain') return;
-        // otsa ristlõige: seina otsas üla- ja alaserv c võrra sisse, varikatusel alumine osa d võrra üles
-        const endRing: [number, number][] = ring.map(([a, z]) =>
-          e === 'log' ? [a, z > mid ? Math.max(mid, Math.min(z, topAt(a) - c)) : Math.min(mid, Math.max(z, p.y0 + c))] : [a, Math.max(z, p.y0 + d)],
-        );
-        const sFull = k === 0 ? bx0 : bx1;
-        const sEnd = k === 0 ? p.x0 : p.x1;
-        add(loft(THREE, ring, endRing, sFull, sEnd), material, mark, true);
+      const T0 = (topAt(-t / 2) + topAt(t / 2)) / 2;
+      const T1 = (topAt(t / 2) - topAt(-t / 2)) / t;
+      const cons: Cons[] = [];
+      ([[endOf(p, true), p.x0, 1], [endOf(p, false), p.x1, -1]] as const).forEach(([e, x, dir]) => {
+        // kohalik s = dir × (S − x) ≥ 0 otsast sisse; g = ka·a + kz·z + ks·S + k0 ≥ 0
+        if (e === 'log') {
+          cons.push({ ka: T1, kz: -1, ks: dir, k0: T0 - c - dir * x }); // z ≤ T(a) − c + s
+          cons.push({ ka: 0, kz: 1, ks: dir, k0: -(p.y0 + c) - dir * x }); // z ≥ y0 + c − s
+        } else if (e === 'ext') {
+          cons.push({ ka: 0, kz: 1, ks: dir, k0: -(p.y0 + d) - dir * x }); // z ≥ y0 + d − s
+        }
       });
+      add(logSolid(THREE, ring, p.x0, p.x1, cons), material, mark, true);
     };
 
     w.pieces.forEach((p, i) => {
@@ -543,58 +536,97 @@ function logProfile(
   return pts;
 }
 
+/** Lineaarne piirang g = ka·a + kz·z + ks·s + k0 ≥ 0 (a, z ristlõikes, s piki palki) */
+interface Cons {
+  ka: number;
+  kz: number;
+  ks: number;
+  k0: number;
+}
+
+/** Hulknurga lõikamine sirgega: jääb f ≥ 0 (f lineaarne) – Sutherland–Hodgman */
+function clipPoly(poly: [number, number][], f: (p: [number, number]) => number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const P = poly[i]!;
+    const Q = poly[(i + 1) % poly.length]!;
+    const fp = f(P);
+    const fq = f(Q);
+    if (fp >= 0) out.push(P);
+    if ((fp >= 0) !== (fq >= 0)) {
+      const k = fp / (fp - fq);
+      out.push([P[0] + k * (Q[0] - P[0]), P[1] + k * (Q[1] - P[1])]);
+    }
+  }
+  return out;
+}
+
 /**
- * Üleminek kahe sama tipuarvuga ristlõike vahel (a, z) pikkuse s suunas: küljed + otsatahk (sEnd). Ristlõike
- * koordinaadistik nagu ExtrudeGeometry (x = a, y = z, z = s) – paigutus crossBasis'ega.
+ * Prisma: ristlõige `ring` (a, z) pressitud s0 … s1, lõigatud piirangutega (pooltasandid). Küljed, lõiketahud ja
+ * otsatahud ühe geomeetriana (koordinaadid nagu ExtrudeGeometry: x = a, y = z, z = s – paigutus crossBasis'ega).
  */
-function loft(THREE: Three, full: [number, number][], end: [number, number][], sFull: number, sEnd: number): THREE_NS.BufferGeometry {
+function logSolid(THREE: Three, ring: [number, number][], s0: number, s1: number, cons: Cons[]): THREE_NS.BufferGeometry {
   const pos: number[] = [];
-  const n = full.length;
-  // ristlõike suund (vastupäeva > 0): serva i -> j välisnormaal = (dz, −da) × märk
+  const n = ring.length;
   let area = 0;
-  for (let i = 0; i < n; i++) {
-    const [x0, y0] = full[i]!;
-    const [x1, y1] = full[(i + 1) % n]!;
-    area += x0 * y1 - x1 * y0;
-  }
+  for (let i = 0; i < n; i++) area += ring[i]![0] * ring[(i + 1) % n]![1] - ring[(i + 1) % n]![0] * ring[i]![1];
   const sg = Math.sign(area) || 1;
-  const tri = (p: number[], q: number[], r: number[], out?: [number, number, number]) => {
-    // suuna kontroll: normaal välja (out) – vajadusel vahetus
-    if (out) {
-      const ux = q[0]! - p[0]!, uy = q[1]! - p[1]!, uz = q[2]! - p[2]!;
-      const vx = r[0]! - p[0]!, vy = r[1]! - p[1]!, vz = r[2]! - p[2]!;
-      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-      if (nx * out[0] + ny * out[1] + nz * out[2] < 0) [q, r] = [r, q];
-    }
-    pos.push(...p, ...q, ...r);
+  const g = (k: Cons, a: number, z: number, s: number) => k.ka * a + k.kz * z + k.ks * s + k.k0;
+  const tri = (P: number[], Q: number[], R: number[], out: number[]) => {
+    const ux = Q[0]! - P[0]!, uy = Q[1]! - P[1]!, uz = Q[2]! - P[2]!;
+    const vx = R[0]! - P[0]!, vy = R[1]! - P[1]!, vz = R[2]! - P[2]!;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    if (Math.hypot(nx, ny, nz) < 1e-9) return;
+    if (nx * out[0]! + ny * out[1]! + nz * out[2]! < 0) [Q, R] = [R, Q];
+    pos.push(...P, ...Q, ...R);
   };
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    const a = [full[i]![0], full[i]![1], sFull];
-    const b = [full[j]![0], full[j]![1], sFull];
-    const c = [end[j]![0], end[j]![1], sEnd];
-    const d = [end[i]![0], end[i]![1], sEnd];
-    // serva välisnormaal (täisprofiilist; kui serv on null-pikkusega, otsaprofiilist)
-    let da = full[j]![0] - full[i]![0];
-    let dz = full[j]![1] - full[i]![1];
-    if (Math.hypot(da, dz) < 1e-6) {
-      da = end[j]![0] - end[i]![0];
-      dz = end[j]![1] - end[i]![1];
+  const dedupe = (poly: [number, number][]) =>
+    poly.filter((p, i) => {
+      const q = poly[(i + poly.length - 1) % poly.length]!;
+      return Math.abs(p[0] - q[0]) > 1e-6 || Math.abs(p[1] - q[1]) > 1e-6;
+    });
+  /** tasapinnaline tahk: hulknurk (a, z) -> kolmnurgad, s = sOf(a, z) */
+  const face = (poly: [number, number][], sOf: (a: number, z: number) => number, out: number[]) => {
+    const pts = dedupe(poly);
+    if (pts.length < 3) return;
+    const faces = THREE.ShapeUtils.triangulateShape(pts.map(([x, y]) => new THREE.Vector2(x, y)), []);
+    for (const [i, j, k] of faces) {
+      const P = pts[i]!, Q = pts[j]!, R = pts[k]!;
+      tri([P[0], P[1], sOf(P[0], P[1])], [Q[0], Q[1], sOf(Q[0], Q[1])], [R[0], R[1], sOf(R[0], R[1])], out);
     }
-    const out: [number, number, number] = [dz * sg, -da * sg, 0];
-    tri(a, b, c, out);
-    tri(a, c, d, out);
+  };
+  // küljed: iga ristlõike serv ribana (u ∈ 0…1, s), lõigatud piirangutega
+  for (let i = 0; i < n; i++) {
+    const [ai, zi] = ring[i]!;
+    const [aj, zj] = ring[(i + 1) % n]!;
+    const da = aj - ai;
+    const dz = zj - zi;
+    if (Math.hypot(da, dz) < 1e-9) continue;
+    let poly: [number, number][] = [[0, s0], [1, s0], [1, s1], [0, s1]];
+    for (const k of cons) poly = clipPoly(poly, ([u, s]) => g(k, ai + u * da, zi + u * dz, s));
+    poly = dedupe(poly);
+    if (poly.length < 3) continue;
+    const P3 = poly.map(([u, s]) => [ai + u * da, zi + u * dz, s]);
+    const out = [dz * sg, -da * sg, 0];
+    for (let k = 1; k + 1 < P3.length; k++) tri(P3[0]!, P3[k]!, P3[k + 1]!, out);
   }
-  // otsatahk: kordused välja, kolmnurgad
-  const cap = end.filter((p, i) => {
-    const q = end[(i + end.length - 1) % end.length]!;
-    return Math.abs(p[0] - q[0]) > 1e-6 || Math.abs(p[1] - q[1]) > 1e-6;
+  // lõiketahud: piirangu tasandil, s = s_k(a, z)
+  cons.forEach((k, ki) => {
+    if (Math.abs(k.ks) < 1e-9) return;
+    const sOf = (a: number, z: number) => -(k.ka * a + k.kz * z + k.k0) / k.ks;
+    let poly = ring.slice();
+    poly = clipPoly(poly, ([a, z]) => sOf(a, z) - s0);
+    poly = clipPoly(poly, ([a, z]) => s1 - sOf(a, z));
+    cons.forEach((m, mi) => {
+      if (mi !== ki) poly = clipPoly(poly, ([a, z]) => g(m, a, z, sOf(a, z)));
+    });
+    face(poly, sOf, [-k.ka, -k.kz, -k.ks]);
   });
-  const v2 = cap.map(([x, y]) => new THREE.Vector2(x, y));
-  const faces = THREE.ShapeUtils.triangulateShape(v2, []);
-  const dir = Math.sign(sEnd - sFull) || 1;
-  for (const [i, j, k] of faces) {
-    tri([cap[i]![0], cap[i]![1], sEnd], [cap[j]![0], cap[j]![1], sEnd], [cap[k]![0], cap[k]![1], sEnd], [0, 0, dir]);
+  // otsatahud
+  for (const [s, dir] of [[s0, -1], [s1, 1]] as const) {
+    let poly = ring.slice();
+    for (const k of cons) poly = clipPoly(poly, ([a, z]) => g(k, a, z, s));
+    face(poly, () => s, [0, 0, dir]);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
