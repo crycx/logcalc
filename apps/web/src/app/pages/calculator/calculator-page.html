@@ -290,6 +290,18 @@
               <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
             </button>
           </div>
+          @if (activeMark(); as mk) {
+            @if (view() === 'walls' || view() === '3d' || view() === 'details') {
+              <app-piece-info
+                [mark]="mk"
+                [result]="r"
+                [model]="model3d()"
+                [showDetails]="view() !== 'details' && !readonly()"
+                (clear)="pieceMark.set(null)"
+                (details)="view.set('details')"
+              />
+            }
+          }
           @if (view() === 'plan') {
             <app-plan-editor
               [plan]="formValue().plan"
@@ -312,7 +324,24 @@
               <app-house-3d [model]="m" [highlight]="activeMark()" [fill]="fullscreen()" (pick)="pieceMark.set($event)" />
             }
           } @else {
-            <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" [highlight]="activeMark()" [fill]="fullscreen()" (pick)="pieceMark.set($event)" />
+            <div class="split" [class.on]="split()">
+              <app-house-drawing
+                [v]="houseValue()"
+                [r]="r"
+                [view]="$any(view())"
+                [model]="model3d()"
+                [highlight]="activeMark()"
+                [fill]="fullscreen()"
+                [focusWall]="split() ? markWall() : wallFocus()"
+                (focusWallChange)="focusWall($event)"
+                (pick)="pieceMark.set($event)"
+              />
+              @if (split()) {
+                @if (model3d(); as m) {
+                  <app-house-3d [model]="m" [highlight]="activeMark()" [facing]="markWall()" [fill]="true" (pick)="pieceMark.set($event)" />
+                }
+              }
+            </div>
           }
         </div>
         @if (!readonly()) {

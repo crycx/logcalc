@@ -57,6 +57,8 @@ export class House3d {
   readonly model = input.required<HouseModel3D>();
   /** täidab vanema kõrguse (täisekraan) */
   readonly fill = input(false);
+  /** kaamera selle seina poole (seina id) – täisekraani poolitatud vaates valitud tüki sein */
+  readonly facing = input<string | null>(null);
   /** esiletõstetud tähis (lõikenimekirjast), nt "1LG-3"; null = kõik tavalised */
   readonly highlight = input<string | null>(null);
   /** klõps palgil: selle tähis (sama uuesti / tühi koht = null) */
@@ -83,9 +85,13 @@ export class House3d {
   private controls: Controls | null = null;
   private house: THREE_NS.Group | null = null;
   private roof: THREE_NS.Group | null = null;
+  /** maapind (seina vaates lõike tõttu peidus) */
+  private ground: THREE_NS.Mesh | null = null;
   private groups: Partial<Record<Layer, THREE_NS.Group>> = {};
   private fitted = false;
   private resize: ResizeObserver | null = null;
+  /** kaamera seati seina poole ja kasutaja pole seda liigutanud */
+  private autoFace = false;
   /** palgitükkide võrgud tähisega (esiletõstmine, klõpsuga valik) */
   private pieces: { mesh: THREE_NS.Mesh; edges: THREE_NS.LineSegments; mark: string; base: THREE_NS.Material }[] = [];
   private hiMat: THREE_NS.Material | null = null;
@@ -102,6 +108,18 @@ export class House3d {
     effect(() => {
       const h = this.highlight();
       this.applyHighlight(h);
+    });
+    effect(() => {
+      const f = this.facing();
+      const m = this.model();
+      if (this.three && f) {
+        this.faceWall(m, f);
+        this.render();
+      } else if (this.renderer && !f) {
+        this.renderer.clippingPlanes = [];
+        if (this.ground) this.ground.visible = true;
+        this.render();
+      }
     });
     effect(() => {
       const l = this.layers();
@@ -135,6 +153,8 @@ export class House3d {
       controls.enableDamping = false;
       controls.maxPolarAngle = Math.PI * 0.495;
       controls.addEventListener('change', () => this.render());
+      // kasutaja liigutab kaamerat -> suurusemuutus ei suuna enam seina poole tagasi
+      controls.addEventListener('start', () => (this.autoFace = false));
       this.controls = controls;
       // klõps (mitte lohistamine) palgil -> tähis
       renderer.domElement.addEventListener('pointerdown', (e) => (this.down = { x: e.clientX, y: e.clientY }));
@@ -166,6 +186,9 @@ export class House3d {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // poolitatud vaate avamisel on lõuendi suurus alguses vale: seina poole uuesti, kuni kasutaja pole pööranud
+    const f = this.facing();
+    if (f && this.autoFace && this.three) this.faceWall(this.model(), f);
     this.render();
   }
 
@@ -257,6 +280,8 @@ export class House3d {
     const zLow = Math.min(0, ...members.map((x) => x.c[2] - Math.abs(x.size[2]) / 2));
     ground.position.set((b.x0 + b.x1) / 2, zLow - 1, (b.y0 + b.y1) / 2);
     house.add(ground);
+    ground.visible = !this.facing();
+    this.ground = ground;
 
     scene.add(house, ...Object.values(groups));
     this.house = house;
@@ -266,7 +291,9 @@ export class House3d {
     this.applyHighlight(this.highlight(), false);
 
     if (!this.fitted) {
-      this.fit(m);
+      const f = this.facing();
+      if (f) this.faceWall(m, f);
+      else this.fit(m);
       this.fitted = true;
     }
     this.render();
@@ -534,6 +561,34 @@ export class House3d {
     this.camera!.position.copy(center.clone().add(dir.multiplyScalar(size * 2)));
     this.controls!.target.copy(center);
     this.controls!.update();
+  }
+
+  /**
+   * Kaamera seina ette (sein kaadris, veidi ülevalt) samalt poolt kui seina joonis: seina algus vasakul, lõpp paremal
+   * (vaatesuund −n, n = (−u.y, u.x)). Teised tükid on esiletõstmisel läbipaistvad, nii et ka siseküljelt vaadates on
+   * sein näha.
+   */
+  private faceWall(m: HouseModel3D, id: string): void {
+    const THREE = this.three!;
+    const w = m.walls.find((x) => x.id === id);
+    if (!w || !this.camera || !this.controls) return;
+    const zTop = Math.max(1, ...w.pieces.map((p) => p.y1));
+    const mx = w.origin.x + (w.u.x * w.length) / 2;
+    const my = w.origin.y + (w.u.y * w.length) / 2;
+    const n = { x: -w.u.y, y: w.u.x };
+    const target = new THREE.Vector3(mx, zTop / 2, my);
+    const half = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const ext = Math.max(zTop / 2, w.length / 2 / Math.max(0.3, this.camera.aspect)) * 1.25;
+    const dir = new THREE.Vector3(n.x, 0.2, n.y).normalize();
+    this.camera.position.copy(target.clone().add(dir.multiplyScalar(ext / half + w.thickness)));
+    this.controls.target.copy(target);
+    this.controls.update();
+    this.autoFace = true;
+    // lõige seina välispinnast kaamera poole: ees olevad seinad ja katuseosad ei varja (seina vaade)
+    const N = new THREE.Vector3(-n.x, 0, -n.y);
+    const P0 = new THREE.Vector3(mx, 0, my);
+    if (this.renderer) this.renderer.clippingPlanes = [new THREE.Plane(N, w.thickness / 2 + 30 - N.dot(P0))];
+    if (this.ground) this.ground.visible = false;
   }
 
   /** Vaade algasendisse */

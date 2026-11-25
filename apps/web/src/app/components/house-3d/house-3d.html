@@ -9,12 +9,7 @@
   <button type="button" class="reset" (click)="reset()">Algvaade</button>
 </div>
 <div class="info">
-  @if (highlight(); as h) {
-    <span class="sel"><b>{{ h }}</b> · {{ highlightCount() }} tk</span>
-    <button type="button" class="reset" (click)="pick.emit(null)">Tühista valik</button>
-  } @else {
-    <span class="hint">Lohista pööramiseks, ratas suumib, parem nupp nihutab · klõps tükil näitab tähist</span>
-  }
+  <span class="hint">Lohista pööramiseks, ratas suumib, parem nupp nihutab · klõps tükil näitab tähist</span>
 </div>
 <div class="canvas" #canvasHost>
   @if (loading()) {

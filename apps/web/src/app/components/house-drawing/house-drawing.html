@@ -34,15 +34,24 @@
   }
 
   @case ('walls') {
-    @for (w of allWalls(); track w.id) {
-      <figure class="view wall-fig">
+    @let one = shownWalls().length === 1 && !!focusWall();
+    @for (w of shownWalls(); track w.id) {
+      <figure class="view wall-fig" [class.single]="one">
         @let wm = model3dWalls().get(w.id);
         @let hc = hiCount(w.id);
         <figcaption>
-          Sein {{ w.id }} · {{ w.length | number: '1.0-0' }} mm
+          <span>Sein {{ w.id }} · {{ w.length | number: '1.0-0' }} mm</span>
           @if (hc) { <span class="hi-badge">{{ highlight() }} · {{ hc }} tk</span> }
+          <span class="cap-spacer"></span>
+          @if (one) {
+            <button mat-button type="button" (click)="focusWallChange.emit(null)"><mat-icon>grid_view</mat-icon> Kõik seinad</button>
+          } @else {
+            <button mat-icon-button type="button" class="open-btn" (click)="focusWallChange.emit(w.id)" matTooltip="Ava suurelt" [attr.aria-label]="'Ava sein ' + w.id + ' suurelt'">
+              <mat-icon>open_in_full</mat-icon>
+            </button>
+          }
         </figcaption>
-        <app-wall-view class="wall-mini" [wall]="w" [roofLine]="roofLines().get(w.id) ?? null" [dimensions]="true"
+        <app-wall-view [class.wall-mini]="!one" [class.wall-big]="one" [wall]="w" [roofLine]="roofLines().get(w.id) ?? null" [dimensions]="true"
           [pieces]="wm?.pieces ?? null" [marks]="wm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)"
           [thickness]="wm?.thickness ?? 0" [cross]="wm?.roofCross ?? []" [notches]="wm?.notches ?? []" [details]="wm?.details ?? null" />
       </figure>

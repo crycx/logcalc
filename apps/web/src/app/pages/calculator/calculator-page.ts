@@ -45,6 +45,7 @@ import { ProjectsDialog } from '../../dialogs/projects-dialog/projects-dialog';
 import { ShareDialog } from '../../dialogs/share-dialog/share-dialog';
 import { HouseDrawing, type DrawingView } from '../../components/house-drawing/house-drawing';
 import { House3d } from '../../components/house-3d/house-3d';
+import { PieceInfo } from '../../components/piece-info/piece-info';
 import { PieceDetails } from '../../components/piece-details/piece-details';
 import { PlanEditor } from '../../components/plan-editor/plan-editor';
 import {
@@ -121,6 +122,7 @@ function houseData(v: HouseFormValue): HouseData {
     HouseDrawing,
     House3d,
     PieceDetails,
+    PieceInfo,
     PlanEditor,
     CatalogEditor,
     RoofIcon,
@@ -140,6 +142,8 @@ export class CalculatorPage {
   protected readonly view = signal<DrawingView | 'plan' | '3d' | 'details'>('overview');
   /** joonise paneel üle kogu akna (küljepaneelid ja alumine osa peidus) */
   protected readonly fullscreen = signal(false);
+  /** seinte vaates suurelt avatud sein (null = kõik) */
+  protected readonly wallFocus = signal<string | null>(null);
   /** lõikenimekirja ja 3D vaate ühine valik: palgi tähis (nt "1LG-3") */
   protected readonly pieceMark = signal<string | null>(null);
   /** valitud tähis, kui see on veel lõikenimekirjas (maja muutmisel võib kaduda) */
@@ -149,6 +153,13 @@ export class CalculatorPage {
     const known = !!m && !!r && (r.cutList.some((w) => w.pieces.some((p) => p.mark === m)) || r.materials.some((g) => g.rows.some((x) => x.mark === m)));
     return known ? m : null;
   });
+  /** valitud tähise sein (mudelist) */
+  protected readonly markWall = computed(() => {
+    const mk = this.activeMark();
+    return (mk && this.model3d()?.walls.find((w) => w.marks.includes(mk))?.id) || null;
+  });
+  /** täisekraanil seinte vaates valitud tükk: pool ekraani sein, pool 3D selle seina poole */
+  protected readonly split = computed(() => this.fullscreen() && this.view() === 'walls' && !!this.markWall());
 
   protected readonly form = buildHouseForm(this.fb, DEMO);
 
@@ -525,5 +536,11 @@ export class CalculatorPage {
   protected gableWalls(r: CalcResult): number {
     if (!this.hasPlan()) return 2;
     return r.wallModel.filter((w) => w.rows.some((row) => row.kind === 'gable')).length || 2;
+  }
+
+  /** seina suurelt avamine / tagasi kõigi juurde (poolitatud vaates tühistab ka valiku) */
+  protected focusWall(id: string | null): void {
+    if (id === null && this.split()) this.pieceMark.set(null);
+    this.wallFocus.set(id);
   }
 }

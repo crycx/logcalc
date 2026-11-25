@@ -1,3 +1,6 @@
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { DEFAULT_CONSTANTS, planBounds, planGeometry, type CalcResult, type HouseModel3D, type PlanBox, type Wall3D, type WallId } from '@logcalc/calc-engine';
@@ -29,7 +32,7 @@ let uid = 0;
   selector: 'app-house-drawing',
   host: { '[class.fill]': 'fill()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NgTemplateOutlet, DimLines, PlanEditor, WallView],
+  imports: [DecimalPipe, NgTemplateOutlet, MatButtonModule, MatIconModule, MatTooltipModule, DimLines, PlanEditor, WallView],
   templateUrl: './house-drawing.html',
   styleUrl: './house-drawing.scss',
 })
@@ -41,6 +44,9 @@ export class HouseDrawing {
   readonly model = input<HouseModel3D | null>(null);
   /** täisekraan: joonised nii suured kui aken lubab */
   readonly fill = input(false);
+  /** seinte vaates üks sein suurelt (id) või kõik (null) */
+  readonly focusWall = input<string | null>(null);
+  readonly focusWallChange = output<string | null>();
 
   /** lõikenimekirja valik (tähis) – seinte joonistel esile; klõps palgil -> pick */
   readonly highlight = input<string | null>(null);
@@ -65,6 +71,14 @@ export class HouseDrawing {
   });
 
   /** plaanist maja: kõik seinad (numbrid eest taha, siis tähed vasakult paremale) */
+  /** seinte vaates näidatavad seinad: valitud üks või kõik */
+  protected readonly shownWalls = computed(() => {
+    const f = this.focusWall();
+    const all = this.allWalls();
+    const one = f ? all.filter((w) => w.id === f) : [];
+    return one.length ? one : all;
+  });
+
   protected readonly allWalls = computed(() => {
     const key = (id: string) => {
       const m = /^(\d+)(.*)$/.exec(id);
