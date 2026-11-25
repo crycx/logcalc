@@ -11,7 +11,12 @@
           <figcaption><b>{{ c.mark }}</b>&nbsp;&nbsp;<span class="muted">{{ c.sub }}</span></figcaption>
           <div class="row">
             <svg class="side" [attr.viewBox]="c.view.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="'Detail ' + c.mark">
-              <polygon class="wood" [attr.points]="c.view.outline" />
+              @if (c.view.outline) {
+                <polygon class="wood" [attr.points]="c.view.outline" />
+              }
+              @for (q of c.view.polys ?? []; track $index) {
+                <polygon class="wood" [attr.points]="q" />
+              }
               @for (n of c.view.notches; track $index) {
                 <rect class="cut" [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" />
               }
@@ -23,10 +28,18 @@
               }
               <g lcDims [dims]="c.view.dims" [fs]="c.view.fs * 0.8"></g>
             </svg>
-            <svg class="prof" [attr.viewBox]="c.prof.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Ristlõige">
-              <polygon class="wood" [attr.points]="c.prof.points" />
-              <g lcDims [dims]="c.prof.dims" [fs]="c.prof.fs * 0.8"></g>
-            </svg>
+            @if (c.prof; as pr) {
+              <svg class="prof" [attr.viewBox]="pr.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Ristlõige">
+                <polygon class="wood" [attr.points]="pr.points" />
+                <g lcDims [dims]="pr.dims" [fs]="pr.fs * 0.8"></g>
+              </svg>
+            } @else if (c.rows) {
+              <ol class="rows">
+                @for (r of c.rows; track $index) {
+                  <li>{{ r }}</li>
+                }
+              </ol>
+            }
           </div>
         </figure>
       }

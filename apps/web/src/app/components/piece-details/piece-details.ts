@@ -12,13 +12,17 @@ interface Card {
   view: {
     viewBox: string;
     outline: string;
+    /** mitu kontuuri (viilu koostejoonis) */
+    polys?: string[];
     notches: { x: number; y: number; w: number; h: number }[];
     slots: string[];
     dims: Dim[];
     fs: number;
     notes: { x: number; y: number; text: string }[];
   };
-  prof: { viewBox: string; points: string; dims: Dim[]; fs: number };
+  prof: { viewBox: string; points: string; dims: Dim[]; fs: number } | null;
+  /** viilu koostejoonis: read (ülevalt) ja tähised kõigilt sama kujuga viiludelt */
+  rows?: string[];
 }
 
 interface Group {
@@ -52,6 +56,18 @@ export class PieceDetails {
     const m = this.model();
     const r = this.result();
     const groups: Group[] = [];
+    // viilud (Revit Details 1): sama kujuga viilud kokku, read ülevalt
+    const gables = new Map<string, { w: Wall3D; idx: number[]; walls: { w: Wall3D; idx: number[] }[] }>();
+    for (const w of m.walls) {
+      const idx = w.pieces.map((p, i) => (p.kind === 'gable' ? i : -1)).filter((i) => i >= 0);
+      if (!idx.length) continue;
+      const key = idx.map((i) => Math.round(w.pieces[i]!.x1 - w.pieces[i]!.x0)).join(',') + '|' + w.notches.length;
+      const g = gables.get(key);
+      if (g) g.walls.push({ w, idx });
+      else gables.set(key, { w, idx, walls: [{ w, idx }] });
+    }
+    const gCards = [...gables.values()].map((g) => gableCard(g.w, g.idx, g.walls));
+    if (gCards.length) groups.push({ title: 'Viilud (koostejoonis)', cards: gCards });
     for (const cl of r.cutList) {
       const w = m.walls.find((x) => x.id === cl.wall);
       if (!w) continue;
@@ -88,6 +104,79 @@ export class PieceDetails {
     const base = mark.replace(/ hari$/, '');
     this.pick.emit(this.highlight() === base ? null : base);
   }
+}
+
+/**
+ * Viilu koostejoonis (Revit Kolding Details 1): viilupalgid oma kohal, pärlinite pilud, liidete sälgud; mõõdud piki
+ * kallet (nurgast pilu servani, pilu, harjani), all liidete kett, katuse nurk; read ülevalt kõigi sama viilu tähistega.
+ */
+function gableCard(w: Wall3D, idx: number[], walls: { w: Wall3D; idx: number[] }[]): Card {
+  const line = w.roofLine;
+  const roofAt = line ? roofAtFn(line) : () => Infinity;
+  const parts = idx.map((i) => {
+    const p = w.pieces[i]!;
+    const cut = line ? underRoof(p, line, roofAt) : null;
+    return { p, det: w.details[i] ?? null, poly: cut && cut !== 'none' ? cut : ([[p.x0, p.y0], [p.x1, p.y0], [p.x1, p.y1], [p.x0, p.y1]] as [number, number][]) };
+  });
+  const xs = parts.flatMap((q) => q.poly.map((v) => v[0]));
+  const zs = parts.flatMap((q) => q.poly.map((v) => v[1]));
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const z0 = Math.min(...zs);
+  const zTop = Math.max(...zs);
+  const X = (x: number) => x - x0;
+  const Y = (z: number) => zTop - z;
+  const L = x1 - x0;
+  const fs = Math.max(L, 600) * 0.022;
+  const outline = parts.map((q) => pts(q.poly.map(([x, z]) => [X(x), Y(z)] as [number, number])));
+  const notches = parts.flatMap((q) =>
+    (q.det?.notches ?? []).filter((n) => n.side === 'bottom').map((n) => ({ x: X(n.x) - n.w / 2, y: Y(q.p.y0 + n.depth), w: n.w, h: n.depth })),
+  );
+  const slots = w.notches.map((n) => pts(n.pts.map(([x, z]) => [X(x), Y(z)] as [number, number])));
+  const dims: Dim[] = [];
+  // all: alumise viilurea liidete kett
+  const bottom = parts.reduce((a, b) => (b.p.y0 < a.p.y0 ? b : a));
+  const corner = (bottom.det?.notches ?? []).filter((n) => n.kind === 'corner');
+  dims.push(...chain([X(bottom.p.x0), X(bottom.p.x1), ...corner.flatMap((n) => [X(n.x) - n.w / 2, X(n.x) + n.w / 2])], Y(z0), fs * 1.8, fs));
+  // piki kallet: nurk -> pilude servad -> hari (mõlemal poolel), mõõtjoon katuse kohal
+  const apexX = line ? line.reduce((a, b) => (b[1] > a[1] ? b : a))[0] : (x0 + x1) / 2;
+  const edges = w.notches.flatMap((n) => {
+    const top = [...n.pts].sort((a, b) => b[1] - a[1]).slice(0, 2);
+    return top.map((v) => v[0]);
+  });
+  const left = [bottom.p.x0, ...edges.filter((x) => x < apexX), apexX].sort((a, b) => a - b);
+  const right = [apexX, ...edges.filter((x) => x > apexX), bottom.p.x1].sort((a, b) => a - b);
+  for (const side of [left, right]) {
+    for (let i = 1; i < side.length; i++) {
+      const a = side[i - 1]!;
+      const b = side[i]!;
+      if (b - a < 1) continue;
+      dims.push({ x1: X(a), y1: Y(Math.min(roofAt(a), zTop)), x2: X(b), y2: Y(Math.min(roofAt(b), zTop)), offset: -fs * 1.6 });
+    }
+  }
+  // katuse nurk
+  const notes: Card['view']['notes'] = [];
+  if (line && line.length > 1) {
+    const xa = bottom.p.x0 + 200;
+    const k = (roofAt(xa + 100) - roofAt(xa)) / 100;
+    notes.push({ x: X(bottom.p.x0) + fs * 4, y: Y(z0) - fs * 0.6, text: `${Math.round((Math.atan(Math.abs(k)) * 180) / Math.PI)}°` });
+  }
+  // read ülevalt: tähised kõigilt sama kujuga viiludelt
+  const rowYs = [...new Set(parts.map((q) => Math.round(q.p.y0)))].sort((a, b) => b - a);
+  const rows = rowYs.map((y) =>
+    walls
+      .map(({ w: ww, idx: ii }) => ii.filter((i) => Math.round(ww.pieces[i]!.y0) === y).map((i) => ww.marks[i]).join(' + '))
+      .filter(Boolean)
+      .join(' / '),
+  );
+  const viewBox = `${-fs * 3} ${-fs * 4} ${L + fs * 6} ${zTop - z0 + fs * 8}`;
+  return {
+    mark: `viil-${walls.map((x) => x.w.id).join('-')}`,
+    sub: `seinad ${walls.map((x) => x.w.id).join(', ')} · ${parts.length} palki`,
+    view: { viewBox, outline: '', polys: outline, notches, slots, dims, fs, notes },
+    prof: null,
+    rows,
+  };
 }
 
 const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');

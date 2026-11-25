@@ -48,7 +48,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, auto);
   gap: 8px;
   align-items: center;
 }
@@ -90,4 +90,12 @@ svg {
   .card {
     page-break-inside: avoid;
   }
+}
+
+/* viilu read ülevalt (tähised) */
+.rows {
+  margin: 0;
+  padding-left: 18px;
+  font: var(--mat-sys-body-small);
+  max-width: 240px;
 }
