@@ -58,3 +58,14 @@ all oleval seinal, 200 mm nurgast, 40 mm põrandast, lõigatakse katuse alla (As
 Mootor: materjal = arv × 2200 (18x40), lõikepikkused lõikenimekirjas (`src/windboards.ts`, `test/windboards.test.ts`).
 `walls.windStripsJm` (v2 valem) jääb võrdluseks. Boden II lisaks „Windboard2“ 4 × 550 (veranda) – ei arvutata;
 seina 2 aken 350 mm nurgast -> hoiatus `windboard.opening`.
+
+## D17. Räästalauad ja profiilid Revit-i järgi (2026-11-25)
+
+- Papikinnituslaud (EE): Revit 28 mm majad (Bente, Annika, Carina) 18x40, 40 mm majad (Boden, Brantevik, Lund, Nora,
+  Placas) 18x95 – vaikimisi profiil palgi paksuse järgi (v2: alati 18x95).
+- Ühekalle (Revit Carina 2023): räästas esi- ja tagaserval esiräästalaud RF 18x120, pikkus = katuse pikkus + 36
+  (3753 -> 3789); suuremat toelauda 18x95 pole. Vanem Annika (2022) kasutas räästas 18x95 (RR1 3140 = 3100 + 40) ja
+  viiluservades 18x95 ilma RF-ita – mootor järgib uuemat (Carina).
+- RF/EE pikkus viiluservas: Revit = katuselaud + 32…50 mm, mootor ceil10(laud + 38) – Revit-i laua pikkusega erinevus
+  ≤ 10 mm; suurem vahe (nt Bente 1690 vs 1640) tuleb katuselaua pikkusest (üleulatus, QUESTIONS.md K14).
+- Profiilid lõikenimekirjas: põranda- ja katuselaud 17x114 (katteleius 110), pärlin/hari 40x143 (Boden 68x143/193).

@@ -33,11 +33,13 @@ export interface Member3D {
 }
 
 /** kuvamiseks: katuse- ja põrandalaua paksus, tuuleliistu ristlõige, pärlin (kui sisendis pole) */
-const ROOF_BOARD_T = 20;
+/** Revit: katuselaud RB 17x114 */
+const ROOF_BOARD_T = 17;
 /** Revit: põrandalaud FB 17x114, terrassilaud 28x120 */
 const FLOOR_BOARD_T = WINDBOARD.floorTop;
 const TERRACE_BOARD_T = 28;
-const PURLIN_DEFAULT: [number, number] = [45, 120];
+/** Revit: pärlin RFB / hari RFR 40x143 */
+const PURLIN_DEFAULT: [number, number] = [40, 143];
 
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -130,10 +132,12 @@ export function buildMembers(
   const roofOf = (k: number): RoofResult | null => (k === 0 ? result.roof : (result.roof?.parts?.[k - 1] ?? null));
   const purlinsOf = (k: number): PurlinsResult | null => (k === 0 ? result.purlins : (result.purlins?.parts?.[k - 1] ?? null));
   const pf = input.roof?.profiles ?? {};
-  const [ft, fw] = profile(pf.fasciaBoard, [18, 120]);
-  const [et, ew] = profile(pf.feltBoard, [18, 95]);
-  const [st] = profile(pf.supportSmall, [38, 38]);
-  const [lt, lw] = profile(pf.supportLarge, [18, 95]);
+  // profiilid materjalide nimekirjast (sama mis lõikenimekirjas; EE sõltub palgi paksusest)
+  const bomProfile = (key: string) => result.bom.find((l) => l.key === key)?.profile;
+  const [ft, fw] = profile(pf.fasciaBoard ?? bomProfile('esiraastalaud'), [18, 120]);
+  const [et, ew] = profile(pf.feltBoard ?? bomProfile('papikinnituslaud'), [18, 95]);
+  const [st] = profile(pf.supportSmall ?? bomProfile('toelaud38'), [38, 38]);
+  const [lt, lw] = profile(pf.supportLarge ?? bomProfile('toelaud95'), [18, 95]);
   const [pw, ph] = input.purlins?.width && input.purlins?.height ? [input.purlins.width, input.purlins.height] : PURLIN_DEFAULT;
   const ridgeDone = new Set<number>();
 
@@ -186,6 +190,11 @@ export function buildMembers(
         }
         if (eb.supportLarge.count > 0) {
           out.push({ key: 'toelaud95', mark: mark('toelaud95', eb.supportLarge.pieceLength), layer: 'roof', c: at(la / 2, edge - (inward * lt) / 2, ROOF_BOARD_T - lw / 2), u: a, v: n, size: [la, lw, lt] });
+        }
+        // ühekalle: esiräästalaud räästas (laudade otsas püsti)
+        if (eb.fasciaEave && eb.fasciaEave.count > 0) {
+          const L = eb.fasciaEave.pieceLength;
+          out.push({ key: 'esiraastalaud', mark: mark('esiraastalaud', L), layer: 'roof', c: at(la / 2, edge - (inward * ft) / 2, ROOF_BOARD_T - fw / 2), u: a, v: n, size: [Math.max(la, L), fw, ft] });
         }
       }
     }

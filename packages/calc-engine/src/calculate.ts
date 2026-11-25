@@ -254,9 +254,17 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
     add('katuseLauad', sum((r) => r.boardsJm), { pieces: all.map((r) => ({ count: r.boardCount, length: r.boardLength })) });
     // Järjekord nagu tootja joonisel: toelauad (RR) ees, siis RF ja EE (QUESTIONS.md K9)
     add('toelaud38', sum((r) => r.edgeBoards.supportSmall.totalJm), { pieces: all.map((r) => ({ count: 2, length: r.edgeBoards.supportSmall.pieceLength })), profile: pf.supportSmall ?? '38x38' });
-    add('toelaud95', sum((r) => r.edgeBoards.supportLarge.totalJm), { pieces: all.map((r) => ({ count: 2, length: r.edgeBoards.supportLarge.pieceLength })), profile: pf.supportLarge ?? '18x95' });
-    add('esiraastalaud', sum((r) => r.edgeBoards.fascia.totalJm), { pieces: all.map((r) => ({ count: r.edgeBoards.fascia.count, length: r.edgeBoards.fascia.pieceLength })), profile: pf.fasciaBoard ?? '18x120' });
-    add('papikinnituslaud', sum((r) => r.edgeBoards.felt.totalJm), { pieces: all.map((r) => ({ count: r.edgeBoards.felt.count, length: r.edgeBoards.felt.pieceLength })), profile: pf.feltBoard ?? '18x95' });
+    add('toelaud95', sum((r) => r.edgeBoards.supportLarge.totalJm), { pieces: all.map((r) => ({ count: r.edgeBoards.supportLarge.count, length: r.edgeBoards.supportLarge.pieceLength })), profile: pf.supportLarge ?? '18x95' });
+    // esiräästalaud: viiluotstes (kaldserv), ühekaldel ka räästas
+    add('esiraastalaud', sum((r) => r.edgeBoards.fascia.totalJm + (r.edgeBoards.fasciaEave?.totalJm ?? 0)), {
+      pieces: mergePieces(all.flatMap((r) => [
+        { count: r.edgeBoards.fascia.count, length: r.edgeBoards.fascia.pieceLength },
+        ...(r.edgeBoards.fasciaEave ? [{ count: r.edgeBoards.fasciaEave.count, length: r.edgeBoards.fasciaEave.pieceLength }] : []),
+      ])),
+      profile: pf.fasciaBoard ?? '18x120',
+    });
+    // papikinnituslaud (EE): Revit 28 mm majad 18x40, 40 mm majad 18x95 (D17)
+    add('papikinnituslaud', sum((r) => r.edgeBoards.felt.totalJm), { pieces: all.map((r) => ({ count: r.edgeBoards.felt.count, length: r.edgeBoards.felt.pieceLength })), profile: pf.feltBoard ?? (input.log.thickness <= 30 ? '18x40' : '18x95') });
   }
   if (purlins) {
     const all = [purlins, ...(purlins.parts ?? [])];

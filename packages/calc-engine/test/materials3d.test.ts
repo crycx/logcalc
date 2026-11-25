@@ -14,8 +14,10 @@ describe('3D muu puit = lõikenimekiri', () => {
     const r = calculateHouse(h);
     const m = houseModel3d(h, r, C);
     expect(r.materials.map((g) => g.key)).toEqual(
-      expect.arrayContaining(['vundament', 'porandaLauad', 'parlinid', 'katuseLauad', 'toelaud38', 'toelaud95', 'esiraastalaud', 'papikinnituslaud', 'tuuleLiist']),
+      expect.arrayContaining(['vundament', 'porandaLauad', 'parlinid', 'katuseLauad', 'toelaud38', 'esiraastalaud', 'papikinnituslaud', 'tuuleLiist']),
     );
+    // suurem toelaud (18x95) räästas ainult viilkatusel (ühekaldel esiräästalaud, Revit Carina)
+    expect(r.materials.some((g) => g.key === 'toelaud95')).toBe(h.roofType === 'gable');
     expect(m.members.every((x) => x.mark !== '')).toBe(true);
     for (const g of r.materials)
       for (const row of g.rows) expect([g.key, row.mark, m.members.filter((x) => x.key === g.key && x.mark === row.mark).length]).toEqual([g.key, row.mark, row.count]);

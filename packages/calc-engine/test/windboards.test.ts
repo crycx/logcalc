@@ -51,3 +51,29 @@ describe('tuuleliistud (Windboard 18x40 × 2200)', () => {
     expect(r.warnings.some((w) => w.code === 'windboard.opening')).toBe(true);
   });
 });
+
+describe('räästalauad vs Revit (D17)', () => {
+  const CARINA: HouseInput = { ...base, roofType: 'mono', width: 3553, depth: 2943, sideWallHeight: 0, frontBackWallHeight: 2223, roofHeight: 1881, log: { thickness: 28, height: 114 }, longBoards: [{ length: 3753, height: 114, count: 2 }] };
+  const line = (r: ReturnType<typeof calculateHouse>, key: string) => r.bom.find((l) => l.key === key);
+
+  it('EE profiil: 28 mm palk 18x40 (Bente, Annika, Carina), 40 mm palk 18x95 (Lund, Nora, Boden)', () => {
+    for (const h of [BENTE, ANNIKA, CARINA]) expect(line(calculateHouse(h), 'papikinnituslaud')!.profile).toBe('18x40');
+    for (const h of [LUND.input, NORA.input, BODEN.input]) expect(line(calculateHouse({ ...h, roof: {} }), 'papikinnituslaud')!.profile).toBe('18x95');
+  });
+
+  it('Carina (ühekalle): RF viiluservades 2 + räästas 2 × (3753 + 36), suuremat toelauda pole, RR 38x38 2 × 3753', () => {
+    const r = calculateHouse(CARINA);
+    const rf = line(r, 'esiraastalaud')!;
+    expect(rf.pieces).toEqual(expect.arrayContaining([{ count: 2, length: 3789 }]));
+    expect(rf.pieces!.reduce((s, p) => s + p.count, 0)).toBe(4);
+    expect(line(r, 'toelaud95')).toBeUndefined();
+    expect(line(r, 'toelaud38')!.pieces).toEqual([{ count: 2, length: 3753 }]);
+  });
+
+  it('viilkatus (Bente): RF ja EE 4 tk, toelauad 18x95 ja 38x38 2 × 4000 (Revit)', () => {
+    const r = calculateHouse(BENTE);
+    expect(line(r, 'esiraastalaud')!.pieces).toEqual([{ count: 4, length: expect.any(Number) }]);
+    expect(line(r, 'toelaud95')!.pieces).toEqual([{ count: 2, length: 4000 }]);
+    expect(line(r, 'toelaud38')!.pieces).toEqual([{ count: 2, length: 4000 }]);
+  });
+});

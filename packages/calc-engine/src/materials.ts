@@ -46,12 +46,13 @@ export function materialCutList(input: HouseInput, bom: BomLine[], c: EngineCons
     switch (l.key) {
       case 'vundament':
         return input.foundation ? `${input.foundation.joistWidth}x${input.foundation.joistHeight}` : '';
+      // Revit: põranda- ja katuselaud 17x114 (katteleius 110), pärlin/hari 40x143 (Boden 68x…)
       case 'porandaLauad':
-        return input.floor ? `laius ${input.floor.boardWidth}` : '';
+        return input.floor ? (input.floor.boardWidth === 110 ? '17x114' : `laius ${input.floor.boardWidth}`) : '';
       case 'katuseLauad':
-        return `laius ${c.roofBoardWidth}`;
+        return c.roofBoardWidth === 110 ? '17x114' : `laius ${c.roofBoardWidth}`;
       case 'parlinid':
-        return input.purlins?.width && input.purlins?.height ? `${input.purlins.width}x${input.purlins.height}` : '';
+        return input.purlins?.width && input.purlins?.height ? `${input.purlins.width}x${input.purlins.height}` : '40x143';
       default:
         return '';
     }

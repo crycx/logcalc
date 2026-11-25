@@ -8,6 +8,9 @@ import type {
   RoofResult,
 } from './types.js';
 
+/** Ühekalde räästa esiräästalaud: katuse pikkus + 36 (Revit Carina RF2 3789 = 3753 + 36) */
+const MONO_EAVE_FASCIA_EXTRA = 36;
+
 /** Ümardus üles sammuni (nt 10 mm). 0/negatiivne = ilma ümarduseta. */
 const ceilTo = (x: number, step: number) => (step > 0 ? step * Math.ceil(x / step - 1e-9) : x);
 
@@ -56,10 +59,14 @@ export function computeRoof(
   const n = gable ? 4 : 2;
   // v2 kuvas tüki pikkuseks +38, aga kogupikkuse arvutas +18-ga. Siin ühtne. Vt DEVIATIONS.md (D6).
   const pieceLength = ceilTo(boardLength + c.fasciaExtra, c.roofBoardRounding);
-  const fascia = { count: n, pieceLength, totalJm: (n * pieceLength) / 1000 };
-  const felt = { count: n, pieceLength, totalJm: (n * pieceLength) / 1000 };
-  const supportSmall = { count: 2, pieceLength: roofLength, totalJm: (2 * roofLength) / 1000 };
-  const supportLarge = { count: 2, pieceLength: roofLength, totalJm: (2 * roofLength) / 1000 };
+  const piece = (count: number, len: number) => ({ count, pieceLength: len, totalJm: (count * len) / 1000 });
+  const fascia = piece(n, pieceLength);
+  const felt = piece(n, pieceLength);
+  const supportSmall = piece(2, roofLength);
+  // viilkatus: suurem toelaud räästas (Revit RR1 18x95); ühekalle (Revit Carina, D17): räästas esiräästalaud
+  // 18x120 (katuse pikkus + 36), suuremat toelauda pole
+  const supportLarge = piece(gable ? 2 : 0, roofLength);
+  const fasciaEave = gable ? undefined : piece(2, roofLength + MONO_EAVE_FASCIA_EXTRA);
 
   return {
     angle,
@@ -74,7 +81,8 @@ export function computeRoof(
       felt,
       supportSmall,
       supportLarge,
-      totalJm: fascia.totalJm + felt.totalJm + supportSmall.totalJm + supportLarge.totalJm,
+      ...(fasciaEave ? { fasciaEave } : {}),
+      totalJm: fascia.totalJm + felt.totalJm + supportSmall.totalJm + supportLarge.totalJm + (fasciaEave?.totalJm ?? 0),
     },
   };
 }

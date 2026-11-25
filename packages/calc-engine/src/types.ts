@@ -349,6 +349,8 @@ export interface RoofResult {
     felt: { count: number; pieceLength: number; totalJm: number };
     supportSmall: { count: number; pieceLength: number; totalJm: number };
     supportLarge: { count: number; pieceLength: number; totalJm: number };
+    /** ühekalle: esiräästalaud (RF 18x120) räästas – esi- ja tagaserv (Revit Carina RF2: katuse pikkus + 36) */
+    fasciaEave?: { count: number; pieceLength: number; totalJm: number };
     totalJm: number;
   };
 }
