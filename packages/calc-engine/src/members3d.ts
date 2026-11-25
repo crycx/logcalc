@@ -37,7 +37,7 @@ export interface Member3D {
 const ROOF_BOARD_T = 17;
 /** katusepapp (Revit „Roofing sheet“ – kogust pole) */
 const PAPER_T = 3;
-/** katusepapp ulatub 5 cm üle katuse serva (RF-i / räästalaua välispinna) */
+/** katusepapp ulatub räästas 5 cm üle räästalaua välispinna */
 const PAPER_OVER = 50;
 /** Revit: põrandalaud FB 17x114, terrassilaud 28x120 */
 const FLOOR_BOARD_T = WINDBOARD.floorTop;
@@ -232,12 +232,13 @@ export function buildMembers(
           out.push({ key: 'papikinnituslaud', mark: mark('papikinnituslaud', L), layer: 'roof', c: at(outer - (out1 * ew) / 2, edgeAt(L), ROOF_BOARD_T + PAPER_T + et / 2), u: s, v: a, size: [L, ew, et] });
         }
       });
-      // katusepapp laudade peal, katusega samas tasapinnas; ulatub üle RF-i ja räästalaua otsa PAPER_OVER võrra
+      // katusepapp laudade peal, katusega samas tasapinnas; viiluservas RF-iga tasa, räästas PAPER_OVER üle
       // (Revit „Roof 2“ detail Facia – alla ei keerata, EE kinnitab peal)
       {
         const eaveOut = eb.supportLarge.count > 0 ? lt : eb.fasciaEave?.count ? ft : 0;
-        const ext0 = r.freeEnds[0] ? (eb.fascia.count > 0 ? ft : 0) + PAPER_OVER : 0;
-        const ext1 = r.freeEnds[1] ? (eb.fascia.count > 0 ? ft : 0) + PAPER_OVER : 0;
+        // viiluservas RF-i välispinnaga tasa, räästas 5 cm üle
+        const ext0 = r.freeEnds[0] && eb.fascia.count > 0 ? ft : 0;
+        const ext1 = r.freeEnds[1] && eb.fascia.count > 0 ? ft : 0;
         const e0 = r.eaves.includes(0) ? eaveOut + PAPER_OVER : 0;
         const e1 = r.eaves.includes(1) ? eaveOut + PAPER_OVER : 0;
         out.push({
