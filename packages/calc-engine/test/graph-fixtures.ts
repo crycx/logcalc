@@ -164,7 +164,7 @@ export const KOLDING_GABLE = [796, 1591, 2386, 3182, 3800];
 export const KOLDING_SIDE = {
   // veranda kohal: alt piire (5 rida) + LG8, üleval LG9 + TL; astmed LG4/LG5/LG6 ulatuvad 400/800/1200 verandale
   open: [{ x0: 3800, x1: 5700, bottomRows: 6, topRows: 2, steps: [400, 800, 1200] }],
-  railings: [{ x0: 3800, x1: 5700, rows: 5, spacers: [4358, 5260], spacerLengths: [344, 440] }],
+  railings: [{ x0: 3800, x1: 5700, rows: 5, spacers: [4358, 5260], spacerLengths: [344, 440], handrail: true }],
 };
 export const KOLDING: Case = {
   name: 'Kolding 40 (veranda piirdega, astmeline varikatus)',
@@ -186,8 +186,8 @@ export const KOLDING: Case = {
               { x0: 1180, x1: 2620, topRows: 1 },
             ],
             railings: [
-              { x0: 0, x1: 1180, rows: 6, firstSpacerRow: 2, spacers: [0, 836], spacerLengths: [440, 344] },
-              { x0: 2620, x1: 3800, rows: 6, firstSpacerRow: 2, spacers: [2620, 3360], spacerLengths: [344, 440] },
+              { x0: 0, x1: 1180, rows: 6, firstSpacerRow: 2, spacers: [0, 836], spacerLengths: [440, 344], handrail: true, post: 'start' },
+              { x0: 2620, x1: 3800, rows: 6, firstSpacerRow: 2, spacers: [2620, 3360], spacerLengths: [344, 440], handrail: true, post: 'end' },
             ],
           },
         },

@@ -751,6 +751,30 @@ export class PlanEditor {
     this.apply((p) => updateWall(p, s.w.id, { railings: list }));
   }
 
+  /** käsipuu piirde peal (40x143) */
+  protected setHandrail(i: number, on: boolean): void {
+    const s = this.sel();
+    if (!s) return;
+    const list = (s.w.railings ?? []).map((r, k): Railing => {
+      if (k !== i) return r;
+      const { handrail: _h, ...rest } = r;
+      return on ? { ...rest, handrail: true } : rest;
+    });
+    this.apply((p) => updateWall(p, s.w.id, { railings: list }));
+  }
+
+  /** veranda post piirde otsas (nurgasõlmes) */
+  protected setPost(i: number, v: 'none' | 'start' | 'end' | 'both'): void {
+    const s = this.sel();
+    if (!s) return;
+    const list = (s.w.railings ?? []).map((r, k): Railing => {
+      if (k !== i) return r;
+      const { post: _p, ...rest } = r;
+      return v === 'none' ? rest : { ...rest, post: v };
+    });
+    this.apply((p) => updateWall(p, s.w.id, { railings: list }));
+  }
+
   protected spacerLengthsText(r: Railing): string {
     return (r.spacerLengths ?? []).join(', ');
   }

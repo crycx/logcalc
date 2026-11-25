@@ -69,7 +69,7 @@ export type CatalogItemForm = FormGroup<{
   price: FormControl<number>;
 }>;
 
-export const PRICE_KEYS: { key: keyof PriceList; label: string }[] = [
+export const PRICE_KEYS: { key: keyof PriceList; label: string; unit?: 'tk' }[] = [
   { key: 'seinaLauad', label: 'Seinalauad' },
   { key: 'tuuleLiist', label: 'Tuuleliistud' },
   { key: 'katuseLauad', label: 'Katuselauad' },
@@ -81,6 +81,9 @@ export const PRICE_KEYS: { key: keyof PriceList; label: string }[] = [
   { key: 'papikinnituslaud', label: 'Papikinnituslaud (EE)' },
   { key: 'toelaud38', label: 'Toelaud 38x38' },
   { key: 'toelaud95', label: 'Toelaud 18x95' },
+  { key: 'postid', label: 'Veranda postid 40x70' },
+  { key: 'kasipuud', label: 'Käsipuud 40x143' },
+  { key: 'postijalg', label: 'Reguleeritav postijalg', unit: 'tk' },
 ];
 
 /** Vormi väärtus (getRawValue) – ka localStorage-sse salvestatav kuju. */

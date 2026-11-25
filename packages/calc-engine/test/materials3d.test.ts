@@ -19,7 +19,7 @@ describe('3D muu puit = lõikenimekiri', () => {
     // suurem toelaud (18x95) räästas ainult viilkatusel (ühekaldel esiräästalaud, Revit Carina)
     expect(r.materials.some((g) => g.key === 'toelaud95')).toBe(h.roofType === 'gable');
     // oru lauad (põhiosa laudade jäägid) ja katusepapp on ilma tähiseta
-    expect(m.members.filter((x) => x.key !== 'katuseLauadOrg' && x.key !== 'katusepapp').every((x) => x.mark !== '')).toBe(true);
+    expect(m.members.filter((x) => x.key !== 'katuseLauadOrg' && x.key !== 'katusepapp' && x.key !== 'postijalg').every((x) => x.mark !== '')).toBe(true);
     for (const g of r.materials)
       for (const row of g.rows) expect([g.key, row.mark, m.members.filter((x) => x.key === g.key && x.mark === row.mark).length]).toEqual([g.key, row.mark, row.count]);
   });

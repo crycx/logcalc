@@ -86,3 +86,17 @@ describe('tuuleliistud lahtise seina juures', () => {
     expect(r.windboards.some((w) => w.wall === '1')).toBe(false);
   });
 });
+
+describe('veranda postid ja käsipuud (Revit Kolding Roof 1 / Details 5)', () => {
+  it('CM1 2 × 1233, CM2 2 × 1176, postijalg 2 tk; käsipuud 2 × 1945, 2 × 1040, 2 × 105', async () => {
+    const { KOLDING } = await import('./graph-fixtures.js');
+    const r = calculateHouse(KOLDING.input);
+    const line = (k: string) => r.bom.find((l) => l.key === k);
+    expect(line('postid')!.pieces).toEqual(expect.arrayContaining([{ count: 2, length: 1233 }, { count: 2, length: 1176 }]));
+    expect(line('postid')!.profile).toBe('40x70');
+    expect(line('postijalg')!.quantity).toBe(2);
+    expect(line('kasipuud')!.pieces).toEqual(expect.arrayContaining([{ count: 2, length: 1945 }, { count: 2, length: 1040 }, { count: 2, length: 105 }]));
+    expect(line('kasipuud')!.profile).toBe('40x143');
+    expect(r.materials.find((g) => g.key === 'postid')!.rows.map((x) => x.mark)).toEqual(['CM-1', 'CM-2']);
+  });
+});

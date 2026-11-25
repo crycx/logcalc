@@ -9,6 +9,7 @@ import { materialCutList } from './materials.js';
 import { planGeometry, rectanglePlan } from './plan.js';
 import { houseModel3d } from './model3d.js';
 import { WINDBOARD, computeWindboards, type Windboard } from './windboards.js';
+import { VERANDA, computeVeranda, type VerandaResult } from './veranda.js';
 import { pitchRatio, roofVolumes, volumeInput, wingSpan, type WingSpan } from './roof-volumes.js';
 import { planFloor, planFoundation } from './floor-plan.js';
 import { outerArea, outlineCorners, planGrid, solidBelow } from './plan-regions.js';
@@ -63,6 +64,9 @@ const LABELS: Record<keyof PriceList, string> = {
   papikinnituslaud: 'Papikinnituslaud (EE)',
   toelaud38: 'Katuselaudade toelaud',
   toelaud95: 'Katuselaudade toelaud (suurem)',
+  postid: 'Veranda postid',
+  kasipuud: 'Käsipuud',
+  postijalg: 'Reguleeritav postijalg',
 };
 
 /**
@@ -165,7 +169,7 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   try {
     const wbPlan = input.plan ?? rectanglePlan(dimensions.width, dimensions.depth, input.log.thickness, c);
     const wbGeo = planGeo ?? planGeometry(wbPlan, input.log.thickness, c);
-    const pre = { dimensions, cutList, materials: [], windboards: [], wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom: [], totalPrice: 0, warnings: [] } as CalcResult;
+    const pre = { dimensions, cutList, materials: [], windboards: [], veranda: { posts: [], handrails: [] }, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom: [], totalPrice: 0, warnings: [] } as CalcResult;
     const m = houseModel3d(input, pre, c, { members: false });
     windboards = computeWindboards(
       wbPlan,
@@ -189,6 +193,10 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
       });
     }
   }
+
+  // veranda postid ja käsipuud (piirete valikud plaanis)
+  const veranda: VerandaResult =
+    input.plan && planGeo ? computeVeranda(input.plan, planGeo, wallModel, input.log.thickness, c.maxLogLength) : { posts: [], handrails: [] };
 
   const prices = options.prices ?? {};
   const bom: BomLine[] = [];
@@ -227,6 +235,25 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
             { count: 2, length: input.roofHeight - p },
           ];
     add('tuuleLiist', pieces.reduce((sum, x) => sum + (x.count * x.length) / 1000, 0) || walls.windStripsJm, { pieces });
+  }
+  // veranda: postid (iga nurgas kohtuva seina kohta üks 40x70), käsipuud 40x143, postijalad (tk)
+  if (veranda.posts.length) {
+    const pieces = mergePieces(veranda.posts.flatMap((p) => p.pieces.map((q) => ({ count: 1, length: q.length }))));
+    add('postid', pieces.reduce((sum, x) => sum + (x.count * x.length) / 1000, 0), { pieces, profile: `${input.log.thickness}x${VERANDA.postWidth}` });
+    const n = veranda.posts.length;
+    const unitPrice = prices.postijalg;
+    bom.push({
+      key: 'postijalg',
+      label: LABELS.postijalg,
+      quantity: n,
+      unit: 'tk',
+      profile: `${VERANDA.foot} mm`,
+      ...(unitPrice !== undefined ? { unitPrice, total: n * unitPrice } : {}),
+    });
+  }
+  if (veranda.handrails.length) {
+    const pieces = mergePieces(veranda.handrails.map((h) => ({ count: 1, length: Math.round(h.x1 - h.x0) })));
+    add('kasipuud', pieces.reduce((sum, x) => sum + (x.count * x.length) / 1000, 0), { pieces, profile: `${VERANDA.handrailThickness}x${VERANDA.handrailWidth}` });
   }
   if (foundation) {
     const pieces: { count: number; length: number }[] = [];
@@ -314,7 +341,7 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
 
   const materials = materialCutList(input, bom, c, windboards);
-  return { dimensions, cutList, materials, windboards, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
+  return { dimensions, cutList, materials, windboards, veranda, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
 }
 
 /** „sein A“, „seinad 1, A“, „seinad A ×2, B“ – seinte järjekord 1, 2, A, B */

@@ -67,6 +67,8 @@ export interface WallVoid {
   stepEnd?: boolean;
   /** piirde kate: tühja ala esimeses reas madal palk (mm) */
   cap?: number;
+  /** piirde vaherea ava (vahepalkide vahel) */
+  railing?: boolean;
 }
 
 export interface WallSpec {
@@ -451,7 +453,7 @@ export function buildWalls(
       for (let i = Math.max(0, r.firstSpacerRow ?? 1); i < Math.min(r.rows, n); i += 2) {
         let x = r.x0;
         for (const [a, b] of [...solid, [r.x1, r.x1] as const]) {
-          if (a - x > EPS) voids.push({ x0: x, x1: Math.min(a, r.x1), y0: rect[i]!.y0, y1: rect[i]!.y1, kind: 'open' });
+          if (a - x > EPS) voids.push({ x0: x, x1: Math.min(a, r.x1), y0: rect[i]!.y0, y1: rect[i]!.y1, kind: 'open', railing: true });
           x = Math.max(x, b);
         }
       }

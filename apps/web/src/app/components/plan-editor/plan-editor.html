@@ -209,6 +209,24 @@
               <input matInput type="number" min="0" step="1" [value]="r.firstSpacerRow ?? 1" (change)="setRailing(i, 'firstSpacerRow', $event)" [disabled]="readonly()" />
             </mat-form-field>
             </div>
+            <div class="more two">
+            <mat-form-field matTooltip="Veranda post (2 × 40x70, postijalg 45) piirde otsas nurgasõlmes – ulatub mõlema seina palgi alla (vajumisvaru 40)">
+              <mat-label>Post</mat-label>
+              <mat-select [value]="r.post ?? 'none'" (selectionChange)="setPost(i, $event.value)" [disabled]="readonly()">
+                <mat-option value="none">ei</mat-option>
+                <mat-option value="start">algusest</mat-option>
+                <mat-option value="end">lõpus</mat-option>
+                <mat-option value="both">mõlemas otsas</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field matTooltip="Käsipuu 40x143 lapiti piirde peal (vabast otsast 45 üle, posti kohalt katkestatud)">
+              <mat-label>Käsipuu</mat-label>
+              <mat-select [value]="r.handrail ? 'yes' : 'no'" (selectionChange)="setHandrail(i, $event.value === 'yes')" [disabled]="readonly()">
+                <mat-option value="no">ei</mat-option>
+                <mat-option value="yes">jah</mat-option>
+              </mat-select>
+            </mat-form-field>
+            </div>
           </div>
         }
         @if (!readonly()) {

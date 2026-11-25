@@ -129,6 +129,12 @@ export interface PriceList {
   papikinnituslaud?: number;
   toelaud38?: number;
   toelaud95?: number;
+  /** veranda postid 40x70 (jm) */
+  postid?: number;
+  /** käsipuud 40x143 (jm) */
+  kasipuud?: number;
+  /** reguleeritav postijalg (tk) */
+  postijalg?: number;
 }
 
 export interface HouseInput {
@@ -388,6 +394,8 @@ export interface CalcResult {
   materials: import('./materials.js').MaterialCutGroup[];
   /** Tuuleliistud (Windboard 18x40 × 2200) asukoha ja lõikepikkusega */
   windboards: import('./windboards.js').Windboard[];
+  /** Veranda postid ja käsipuud (plaanist maja, piirete valikud) */
+  veranda: import('./veranda.js').VerandaResult;
   /** Seinad koos ridade ja paigutatud avadega (joonistamiseks) */
   wallModel: import('./wall-model.js').WallSpec[];
   /** Uksed ja aknad paigutatuna (sisendi järjekorras: uksed, siis aknad; kogus lahti laotud) */

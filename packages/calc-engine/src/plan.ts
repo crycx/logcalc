@@ -67,6 +67,10 @@ export interface Railing {
   spacerLengths?: number[];
   /** esimene vahedega rida (0 = alumine); vaikimisi 1 – poole palgiga algaval seinal (Kolding 1) 2 */
   firstSpacerRow?: number;
+  /** käsipuu 40x143 piirde peal (Revit Kolding Handrail) */
+  handrail?: boolean;
+  /** veranda post piirde otsas nurgasõlmes (Revit Kolding CM): algus, lõpp või mõlemad */
+  post?: 'start' | 'end' | 'both';
 }
 
 export interface HousePlan {

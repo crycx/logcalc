@@ -17,7 +17,7 @@ final class TenantApi
 {
     public const PRICE_KEYS = [
         'seinaLauad', 'tuuleLiist', 'katuseLauad', 'parlinid', 'porandaLauad', 'terrassiLauad', 'vundament',
-        'esiraastalaud', 'papikinnituslaud', 'toelaud38', 'toelaud95',
+        'esiraastalaud', 'papikinnituslaud', 'toelaud38', 'toelaud95', 'postid', 'kasipuud', 'postijalg',
     ];
     public const CONSTANT_KEYS = [
         'cornerOverhang', 'roofBoardWidth', 'defaultRoofOverhang', 'maxJoistSpacing', 'maxPurlinSpacing',

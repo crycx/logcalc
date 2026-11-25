@@ -13,6 +13,7 @@ import type { RoofPlane3D, Vec3, Wall3D } from './model3d.js';
 import type { HousePlan, WallGeometry } from './plan.js';
 import { planGrid, solidBelow } from './plan-regions.js';
 import { WINDBOARD } from './windboards.js';
+import { VERANDA } from './veranda.js';
 import type { CalcResult, EngineConstants, HouseInput, PlanBox, PurlinsResult, RoofResult } from './types.js';
 
 export type MemberLayer = 'foundation' | 'floor' | 'roof' | 'trim' | 'cover';
@@ -323,6 +324,45 @@ export function buildMembers(
       v: u,
       size: [wb.cut, WINDBOARD.width, WINDBOARD.thickness],
     });
+  }
+  // ---- veranda: postid (40x70 tükid nurgas, postijalg 45) ja käsipuud 40x143 lapiti piirde peal (veranda.ts)
+  const ver = result.veranda;
+  if (ver) {
+    const wById3 = new Map(ctx.walls.map((w) => [w.id, w]));
+    for (const p of ver.posts) {
+      // tükid kõrvuti esimese seina suunas (2 × paksus), sügavus 70 teise seina suunas
+      const first = p.pieces[0]!;
+      const ua: Vec3 = [first.u.x, first.u.y, 0];
+      const ub: Vec3 = p.pieces[1] ? [p.pieces[1].u.x, p.pieces[1].u.y, 0] : [-first.u.y, first.u.x, 0];
+      p.pieces.forEach((q, i) => {
+        const off = (i - (p.pieces.length - 1) / 2) * t;
+        out.push({
+          key: 'postid',
+          mark: mark('postid', q.length),
+          layer: 'trim',
+          c: [p.x + ua[0] * off, p.y + ua[1] * off, p.z0 + q.length / 2],
+          u: Z,
+          v: ua,
+          size: [q.length, t, VERANDA.postWidth],
+        });
+      });
+      out.push({ key: 'postijalg', mark: '', layer: 'trim', c: [p.x, p.y, p.z0 - VERANDA.foot / 2], u: ua, v: ub, size: [t * p.pieces.length, VERANDA.postWidth, VERANDA.foot] });
+    }
+    for (const h of ver.handrails) {
+      const w = wById3.get(h.wall);
+      if (!w) continue;
+      const len = h.x1 - h.x0;
+      const xm = (h.x0 + h.x1) / 2;
+      out.push({
+        key: 'kasipuud',
+        mark: mark('kasipuud', Math.round(len)),
+        layer: 'trim',
+        c: [w.origin.x + w.u.x * xm, w.origin.y + w.u.y * xm, h.z + VERANDA.handrailThickness / 2],
+        u: [w.u.x, w.u.y, 0],
+        v: [-w.u.y, w.u.x, 0],
+        size: [len, VERANDA.handrailWidth, VERANDA.handrailThickness],
+      });
+    }
   }
   return out;
 }
