@@ -10,6 +10,8 @@ export const AUTH_EVENT_INFO: Record<AuthEventType, { label: string; icon: strin
   password_reset: { label: 'Parool lähtestatud', icon: 'lock_reset', tone: 'info' },
   user_created: { label: 'Kasutaja loodud', icon: 'person_add', tone: 'info' },
   user_updated: { label: 'Kasutaja muudetud', icon: 'manage_accounts', tone: 'info' },
+  invite_sent: { label: 'Parooli link saadetud', icon: 'forward_to_inbox', tone: 'info' },
+  password_set: { label: 'Parool määratud lingiga', icon: 'key', tone: 'ok' },
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

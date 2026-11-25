@@ -1,0 +1,30 @@
+<h2 mat-dialog-title>{{ data.invite.purpose === 'invite' ? 'Kutse saadetud' : 'Uue parooli link saadetud' }}</h2>
+<mat-dialog-content class="body">
+  @if (data.invite.mailed) {
+    <p class="status ok">
+      <mat-icon>mark_email_read</mat-icon>
+      <span>E-kiri saadeti aadressile <b>{{ data.email }}</b>. Lingiga saab ta parooli määrata ja on kohe sisse logitud.</span>
+    </p>
+  } @else {
+    <p class="status warn">
+      <mat-icon>warning</mat-icon>
+      <span>E-kirja ei õnnestunud saata. Kopeeri link ja saada see aadressile <b>{{ data.email }}</b> ise.</span>
+    </p>
+  }
+  <div class="link">
+    <input readonly [value]="data.invite.url" aria-label="Parooli seadmise link" (focus)="$any($event.target).select()" />
+    <button mat-icon-button type="button" (click)="copy()" [matTooltip]="copied() ? 'Kopeeritud' : 'Kopeeri link'" aria-label="Kopeeri link">
+      <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+    </button>
+  </div>
+  @if (copyFailed()) {
+    <p class="hint">Kopeerimine ei õnnestunud – vali link ja kopeeri käsitsi.</p>
+  }
+  <p class="hint">
+    Link on ühekordne ja kehtib kuni {{ expires.toLocaleString('et-EE', { dateStyle: 'short', timeStyle: 'short' }) }}. Uue lingi saatmine tühistab
+    eelmise.
+  </p>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-flat-button type="button" [mat-dialog-close]="true">Sulge</button>
+</mat-dialog-actions>

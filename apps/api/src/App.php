@@ -26,10 +26,14 @@ final class App
             $auth = new Auth($db, $cfg['session'] ?? [], AuthLog::fromRequest($db, $req, (int) ($cfg['auth_log_days'] ?? 365)));
             $auth->startSession();
 
-            $authApi = new AuthApi($db, $auth);
+            $tokens = new PasswordTokens($db);
+            // rakenduse aadress e-kirja linkide jaoks: config app_url, muidu päringu Origin (CSRF kontrollitud), muidu esimene lubatud
+            $appUrl = (string) ($cfg['app_url'] ?? $req->header('origin') ?? ((array) ($cfg['allowed_origins'] ?? []))[0] ?? '');
+            $mailer = new Mailer((array) ($cfg['mail'] ?? []), $appUrl, LOGCALC_APP_ROOT . '/data');
+            $authApi = new AuthApi($db, $auth, $tokens);
             $projects = new ProjectsApi($db, $auth);
             $tenant = new TenantApi($db, $auth);
-            $users = new UsersApi($db, $auth);
+            $users = new UsersApi($db, $auth, $tokens, $mailer, $appUrl);
 
             /** @var list<array{0: string, 1: string, 2: callable}> $routes */
             $routes = [
@@ -39,6 +43,8 @@ final class App
                 ['POST', '/auth/logout', $authApi->logout(...)],
                 ['POST', '/auth/password', $authApi->changePassword(...)],
                 ['GET', '/auth/events', $authApi->myEvents(...)],
+                ['POST', '/auth/link', $authApi->linkInfo(...)],
+                ['POST', '/auth/link/password', $authApi->linkSetPassword(...)],
                 ['GET', '/projects', $projects->list(...)],
                 ['POST', '/projects', $projects->create(...)],
                 ['GET', '/projects/{id}', $projects->get(...)],
@@ -54,6 +60,7 @@ final class App
                 ['GET', '/users', $users->list(...)],
                 ['POST', '/users', $users->create(...)],
                 ['PATCH', '/users/{id}', $users->update(...)],
+                ['POST', '/users/{id}/invite', $users->invite(...)],
                 ['GET', '/auth-events', $users->events(...)],
             ];
 

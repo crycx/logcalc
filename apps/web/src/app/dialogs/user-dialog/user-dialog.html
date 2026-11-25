@@ -32,6 +32,15 @@
     </div>
 
     @if (isNew) {
+      <mat-button-toggle-group name="mode" [(ngModel)]="mode" aria-label="Parool" hideSingleSelectionIndicator class="mode">
+        <mat-button-toggle value="link"><mat-icon>forward_to_inbox</mat-icon> Saada link e-postiga</mat-button-toggle>
+        <mat-button-toggle value="password"><mat-icon>password</mat-icon> Määran parooli ise</mat-button-toggle>
+      </mat-button-toggle-group>
+    }
+    @if (isNew && mode === 'link') {
+      <p class="hint">Kasutajale saadetakse e-kiri lingiga (kehtib 7 päeva): ta määrab ise parooli ja on kohe sisse logitud.</p>
+    }
+    @if (isNew && mode === 'password') {
       <mat-form-field class="pw">
         <mat-label>Algne parool</mat-label>
         <input matInput name="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password" required minlength="10"
@@ -57,6 +66,6 @@
   @if (busy()) { <mat-progress-bar mode="indeterminate" /> }
   <mat-dialog-actions align="end">
     <button mat-button type="button" [mat-dialog-close]="null">Loobu</button>
-    <button mat-flat-button type="submit" [disabled]="busy() || !f.valid">{{ isNew ? 'Lisa kasutaja' : 'Salvesta' }}</button>
+    <button mat-flat-button type="submit" [disabled]="busy() || !f.valid">{{ isNew ? (mode === 'link' ? 'Lisa ja saada kutse' : 'Lisa kasutaja') : 'Salvesta' }}</button>
   </mat-dialog-actions>
 </form>

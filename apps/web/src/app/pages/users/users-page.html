@@ -62,7 +62,11 @@
                 @if (multiTenant()) { <td>{{ u.tenant.name }}</td> }
                 <td><span class="role" [class]="'role role-' + u.role">{{ roleLabels[u.role] }}</span></td>
                 <td>
-                  @if (u.active) {
+                  @if (u.active && !u.passwordSet) {
+                    <span class="state pending" [matTooltip]="u.linkPending ? 'Kutse on saadetud, kasutaja pole veel parooli määranud' : 'Kutse link on aegunud – saada uus'">
+                      <mat-icon>{{ u.linkPending ? 'schedule_send' : 'mail' }}</mat-icon> {{ u.linkPending ? 'Kutsutud' : 'Kutse aegunud' }}
+                    </span>
+                  } @else if (u.active) {
                     <span class="state on"><mat-icon>check_circle</mat-icon> Aktiivne</span>
                   } @else {
                     <span class="state off"><mat-icon>block</mat-icon> Välja lülitatud</span>
@@ -81,6 +85,11 @@
                     <button mat-icon-button (click)="edit(u)" matTooltip="Muuda nime ja rolli" [attr.aria-label]="'Muuda: ' + u.email"><mat-icon>edit</mat-icon></button>
                     <button mat-icon-button [matMenuTriggerFor]="rowMenu" [attr.aria-label]="'Rohkem: ' + u.email"><mat-icon>more_vert</mat-icon></button>
                     <mat-menu #rowMenu="matMenu">
+                      @if (u.active) {
+                        <button mat-menu-item (click)="sendLink(u)">
+                          <mat-icon>forward_to_inbox</mat-icon> {{ u.passwordSet ? 'Saada uue parooli link' : 'Saada kutse uuesti' }}
+                        </button>
+                      }
                       <button mat-menu-item (click)="resetPassword(u)"><mat-icon>lock_reset</mat-icon> Määra uus parool</button>
                       <button mat-menu-item (click)="showLog(u)"><mat-icon>history</mat-icon> Vaata logi</button>
                       @if (!isMe(u)) {

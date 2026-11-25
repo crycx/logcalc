@@ -199,6 +199,10 @@ table.grid {
   &.off {
     color: var(--mat-sys-error);
   }
+
+  &.pending {
+    color: var(--mat-sys-tertiary);
+  }
 }
 
 .muted {

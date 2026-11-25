@@ -7,6 +7,8 @@ use LogCalc\Auth;
 use LogCalc\AuthLog;
 use LogCalc\HttpException;
 use LogCalc\Input;
+use LogCalc\Mailer;
+use LogCalc\PasswordTokens;
 use LogCalc\Request;
 use PDO;
 
@@ -18,16 +20,19 @@ final class UsersApi
 {
     private const ROLE_NAMES = ['user' => 'kasutaja', 'admin' => 'admin', 'superadmin' => 'superadmin'];
 
-    public function __construct(private readonly PDO $db, private readonly Auth $auth)
-    {
+    public function __construct(
+        private readonly PDO $db,
+        private readonly Auth $auth,
+        private readonly PasswordTokens $tokens,
+        private readonly Mailer $mailer,
+        private readonly string $appUrl,
+    ) {
     }
 
     public function list(Request $req): array
     {
         $me = $this->auth->requireRole('admin', 'superadmin');
-        $sql = 'SELECT u.id, u.email, u.name, u.role, u.active, u.created_at, u.last_login_at, u.tenant_id, t.name AS tenant_name,
-                       (SELECT COUNT(*) FROM projects p WHERE p.owner_id = u.id) AS project_count
-                FROM users u JOIN tenants t ON t.id = u.tenant_id';
+        $sql = 'SELECT ' . $this->cols() . ' FROM users u JOIN tenants t ON t.id = u.tenant_id';
         $args = [];
         if ($me['role'] !== 'superadmin') {
             $sql .= ' WHERE u.tenant_id = ?';
@@ -54,21 +59,98 @@ final class UsersApi
                 throw new HttpException(422, 'Klienti ei leitud.');
             }
         }
+        // kutse: parooli pole, kasutaja saab e-postiga lingi parooli määramiseks; muidu admin annab algse parooli
+        $invite = ($d['invite'] ?? false) === true;
         $password = $d['password'] ?? null;
-        if (!is_string($password)) {
-            throw new HttpException(422, 'Algne parool on kohustuslik.');
+        if (!$invite) {
+            if (!is_string($password)) {
+                throw new HttpException(422, 'Algne parool on kohustuslik.');
+            }
+            Auth::assertPasswordStrength($password);
         }
-        Auth::assertPasswordStrength($password);
         $st = $this->db->prepare('SELECT 1 FROM users WHERE email = ?');
         $st->execute([$email]);
         if ($st->fetchColumn()) {
             throw new HttpException(409, 'Selle e-postiga kasutaja on juba olemas.');
         }
         $this->db->prepare('INSERT INTO users (tenant_id, email, name, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)')
-            ->execute([$tenantId, $email, $name, password_hash($password, PASSWORD_DEFAULT), $role, gmdate('Y-m-d H:i:s')]);
+            ->execute([$tenantId, $email, $name, $invite ? null : password_hash((string) $password, PASSWORD_DEFAULT), $role, gmdate('Y-m-d H:i:s')]);
         $id = (int) $this->db->lastInsertId();
-        $this->auth->log()->record('user_created', $id, $tenantId, $email, $me['id'], 'roll: ' . self::ROLE_NAMES[$role]);
-        return ['user' => $this->find($me, $id)];
+        $this->auth->log()->record('user_created', $id, $tenantId, $email, $me['id'], 'roll: ' . self::ROLE_NAMES[$role] . ($invite ? ', kutsega' : ''));
+        if (!$invite) {
+            return ['user' => $this->find($me, $id)];
+        }
+        $info = $this->sendLink($me, $this->find($me, $id), 'invite');
+        return ['user' => $this->find($me, $id), 'invite' => $info];
+    }
+
+    /**
+     * Parooli seadmise link uuesti: kutse, kui parool on määramata, muidu uue parooli link. Vana link kaotab kehtivuse.
+     */
+    public function invite(Request $req, array $p): array
+    {
+        $me = $this->auth->requireRole('admin', 'superadmin');
+        $target = $this->find($me, $p['id']);
+        if ($target['role'] === 'superadmin' && $me['role'] !== 'superadmin') {
+            throw new HttpException(403, 'Superadmini saab muuta ainult superadmin.');
+        }
+        if (!$target['active']) {
+            throw new HttpException(422, 'Kasutaja on välja lülitatud – aktiveeri ta enne.');
+        }
+        $info = $this->sendLink($me, $target, $target['passwordSet'] ? 'reset' : 'invite');
+        return ['user' => $this->find($me, $target['id']), 'invite' => $info];
+    }
+
+    /**
+     * Loob lingi ja saadab selle e-postiga. Link tagastatakse ka adminile (kui kiri ei jõua, saab selle ise edasi anda).
+     *
+     * @param array<string, mixed> $me
+     * @param array<string, mixed> $user
+     * @return array{url: string, mailed: bool, expiresAt: string, purpose: string}
+     */
+    private function sendLink(array $me, array $user, string $purpose): array
+    {
+        $t = $this->tokens->create($user['id'], $purpose, $me['id']);
+        $url = rtrim($this->appUrl, '/') . '/parool?t=' . $t['token'];
+        $hello = $user['name'] !== '' ? 'Tere, ' . $user['name'] . '!' : 'Tere!';
+        $by = $me['name'] !== '' ? (string) $me['name'] : (string) $me['email'];
+        $days = PasswordTokens::DAYS;
+        $lines = $purpose === 'invite'
+            ? [
+                $hello,
+                '',
+                "$by lisas sind LogCalci kasutajaks ({$user['tenant']['name']}).",
+                '',
+                "Ava link, määra endale parool ja oled kohe sisse logitud (link kehtib $days päeva):",
+                $url,
+                '',
+                "Sinu kasutajanimi: {$user['email']}",
+                '',
+                'Kui sa seda kirja ei oodanud, võid selle lihtsalt kustutada.',
+            ]
+            : [
+                $hello,
+                '',
+                "$by saatis sulle lingi LogCalci uue parooli määramiseks.",
+                '',
+                "Ava link ja määra uus parool (link kehtib $days päeva):",
+                $url,
+                '',
+                "Sinu kasutajanimi: {$user['email']}",
+                '',
+                'Kui sa seda ei palunud, võid kirja kustutada – vana parool jääb kehtima.',
+            ];
+        $subject = $purpose === 'invite' ? 'LogCalc: määra oma parool' : 'LogCalc: uue parooli määramine';
+        $mailed = $this->mailer->send((string) $user['email'], $subject, implode("\n", $lines) . "\n");
+        $this->auth->log()->record(
+            'invite_sent',
+            $user['id'],
+            $user['tenant']['id'],
+            (string) $user['email'],
+            $me['id'],
+            ($purpose === 'invite' ? 'kutse' : 'uue parooli link') . ($mailed ? ', e-kiri saadetud' : ', e-kirja ei saadetud'),
+        );
+        return ['url' => $url, 'mailed' => $mailed, 'expiresAt' => $t['expiresAt'], 'purpose' => $purpose];
     }
 
     public function update(Request $req, array $p): array
@@ -143,7 +225,7 @@ final class UsersApi
         if ($type === 'failed') {
             $where[] = "e.type IN ('login_failed', 'login_blocked')";
         } elseif ($type === 'admin') {
-            $where[] = "e.type IN ('user_created', 'user_updated', 'password_reset', 'password_changed')";
+            $where[] = "e.type IN ('user_created', 'user_updated', 'password_reset', 'password_changed', 'invite_sent', 'password_set')";
         } elseif (in_array($type, AuthLog::TYPES, true)) {
             $where[] = 'e.type = ?';
             $args[] = $type;
@@ -192,9 +274,7 @@ final class UsersApi
     /** @return array<string, mixed> */
     private function find(array $me, int $id): array
     {
-        $sql = 'SELECT u.id, u.email, u.name, u.role, u.active, u.created_at, u.last_login_at, u.tenant_id, t.name AS tenant_name,
-                       (SELECT COUNT(*) FROM projects p WHERE p.owner_id = u.id) AS project_count
-                FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE u.id = ?';
+        $sql = 'SELECT ' . $this->cols() . ' FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE u.id = ?';
         $args = [$id];
         if ($me['role'] !== 'superadmin') {
             $sql .= ' AND u.tenant_id = ?';
@@ -204,6 +284,14 @@ final class UsersApi
         $st->execute($args);
         $r = $st->fetch() ?: throw new HttpException(404, 'Kasutajat ei leitud.');
         return self::row($r);
+    }
+
+    private function cols(): string
+    {
+        return "u.id, u.email, u.name, u.role, u.active, u.created_at, u.last_login_at, u.tenant_id, t.name AS tenant_name,
+                (SELECT COUNT(*) FROM projects p WHERE p.owner_id = u.id) AS project_count,
+                CASE WHEN u.password_hash IS NULL OR u.password_hash = '' THEN 0 ELSE 1 END AS password_set, "
+            . $this->tokens->pendingSql('u.id') . ' AS link_pending';
     }
 
     private static function row(array $r): array
@@ -218,6 +306,8 @@ final class UsersApi
             'lastLoginAt' => $r['last_login_at'],
             'tenant' => ['id' => (int) $r['tenant_id'], 'name' => $r['tenant_name']],
             'projectCount' => (int) $r['project_count'],
+            'passwordSet' => (bool) (int) $r['password_set'],
+            'linkPending' => (int) $r['link_pending'] > 0,
         ];
     }
 }

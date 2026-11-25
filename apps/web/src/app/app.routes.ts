@@ -10,5 +10,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/users/users-page').then((m) => m.UsersPage),
     title: 'Kasutajad – LogCalc',
   },
+  {
+    path: 'parool',
+    loadComponent: () => import('./pages/set-password/set-password-page').then((m) => m.SetPasswordPage),
+    title: 'Parooli määramine – LogCalc',
+  },
   { path: '**', redirectTo: '' },
 ];

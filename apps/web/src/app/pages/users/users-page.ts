@@ -22,7 +22,8 @@ import { Api, Session, type AuthEvent, type AuthEventFilter, type ManagedUser, t
 import { AccountDialog } from '../../dialogs/account-dialog/account-dialog';
 import { confirmDialog } from '../../dialogs/confirm-dialog/confirm-dialog';
 import { PasswordDialog } from '../../dialogs/password-dialog/password-dialog';
-import { UserDialog, type UserDialogData } from '../../dialogs/user-dialog/user-dialog';
+import { InviteDialog, type InviteDialogData } from '../../dialogs/invite-dialog/invite-dialog';
+import { UserDialog, type UserDialogData, type UserDialogResult } from '../../dialogs/user-dialog/user-dialog';
 import { AUTH_EVENT_INFO, ROLE_LABELS } from '../../helpers/auth-events';
 import { serverDate } from '../../helpers/date';
 import { apiError } from '../../helpers/http';
@@ -168,18 +169,36 @@ export class UsersPage {
       roles: this.roles(),
       ...(this.session.isSuperadmin() && this.tenants.length > 1 ? { tenants: this.tenants, defaultTenantId: this.session.user()?.tenant.id } : {}),
     };
-    const u = await firstValueFrom(this.dialog.open(UserDialog, { data, width: '520px', maxWidth: '94vw' }).afterClosed());
-    if (!u) return;
+    const r: UserDialogResult | undefined = await firstValueFrom(this.dialog.open(UserDialog, { data, width: '520px', maxWidth: '94vw' }).afterClosed());
+    if (!r) return;
+    const u = r.user;
     this.users.update((list) => [...list, u].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'et')));
-    this.snack.open(`Kasutaja ${u.email} on lisatud. Anna algne parool talle turvaliselt edasi.`, 'OK', { duration: 6000 });
+    if (r.invite) this.showInvite(u.email, r.invite);
+    else this.snack.open(`Kasutaja ${u.email} on lisatud. Anna algne parool talle turvaliselt edasi.`, 'OK', { duration: 6000 });
     void this.loadEvents();
+  }
+
+  /** Parooli link e-postiga (kutse, kui parool määramata; muidu uue parooli link). Eelmine link kaotab kehtivuse. */
+  protected async sendLink(u: ManagedUser): Promise<void> {
+    try {
+      const r = await this.api.sendPasswordLink(u.id);
+      this.replace(r.user);
+      this.showInvite(u.email, r.invite);
+      void this.loadEvents();
+    } catch (e) {
+      this.snack.open(apiError(e), 'OK', { duration: 6000 });
+    }
+  }
+
+  private showInvite(email: string, invite: InviteDialogData['invite']): void {
+    this.dialog.open(InviteDialog, { data: { email, invite } satisfies InviteDialogData, width: '520px', maxWidth: '94vw' });
   }
 
   protected async edit(u: ManagedUser): Promise<void> {
     const roles = this.isMe(u) ? [u.role] : this.roles();
-    const saved = await firstValueFrom(this.dialog.open(UserDialog, { data: { user: u, roles }, width: '520px', maxWidth: '94vw' }).afterClosed());
-    if (!saved) return;
-    this.replace(saved);
+    const r: UserDialogResult | undefined = await firstValueFrom(this.dialog.open(UserDialog, { data: { user: u, roles }, width: '520px', maxWidth: '94vw' }).afterClosed());
+    if (!r) return;
+    this.replace(r.user);
     this.snack.open('Salvestatud.', undefined, { duration: 2500 });
     void this.loadEvents();
   }

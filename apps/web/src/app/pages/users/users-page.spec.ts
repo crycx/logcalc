@@ -18,6 +18,8 @@ const user = (p: Partial<ManagedUser>): ManagedUser => ({
   lastLoginAt: '2026-11-24 12:30:00',
   tenant: { id: 1, name: 'Firma OÜ' },
   projectCount: 3,
+  passwordSet: true,
+  linkPending: false,
   ...p,
 });
 

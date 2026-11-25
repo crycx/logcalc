@@ -6,13 +6,46 @@ namespace LogCalc\Api;
 use LogCalc\Auth;
 use LogCalc\HttpException;
 use LogCalc\Input;
+use LogCalc\PasswordTokens;
 use LogCalc\Request;
 use PDO;
 
 final class AuthApi
 {
-    public function __construct(private readonly PDO $db, private readonly Auth $auth)
+    public function __construct(private readonly PDO $db, private readonly Auth $auth, private readonly PasswordTokens $tokens)
     {
+    }
+
+    /** Parooli lingi kontroll (avalik): kellele link on ja kas see kehtib */
+    public function linkInfo(Request $req): array
+    {
+        $t = $this->link($req->json());
+        return ['email' => $t['email'], 'name' => $t['name'], 'tenant' => $t['tenant_name'], 'purpose' => $t['purpose'], 'expiresAt' => $t['expires_at']];
+    }
+
+    /** Parooli määramine lingiga (avalik): parool salvestatakse, link kaotab kehtivuse, kasutaja logitakse sisse */
+    public function linkSetPassword(Request $req): array
+    {
+        $d = $req->json();
+        $t = $this->link($d);
+        $password = $d['password'] ?? null;
+        if (!is_string($password)) {
+            throw new HttpException(422, 'Parool on kohustuslik.');
+        }
+        $uid = (int) $t['user_id'];
+        $this->auth->setPassword($uid, $password);
+        $this->tokens->consume((int) $t['id']);
+        $this->auth->log()->record('password_set', $uid, (int) $t['tenant_id'], (string) $t['email'], $uid, $t['purpose'] === 'invite' ? 'kutse lingiga' : 'uue parooli lingiga');
+        $u = $this->auth->loginAfterPasswordSet($uid);
+        return ['user' => Auth::publicUser($u)];
+    }
+
+    /** @return array<string, mixed> */
+    private function link(array $d): array
+    {
+        $token = $d['token'] ?? null;
+        $t = is_string($token) ? $this->tokens->find($token) : null;
+        return $t ?? throw new HttpException(410, 'Link on aegunud või juba kasutatud. Palu adminil saata uus link.');
     }
 
     public function me(Request $req): array

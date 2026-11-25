@@ -5,10 +5,11 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Api, type ManagedUser, type Role, type TenantSummary } from '../../core/api';
+import { Api, type InviteInfo, type ManagedUser, type Role, type TenantSummary } from '../../core/api';
 import { ROLE_LABELS } from '../../helpers/auth-events';
 import { apiError } from '../../helpers/http';
 import { generatePassword } from '../../helpers/password';
@@ -23,17 +24,34 @@ export interface UserDialogData {
   defaultTenantId?: number;
 }
 
-/** Kasutaja lisamine (e-post, nimi, roll, algne parool) või muutmine (nimi, roll). */
+/** Dialoogi tulemus: salvestatud kasutaja; uuel kutsega kasutajal ka link */
+export interface UserDialogResult {
+  user: ManagedUser;
+  invite?: InviteInfo;
+}
+
+/** Kasutaja lisamine (e-post, nimi, roll; parooli link e-postiga või algne parool) või muutmine (nimi, roll). */
 @Component({
   selector: 'app-user-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatProgressBarModule, MatTooltipModule],
+  imports: [
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatProgressBarModule,
+    MatTooltipModule,
+  ],
   templateUrl: './user-dialog.html',
   styleUrl: './user-dialog.scss',
 })
 export class UserDialog {
   private readonly api = inject(Api);
-  private readonly ref = inject(MatDialogRef<UserDialog, ManagedUser>);
+  private readonly ref = inject(MatDialogRef<UserDialog, UserDialogResult>);
   protected readonly data = inject<UserDialogData>(MAT_DIALOG_DATA);
   protected readonly roleLabels = ROLE_LABELS;
   protected readonly isNew = !this.data.user;
@@ -47,6 +65,8 @@ export class UserDialog {
   protected role: Role = this.data.user?.role ?? 'user';
   protected tenantId = this.data.user?.tenant.id ?? this.data.defaultTenantId ?? this.data.tenants?.[0]?.id ?? 0;
   protected password = this.isNew ? generatePassword() : '';
+  /** uus kasutaja: 'link' – e-postiga link parooli määramiseks (vaikimisi), 'password' – admin annab algse parooli */
+  protected mode: 'link' | 'password' = 'link';
 
   protected regenerate(): void {
     this.password = generatePassword();
@@ -68,16 +88,16 @@ export class UserDialog {
     this.error.set('');
     try {
       const u = this.data.user;
-      const saved = u
-        ? await this.api.updateUser(u.id, { name: this.name.trim(), ...(this.role !== u.role ? { role: this.role } : {}) })
+      const result: UserDialogResult = u
+        ? { user: await this.api.updateUser(u.id, { name: this.name.trim(), ...(this.role !== u.role ? { role: this.role } : {}) }) }
         : await this.api.createUser({
             email: this.email.trim(),
             name: this.name.trim(),
             role: this.role,
-            password: this.password,
+            ...(this.mode === 'link' ? { invite: true } : { password: this.password }),
             ...(this.data.tenants?.length ? { tenantId: this.tenantId } : {}),
           });
-      this.ref.close(saved);
+      this.ref.close(result);
     } catch (e) {
       this.error.set(apiError(e));
     } finally {

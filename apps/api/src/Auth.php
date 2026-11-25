@@ -123,6 +123,22 @@ final class Auth
         return $this->current ?? throw new HttpException(500, 'Kasutajat ei leitud.');
     }
 
+    /**
+     * Sisselogimine ilma paroolita (kasutaja määras just parooli kehtiva lingiga).
+     *
+     * @return array<string, mixed>
+     */
+    public function loginAfterPasswordSet(int $id): array
+    {
+        $u = $this->loadUser($id) ?? throw new HttpException(403, 'Kasutaja ei ole aktiivne.');
+        $this->db->prepare('UPDATE users SET last_login_at = ? WHERE id = ?')->execute([gmdate('Y-m-d H:i:s'), $id]);
+        $this->log->record('login', $id, $u['tenant_id'], (string) $u['email'], null, 'parooli lingiga');
+        session_regenerate_id(true);
+        $_SESSION['uid'] = $id;
+        $this->current = $u;
+        return $u;
+    }
+
     public function logout(): void
     {
         $u = $this->user();

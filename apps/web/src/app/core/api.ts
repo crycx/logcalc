@@ -79,14 +79,39 @@ export interface ManagedUser {
   lastLoginAt: string | null;
   tenant: { id: number; name: string };
   projectCount: number;
+  /** false: kutsutud, parool veel määramata */
+  passwordSet: boolean;
+  /** kehtiv kasutamata parooli link olemas */
+  linkPending: boolean;
 }
 
 export interface NewUser {
   email: string;
   name: string;
   role: Role;
-  password: string;
+  /** algne parool (kui invite puudub) */
+  password?: string;
+  /** true: parooli pole, kasutajale saadetakse e-postiga link parooli määramiseks */
+  invite?: boolean;
   tenantId?: number;
+}
+
+/** Parooli seadmise link (kutse või uue parooli link) */
+export interface InviteInfo {
+  url: string;
+  /** e-kiri anti saatmiseks üle */
+  mailed: boolean;
+  expiresAt: string;
+  purpose: 'invite' | 'reset';
+}
+
+/** Lingi kontroll (avalik) */
+export interface LinkInfo {
+  email: string;
+  name: string;
+  tenant: string;
+  purpose: 'invite' | 'reset';
+  expiresAt: string;
 }
 
 export type UserPatch = Partial<{ name: string; role: Role; active: boolean; password: string }>;
@@ -99,7 +124,9 @@ export type AuthEventType =
   | 'password_changed'
   | 'password_reset'
   | 'user_created'
-  | 'user_updated';
+  | 'user_updated'
+  | 'invite_sent'
+  | 'password_set';
 
 /** Sisselogimise või kasutajahalduse sündmus */
 export interface AuthEvent {
@@ -177,8 +204,18 @@ export class Api {
   async users(): Promise<ManagedUser[]> {
     return (await firstValueFrom(this.http.get<{ users: ManagedUser[] }>('/api/users'))).users;
   }
-  async createUser(u: NewUser): Promise<ManagedUser> {
-    return (await firstValueFrom(this.http.post<{ user: ManagedUser }>('/api/users', u))).user;
+  async createUser(u: NewUser): Promise<{ user: ManagedUser; invite?: InviteInfo }> {
+    return firstValueFrom(this.http.post<{ user: ManagedUser; invite?: InviteInfo }>('/api/users', u));
+  }
+  /** parooli link uuesti (kutse või uue parooli link); vana link kaotab kehtivuse */
+  async sendPasswordLink(id: number): Promise<{ user: ManagedUser; invite: InviteInfo }> {
+    return firstValueFrom(this.http.post<{ user: ManagedUser; invite: InviteInfo }>(`/api/users/${id}/invite`, {}));
+  }
+  async linkInfo(token: string): Promise<LinkInfo> {
+    return firstValueFrom(this.http.post<LinkInfo>('/api/auth/link', { token }));
+  }
+  async linkSetPassword(token: string, password: string): Promise<User> {
+    return (await firstValueFrom(this.http.post<{ user: User }>('/api/auth/link/password', { token, password }))).user;
   }
   async updateUser(id: number, patch: UserPatch): Promise<ManagedUser> {
     return (await firstValueFrom(this.http.patch<{ user: ManagedUser }>(`/api/users/${id}`, patch))).user;
@@ -240,6 +277,15 @@ export class Session {
     const u = await this.api.login(email, password);
     this.user.set(u);
     this.tenant.set(await this.api.tenant());
+    return u;
+  }
+
+  /** Parool e-kirja lingiga: salvestab ja logib sisse */
+  async setPasswordWithLink(token: string, password: string): Promise<User> {
+    const u = await this.api.linkSetPassword(token, password);
+    this.user.set(u);
+    this.tenant.set(await this.api.tenant());
+    this.ready.set(true);
     return u;
   }
 
