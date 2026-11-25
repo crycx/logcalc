@@ -309,29 +309,34 @@ export class House3d {
       this.pieces.push({ mesh, edges, mark, base: material });
     };
     /** profiiliga palk: keskosa ristlõike pressimisena, otsad seina tasandi kujuna (kaldlõiked) läbi paksuse */
-    const profiled = (p: Wall3D['pieces'][number], mark: string, material: THREE_NS.Material, profile: THREE_NS.Shape, yTop: number) => {
+    /**
+     * Profiiliga palk: keskosa ristlõike pressimisena; otsad sama ristlõikega (laius ei muutu), ainult pikkuse suunas
+     * üla- ja alanurk kaldu (seina otsas ~15 mm) või alumine nurk 45° (varikatus) – ristlõige läheb otsa poole
+     * sujuvalt lõigatud ristlõikeks (punnid/sooned kaovad faasi sees).
+     */
+    const profiled = (p: Wall3D['pieces'][number], mark: string, material: THREE_NS.Material, ring: [number, number][], topAt: (a: number) => number) => {
       const h = p.y1 - p.y0;
       const c = Math.min(15, h * 0.13);
       const d = h * 0.43;
+      const mid = (p.y0 + p.y1) / 2;
       const ends = [endOf(p, true), endOf(p, false)] as const;
       const len = (e: End) => (e === 'log' ? c : e === 'ext' ? d : 0);
       const bx0 = p.x0 + len(ends[0]);
       const bx1 = p.x1 - len(ends[1]);
       if (bx1 - bx0 > 1) {
-        const geo = new THREE.ExtrudeGeometry(profile, { depth: bx1 - bx0, bevelEnabled: false });
+        const geo = new THREE.ExtrudeGeometry(shapeOf(THREE, ring), { depth: bx1 - bx0, bevelEnabled: false });
         geo.translate(0, 0, bx0);
         add(geo, material, mark, true);
       }
       ends.forEach((e, k) => {
         if (e === 'plain') return;
-        // otsa kuju seina tasandis (x piki seina, y üles), ots x = 0, sisse +x
-        const pts: [number, number][] =
-          e === 'log' ? [[0, p.y0 + c], [c, p.y0], [c, yTop], [0, yTop - c]] : [[0, p.y0 + d], [d, p.y0], [d, yTop], [0, yTop]];
-        const at = k === 0 ? (x: number) => p.x0 + x : (x: number) => p.x1 - x;
-        const shape = shapeOf(THREE, (k === 0 ? pts : [...pts].reverse()).map(([x, y]) => [at(x), y] as [number, number]));
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
-        geo.translate(0, 0, -t / 2);
-        add(geo, material, mark, false);
+        // otsa ristlõige: seina otsas üla- ja alaserv c võrra sisse, varikatusel alumine osa d võrra üles
+        const endRing: [number, number][] = ring.map(([a, z]) =>
+          e === 'log' ? [a, z > mid ? Math.max(mid, Math.min(z, topAt(a) - c)) : Math.min(mid, Math.max(z, p.y0 + c))] : [a, Math.max(z, p.y0 + d)],
+        );
+        const sFull = k === 0 ? bx0 : bx1;
+        const sEnd = k === 0 ? p.x0 : p.x1;
+        add(loft(THREE, ring, endRing, sFull, sEnd), material, mark, true);
       });
     };
 
@@ -356,13 +361,11 @@ export class House3d {
         const zs = (s: number) => Math.max(p.y0, Math.min(p.y1, rc.z0 + rc.k * s));
         // ristlõige (a, z), a = −s (alus −n, üles, u -> parempoolne), pressitud piki seina
         // all sooned ja faasid (profiil), pealt kaldlõige
-        const shape = shapeOf(THREE, logProfile(t, p.y0, p.y1, { grooves: true, tongues: false, top: (a) => zs(-a) }));
-        // otste kaldlõike ülemine serv: välispinna (madalam) kõrgus
-        profiled(p, mark, material, shape, Math.min(zs(t / 2), zs(-t / 2)));
+        profiled(p, mark, material, logProfile(t, p.y0, p.y1, { grooves: true, tongues: false, top: (a) => zs(-a) }), (a) => zs(-a));
         return;
       } else {
         // palgi profiil (Revit „Log Profile“): peal kaks punni, all kaks soont, servad faasitud; pool palki alt sile
-        profiled(p, mark, material, shapeOf(THREE, logProfile(t, p.y0, p.y1, { grooves: p.kind !== 'half', tongues: true })), p.y1);
+        profiled(p, mark, material, logProfile(t, p.y0, p.y1, { grooves: p.kind !== 'half', tongues: true }), () => p.y1);
         return;
       }
       const mesh = new THREE.Mesh(geo, material);
@@ -538,6 +541,65 @@ function logProfile(
   if (o.tongues) for (const x of [...g].reverse()) pts.push([x + tw / 2, y1], [x + tw / 2, y1 + th], [x - tw / 2, y1 + th], [x - tw / 2, y1]);
   pts.push([-t / 2 + cx, y1], [-t / 2, y1 - cz]);
   return pts;
+}
+
+/**
+ * Üleminek kahe sama tipuarvuga ristlõike vahel (a, z) pikkuse s suunas: küljed + otsatahk (sEnd). Ristlõike
+ * koordinaadistik nagu ExtrudeGeometry (x = a, y = z, z = s) – paigutus crossBasis'ega.
+ */
+function loft(THREE: Three, full: [number, number][], end: [number, number][], sFull: number, sEnd: number): THREE_NS.BufferGeometry {
+  const pos: number[] = [];
+  const n = full.length;
+  // ristlõike suund (vastupäeva > 0): serva i -> j välisnormaal = (dz, −da) × märk
+  let area = 0;
+  for (let i = 0; i < n; i++) {
+    const [x0, y0] = full[i]!;
+    const [x1, y1] = full[(i + 1) % n]!;
+    area += x0 * y1 - x1 * y0;
+  }
+  const sg = Math.sign(area) || 1;
+  const tri = (p: number[], q: number[], r: number[], out?: [number, number, number]) => {
+    // suuna kontroll: normaal välja (out) – vajadusel vahetus
+    if (out) {
+      const ux = q[0]! - p[0]!, uy = q[1]! - p[1]!, uz = q[2]! - p[2]!;
+      const vx = r[0]! - p[0]!, vy = r[1]! - p[1]!, vz = r[2]! - p[2]!;
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      if (nx * out[0] + ny * out[1] + nz * out[2] < 0) [q, r] = [r, q];
+    }
+    pos.push(...p, ...q, ...r);
+  };
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const a = [full[i]![0], full[i]![1], sFull];
+    const b = [full[j]![0], full[j]![1], sFull];
+    const c = [end[j]![0], end[j]![1], sEnd];
+    const d = [end[i]![0], end[i]![1], sEnd];
+    // serva välisnormaal (täisprofiilist; kui serv on null-pikkusega, otsaprofiilist)
+    let da = full[j]![0] - full[i]![0];
+    let dz = full[j]![1] - full[i]![1];
+    if (Math.hypot(da, dz) < 1e-6) {
+      da = end[j]![0] - end[i]![0];
+      dz = end[j]![1] - end[i]![1];
+    }
+    const out: [number, number, number] = [dz * sg, -da * sg, 0];
+    tri(a, b, c, out);
+    tri(a, c, d, out);
+  }
+  // otsatahk: kordused välja, kolmnurgad
+  const cap = end.filter((p, i) => {
+    const q = end[(i + end.length - 1) % end.length]!;
+    return Math.abs(p[0] - q[0]) > 1e-6 || Math.abs(p[1] - q[1]) > 1e-6;
+  });
+  const v2 = cap.map(([x, y]) => new THREE.Vector2(x, y));
+  const faces = THREE.ShapeUtils.triangulateShape(v2, []);
+  const dir = Math.sign(sEnd - sFull) || 1;
+  for (const [i, j, k] of faces) {
+    tri([cap[i]![0], cap[i]![1], sEnd], [cap[j]![0], cap[j]![1], sEnd], [cap[k]![0], cap[k]![1], sEnd], [0, 0, dir]);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  return geo;
 }
 
 function shapeOf(THREE: Three, pts: [number, number][]): THREE_NS.Shape {
