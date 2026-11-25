@@ -353,12 +353,14 @@ export class House3d {
       const cut = !rc && w.roofLine ? underRoof(p, w.roofLine, roofAt) : null;
       if (cut === 'none') return;
       if (cut) {
-        // palk katusejoone all: otsad kaldu (viilupalgid, viilu täisrea otsad nurkades)
-        const shape = new THREE.Shape();
-        shape.moveTo(cut[0]![0], cut[0]![1]);
-        for (const [x, z] of cut.slice(1)) shape.lineTo(x, z);
-        shape.closePath();
-        geo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
+        // palk katusejoone all: otsad kaldu (viilupalgid, viilu täisrea otsad nurkades); kontuuris alt sälgud
+        // (nurgaliide, ukse vajumisvaru) ja pealt pärlinite pilud
+        const det = w.details[i];
+        const rings = cutOutline(cut, p.y0, det?.notches.filter((n) => n.side === 'bottom') ?? [], det?.slots ?? []);
+        geo = new THREE.ExtrudeGeometry(
+          rings.map((r) => shapeOf(THREE, r)),
+          { depth: t, bevelEnabled: false },
+        );
         geo.translate(0, 0, -t / 2);
       } else if (rc && p.y1 > Math.min(rc.z0 - rc.k * (t / 2), rc.z0 + rc.k * (t / 2)) + 0.5) {
         // räästaseina ülemine palk: katus toetub siseservale, välisserv lõigatud kaldu (faas)
@@ -680,6 +682,94 @@ function logSolid(THREE: Three, ring: [number, number][], s0: number, s1: number
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.computeVertexNormals();
   return geo;
+}
+
+/**
+ * Viilupalgi kontuur (seina tasand X, Z; [alumine serv vasakult paremale, siis ülemine murdjoon paremalt vasakule])
+ * lõigetega: alumisse serva sälgud (ristkülikud), ülemisse serva pärlinite pilud (nelinurk [all, all, üleval, üleval]).
+ * Kui pilu läbib palgi kogu kõrguses (pilu põhi alumises reas), jääb palgist kaks eraldi osa.
+ */
+function cutOutline(ring: [number, number][], y0: number, bottom: { x: number; w: number; depth: number }[], slots: [number, number][][]): [number, number][][] {
+  let out = ring.slice();
+  // alumine serv: esimene serv (out[0] -> out[1]) kõrgusel y0
+  if (bottom.length && out.length >= 3 && Math.abs(out[0]![1] - y0) < 1 && Math.abs(out[1]![1] - y0) < 1) {
+    const xa = out[0]![0];
+    const xb = out[1]![0];
+    const ins: [number, number][] = [];
+    for (const n of [...bottom].sort((p, q) => p.x - q.x)) {
+      const n0 = Math.max(xa, n.x - n.w / 2);
+      const n1 = Math.min(xb, n.x + n.w / 2);
+      if (n1 - n0 < 1) continue;
+      ins.push([n0, y0], [n0, y0 + n.depth], [n1, y0 + n.depth], [n1, y0]);
+    }
+    out = [out[0]!, ...ins, ...out.slice(1)];
+  }
+  let rings: [number, number][][] = [out];
+  for (const s of slots) {
+    if (s.length !== 4) continue;
+    const [a, b, c, d] = s as [[number, number], [number, number], [number, number], [number, number]];
+    const mid: [number, number] = [(a[0] + b[0] + c[0] + d[0]) / 4, (a[1] + b[1] + c[1] + d[1]) / 4];
+    /** pool sirgest p–q, kus keskpunkt ei ole (pilust väljas): ≥ 0 */
+    const outside = (p: [number, number], q: [number, number]) => {
+      const side = (r: [number, number]) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+      const sm = Math.sign(side(mid)) || 1;
+      return (r: [number, number]) => -sm * side(r);
+    };
+    if (Math.min(a[1], b[1]) < y0 + 1) {
+      // pilu põhi selle palgi all: pilu läbib palgi kogu kõrguses -> kaks osa
+      rings = rings.flatMap((r) => [clipPoly(r, outside(a, d)), clipPoly(r, outside(b, c))]).filter((r) => r.length >= 3 && Math.abs(polyArea(r)) > 1);
+      continue;
+    }
+    rings = rings.map((r) => slotInto(r, a, b, c, d));
+  }
+  return rings;
+}
+
+/** Pilu (põhi palgi sees) ringi ülemisse serva: küljed a -> d ja b -> c üles kuni kontuurini, vahepealne osa välja */
+function slotInto(out: [number, number][], a: [number, number], b: [number, number], c: [number, number], d: [number, number]): [number, number][] {
+  const hit = (p: [number, number], q: [number, number]) => {
+    const dx = q[0] - p[0];
+    const dy = q[1] - p[1];
+    let best: { i: number; f: number; t: number; pt: [number, number] } | null = null;
+    for (let i = 0; i < out.length; i++) {
+      const e0 = out[i]!;
+      const e1 = out[(i + 1) % out.length]!;
+      const ex = e1[0] - e0[0];
+      const ey = e1[1] - e0[1];
+      const den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((e0[0] - p[0]) * ey - (e0[1] - p[1]) * ex) / den;
+      const f = ((e0[0] - p[0]) * dy - (e0[1] - p[1]) * dx) / den;
+      if (t <= 1e-6 || f < -1e-6 || f > 1 + 1e-6) continue;
+      if (!best || t < best.t) best = { i, f, t, pt: [p[0] + dx * t, p[1] + dy * t] };
+    }
+    return best;
+  };
+  const h1 = hit(a, d);
+  const h2 = hit(b, c);
+  if (!h1 || !h2) return out;
+  // ringil h1 -> h2 (lühem kaar = pilu kohal olev osa) asendatakse: h, alumised nurgad, h
+  const n = out.length;
+  const fwd = (h2.i + h2.f - (h1.i + h1.f) + n) % n;
+  const [first, second, c1, c2] = fwd <= n / 2 ? [h1, h2, a, b] : [h2, h1, b, a];
+  const next: [number, number][] = [second.pt];
+  let k = (second.i + 1) % n;
+  while (k !== (first.i + 1) % n) {
+    next.push(out[k]!);
+    k = (k + 1) % n;
+  }
+  next.push(first.pt, c1, c2);
+  return next;
+}
+
+function polyArea(r: [number, number][]): number {
+  let s = 0;
+  for (let i = 0; i < r.length; i++) {
+    const [x0, y0] = r[i]!;
+    const [x1, y1] = r[(i + 1) % r.length]!;
+    s += x0 * y1 - x1 * y0;
+  }
+  return s / 2;
 }
 
 function shapeOf(THREE: Three, pts: [number, number][]): THREE_NS.Shape {
