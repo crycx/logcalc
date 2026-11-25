@@ -78,7 +78,7 @@ const GRID = 10; // mm
   ],
   templateUrl: './plan-editor.html',
   styleUrl: './plan-editor.scss',
-  host: { '(keydown)': 'onKey($event)', tabindex: '0' },
+  host: { '(keydown)': 'onKey($event)', tabindex: '0', '[class.fill]': 'fill()' },
 })
 export class PlanEditor {
   private readonly dialog = inject(MatDialog);
@@ -98,6 +98,8 @@ export class PlanEditor {
   readonly readonly = input(false);
   /** ainult plaan (ülevaatejoonis): ilma tööriistade ja paneelita */
   readonly compact = input(false);
+  /** täidab vanema kõrguse (täisekraan) */
+  readonly fill = input(false);
 
   protected readonly templates = PLAN_TEMPLATES;
   protected readonly tool = signal<Tool>('select');
@@ -571,6 +573,8 @@ export class PlanEditor {
     }
     if (inField || this.readonly()) return;
     if (e.key === 'Escape') {
+      // joonistamise/valiku tühistamine kasutab Esc-i ära (täisekraan jääb)
+      if (this.draft() || this.selected()) e.preventDefault();
       if (this.draft()) this.draft.set(null);
       else this.selected.set(null);
       this.message.set('');

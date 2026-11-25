@@ -47,6 +47,7 @@ const MEMBER_COLORS: Record<string, number> = {
  */
 @Component({
   selector: 'app-house-3d',
+  host: { '[class.fill]': 'fill()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, MatCheckboxModule],
   templateUrl: './house-3d.html',
@@ -54,6 +55,8 @@ const MEMBER_COLORS: Record<string, number> = {
 })
 export class House3d {
   readonly model = input.required<HouseModel3D>();
+  /** täidab vanema kõrguse (täisekraan) */
+  readonly fill = input(false);
   /** esiletõstetud tähis (lõikenimekirjast), nt "1LG-3"; null = kõik tavalised */
   readonly highlight = input<string | null>(null);
   /** klõps palgil: selle tähis (sama uuesti / tühi koht = null) */

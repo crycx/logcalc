@@ -121,6 +121,33 @@
   }
 }
 
+/* täisekraan: plaan täidab kõrguse, paneel keritav */
+:host(.fill) {
+  flex: 1;
+
+  .body {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .canvas-col {
+    min-height: 0;
+  }
+
+  /* kõrgus tuleb paneelist, mitte SVG külgede suhtest */
+  .canvas {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+
+  .panel {
+    min-height: 0;
+    overflow: auto;
+  }
+}
+
 .canvas-col {
   display: flex;
   flex-direction: column;

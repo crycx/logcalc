@@ -195,6 +195,20 @@
 .view-bar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+/* täisekraan: joonis üle kogu akna */
+.drawing.fs {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--mat-sys-surface);
+  overflow: auto;
 }
 
 .drawing app-house-drawing {

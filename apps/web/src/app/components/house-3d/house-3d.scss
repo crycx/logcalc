@@ -55,6 +55,17 @@
   }
 }
 
+/* täisekraan: lõuend täidab kõrguse */
+:host(.fill) {
+  flex: 1;
+
+  .canvas {
+    flex: 1;
+    height: auto;
+    min-height: 300px;
+  }
+}
+
 .canvas {
   position: relative;
   height: 480px;

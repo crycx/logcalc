@@ -98,6 +98,7 @@ function houseData(v: HouseFormValue): HouseData {
 
 @Component({
   selector: 'app-calculator-page',
+  host: { '(document:keydown.escape)': 'exitFullscreen($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
@@ -137,6 +138,8 @@ export class CalculatorPage {
 
   protected readonly priceKeys = PRICE_KEYS;
   protected readonly view = signal<DrawingView | 'plan' | '3d' | 'details'>('overview');
+  /** joonise paneel üle kogu akna (küljepaneelid ja alumine osa peidus) */
+  protected readonly fullscreen = signal(false);
   /** lõikenimekirja ja 3D vaate ühine valik: palgi tähis (nt "1LG-3") */
   protected readonly pieceMark = signal<string | null>(null);
   /** valitud tähis, kui see on veel lõikenimekirjas (maja muutmisel võib kaduda) */
@@ -512,4 +515,9 @@ export class CalculatorPage {
   }
 
   protected readonly pieces = formatPieces;
+
+  /** Esc täisekraanist välja – kui plaanieditor Esc-i juba ei kasutanud (joonistamise või valiku tühistamine) */
+  protected exitFullscreen(e: Event): void {
+    if (this.fullscreen() && !e.defaultPrevented) this.fullscreen.set(false);
+  }
 }

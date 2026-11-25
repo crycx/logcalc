@@ -261,7 +261,7 @@
     <!-- Kesk: joonis + detailid -->
     <section class="col center">
       @if (result(); as r) {
-        <div class="panel drawing">
+        <div class="panel drawing" [class.fs]="fullscreen()">
           <div class="view-bar">
             <mat-button-toggle-group [value]="view()" (change)="view.set($event.value)" aria-label="Joonise vaade" hideSingleSelectionIndicator>
               <mat-button-toggle value="overview">Ülevaade</mat-button-toggle>
@@ -279,6 +279,16 @@
                 <mat-button-toggle value="details" matTooltip="Detailijoonised: iga tähise lõiked ja mõõdud (nagu Revit „Details“)">Detailid</mat-button-toggle>
               }
             </mat-button-toggle-group>
+            <button
+              mat-icon-button
+              type="button"
+              (click)="fullscreen.set(!fullscreen())"
+              [matTooltip]="fullscreen() ? 'Välju täisekraanist (Esc)' : 'Täisekraan: ainult joonis, küljepaneelid peidus'"
+              [attr.aria-label]="fullscreen() ? 'Välju täisekraanist' : 'Täisekraan'"
+              [attr.aria-pressed]="fullscreen()"
+            >
+              <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+            </button>
           </div>
           @if (view() === 'plan') {
             <app-plan-editor
@@ -291,6 +301,7 @@
               [walls]="r.wallModel"
               [openings]="r.placedOpenings"
               [readonly]="readonly()"
+              [fill]="fullscreen()"
             />
           } @else if (view() === 'details' && !readonly()) {
             @if (model3d(); as m) {
@@ -298,7 +309,7 @@
             }
           } @else if (view() === '3d') {
             @if (model3d(); as m) {
-              <app-house-3d [model]="m" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
+              <app-house-3d [model]="m" [highlight]="activeMark()" [fill]="fullscreen()" (pick)="pieceMark.set($event)" />
             }
           } @else {
             <app-house-drawing [v]="houseValue()" [r]="r" [view]="$any(view())" [model]="model3d()" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
