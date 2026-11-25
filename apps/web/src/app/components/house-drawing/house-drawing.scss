@@ -105,8 +105,15 @@ app-plan-editor.plan-mini {
     }
   }
 
+  /* ülevaade: joonis akna kõrgusega (vaate riba ja serv maha), mitte joonise külgede suhte järgi */
+  .view:not(.wall-fig):not(.single) {
+    height: calc(100vh - 76px);
+  }
+
   .plan-mini {
-    height: calc(100vh - 160px);
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
     max-height: none;
   }
 
