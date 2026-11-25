@@ -1,0 +1,53 @@
+/**
+ * Tuuleliistud Viktra paigaldusjoonise järgi (S-PDF „Windboard“ 190325): toas katuse kalde all oleval seinal,
+ * 200 mm nurgast, 40 mm põrandast, 2200 lõigatud katuse alla (50 mm vahe). Kogused vs Revit.
+ */
+import { describe, expect, it } from 'vitest';
+import { calculateHouse, type HouseInput } from '../src/index.js';
+import { BODEN, LUND, NORA } from './graph-fixtures.js';
+
+const base = { lengthScenario: 'log' as const, roof: {}, purlins: {}, floor: { boardWidth: 110 }, foundation: { joistWidth: 40, joistHeight: 70 } };
+const ANNIKA: HouseInput = { ...base, roofType: 'mono', width: 2900, depth: 2000, sideWallHeight: 0, frontBackWallHeight: 2109, roofHeight: 1881, log: { thickness: 28, height: 114 }, longBoards: [{ length: 3100, height: 114, count: 2 }] };
+const BENTE: HouseInput = { ...base, roofType: 'gable', width: 2950, depth: 3800, sideWallHeight: 1824, frontBackWallHeight: 1767, roofHeight: 2223, log: { thickness: 28, height: 114 }, longBoards: [{ length: 4000, height: 114, count: 2 }] };
+
+describe('tuuleliistud (Windboard 18x40 × 2200)', () => {
+  it.each([
+    ['Annika (ühekalle: külgseinad A, B)', ANNIKA, 4, ['A', 'B']],
+    ['Bente (viilud 1, 2)', BENTE, 4, ['1', '2']],
+    ['Nora (keskviil ainult ülemised read – ei)', NORA.input, 4, ['1', '3']],
+    ['Boden (tagaviil + toa esisein kalde all)', BODEN.input, 4, ['2', '4']],
+    ['Lund (3 viiluseina)', LUND.input, 6, ['1', '2', '3']],
+  ] as const)('%s: Revit-i kogus', (_n, input, count, walls) => {
+    const r = calculateHouse(input);
+    expect(r.windboards.length).toBe(count);
+    expect([...new Set(r.windboards.map((w) => w.wall))].sort()).toEqual([...walls]);
+    const line = r.bom.find((l) => l.key === 'tuuleLiist')!;
+    expect(line).toMatchObject({ profile: '18x40', pieces: [{ count, length: 2200 }] });
+  });
+
+  it('Bente: 200 mm nurga sisepinnast, 40 mm põrandast (FB 17), lõigatud katuse alla', () => {
+    const r = calculateHouse(BENTE);
+    // seina 1 liited: A ja B kesktelg 114 ja 2836 (palgi otsast); sisepind ± 14; liistu keskkoht + 200 + 20
+    expect(r.windboards.map((w) => Math.round(w.x)).sort((a, b) => a - b)).toEqual([348, 348, 2602, 2602]);
+    for (const w of r.windboards) {
+      expect(w.z0).toBe(57);
+      expect(w.cutNeeded).toBe(true);
+      expect(w.cut).toBeGreaterThan(1700);
+      expect(w.cut).toBeLessThan(1850);
+    }
+    const tu = r.materials.find((g) => g.key === 'tuuleLiist')!;
+    expect(tu.rows).toEqual([{ mark: 'TU-1', count: 4, length: 2200, cut: r.windboards[0]!.cut }]);
+  });
+
+  it('Annika: madalama (taga) ja kõrgema (ees) otsa liistud eri pikkusega', () => {
+    const r = calculateHouse(ANNIKA);
+    const cuts = [...new Set(r.windboards.map((w) => w.cut))].sort((a, b) => a - b);
+    expect(cuts.length).toBe(2);
+    expect(r.materials.find((g) => g.key === 'tuuleLiist')!.rows.map((x) => x.count)).toEqual([2, 2]);
+  });
+
+  it('Boden: seina 2 aken 350 mm nurgast -> hoiatus (Revit: lisaks lühikesed 550)', () => {
+    const r = calculateHouse(BODEN.input);
+    expect(r.warnings.some((w) => w.code === 'windboard.opening')).toBe(true);
+  });
+});

@@ -66,7 +66,7 @@ export interface HouseModel3D {
   bounds: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number };
 }
 
-export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineConstants): HouseModel3D {
+export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineConstants, opts: { members?: boolean } = {}): HouseModel3D {
   const t = input.log.thickness;
   const plan: HousePlan = input.plan ?? rectanglePlan(result.dimensions.width, result.dimensions.depth, t, c);
   const geo = planGeometry(plan, t, c);
@@ -258,7 +258,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
   }
 
   const zMax = Math.max(zTop, ...roofs.flatMap((r) => r.pts.map((p) => p[2])));
-  const members = buildMembers(input, result, c, { plan, geo, walls, roofs });
+  const members = opts.members === false ? [] : buildMembers(input, result, c, { plan, geo, walls, roofs });
   return { walls, roofs, members, bounds: { x0: bx0 - ov, y0: by0 - ov, z0: 0, x1: bx1 + ov, y1: by1 + ov, z1: zMax } };
 }
 

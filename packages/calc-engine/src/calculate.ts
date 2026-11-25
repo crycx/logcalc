@@ -6,7 +6,9 @@ import type { BomLine, CalcResult, EngineConstants, HouseInput, PriceList, RoofR
 import { computeLongBoards, computeOpenings, computeWalls } from './walls.js';
 import { buildWalls, placeOpenings, wallCutList, type WallId } from './wall-model.js';
 import { materialCutList } from './materials.js';
-import { planGeometry } from './plan.js';
+import { planGeometry, rectanglePlan } from './plan.js';
+import { houseModel3d } from './model3d.js';
+import { WINDBOARD, computeWindboards, type Windboard } from './windboards.js';
 import { pitchRatio, roofVolumes, volumeInput, wingSpan, type WingSpan } from './roof-volumes.js';
 import { planFloor, planFoundation } from './floor-plan.js';
 import { outerArea, outlineCorners, planGrid, solidBelow } from './plan-regions.js';
@@ -158,6 +160,36 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
     }
   }
 
+  // tuuleliistud: toas viiluseintel, lõigatud katuse alla (katusejoon 3D mudelist, ilma muu puiduta)
+  let windboards: Windboard[] = [];
+  try {
+    const wbPlan = input.plan ?? rectanglePlan(dimensions.width, dimensions.depth, input.log.thickness, c);
+    const wbGeo = planGeo ?? planGeometry(wbPlan, input.log.thickness, c);
+    const pre = { dimensions, cutList, materials: [], windboards: [], wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom: [], totalPrice: 0, warnings: [] } as CalcResult;
+    const m = houseModel3d(input, pre, c, { members: false });
+    windboards = computeWindboards(
+      wbPlan,
+      wbGeo,
+      wallModel,
+      new Map(m.walls.map((w) => [w.id, w.roofLine])),
+      (id) => wbPlan.walls.find((x) => x.id === id)?.topOnly !== undefined,
+      input.log.thickness,
+    );
+  } catch {
+    windboards = [];
+  }
+  // tuuleliist ava kohal (uks/aken 200 mm nurgast)
+  for (const wb of windboards) {
+    const w = wallModel.find((x) => x.id === wb.wall);
+    const o = w?.openings.find((o) => o.offset < wb.x + WINDBOARD.width / 2 && o.offset + o.width > wb.x - WINDBOARD.width / 2 && o.sill < wb.z1 && o.sill + o.height > wb.z0);
+    if (o) {
+      warnings.push({
+        code: 'windboard.opening',
+        message: `Tuuleliist seinal ${wb.wall} (${WINDBOARD.fromCorner} mm nurgast) jääb ${o.kind === 'door' ? 'ukse' : 'akna'} kohale – nihuta ava nurgast kaugemale.`,
+      });
+    }
+  }
+
   const prices = options.prices ?? {};
   const bom: BomLine[] = [];
   const add = (key: keyof PriceList, quantity: number, extra: Partial<BomLine> = {}) => {
@@ -176,7 +208,13 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   // plaanist maja: seinalauad = lõikenimekirja summa (ristküliku valem ei kehti)
   const wallJm = input.plan ? cutList.reduce((sum, w) => sum + w.totalJm, 0) : walls.netJm;
   add('seinaLauad', wallJm);
-  if (walls.netJm > 0) {
+  if (walls.netJm > 0 && windboards.length) {
+    // tuuleliistud: tarnepikkus 2200 (Revit „Windboard 18x40“), lõikepikkused lõikenimekirjas
+    add('tuuleLiist', (windboards.length * WINDBOARD.stock) / 1000, {
+      pieces: [{ count: windboards.length, length: WINDBOARD.stock }],
+      profile: `${WINDBOARD.thickness}x${WINDBOARD.width}`,
+    });
+  } else if (walls.netJm > 0) {
     // nurkade vertikaalsed liistud: 4 nurka × seina kõrgus
     const p = input.log.height;
     // plaanist maja: iga välisnurk (L-majal 6)
@@ -266,8 +304,8 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 
   const totalPrice = bom.reduce((s, l) => s + (l.total ?? 0), 0);
 
-  const materials = materialCutList(input, bom, c);
-  return { dimensions, cutList, materials, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
+  const materials = materialCutList(input, bom, c, windboards);
+  return { dimensions, cutList, materials, windboards, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom, totalPrice, warnings };
 }
 
 /** „sein A“, „seinad 1, A“, „seinad A ×2, B“ – seinte järjekord 1, 2, A, B */

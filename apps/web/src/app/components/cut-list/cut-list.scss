@@ -123,3 +123,17 @@ table {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* lõikepikkus (tuuleliist katuse alla) */
+.cut {
+  margin-left: 4px;
+  color: #b34700;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.note {
+  margin: 6px 0 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}

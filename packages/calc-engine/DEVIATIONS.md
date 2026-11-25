@@ -49,3 +49,12 @@ Tuuleliistud = nurkade vertikaalsed liistud (4 nurka × seina kõrgus) – v2 va
 | Brantevik II 40 | Joonis: põrandalaud 3515 mm; vundamendi pruss 3600 mm | Täpselt sama |
 
 Kõik varem kõvakodeeritud arvud (100, 110, 200, 500, 700, 114, 38, 5) on nüüd failis `src/constants.ts` ja neid saab `calculateHouse(input, { constants })` kaudu muuta. Hiljem saab need seadistada ka iga kliendi kaupa.
+
+## D16. Tuuleliistud Viktra paigaldusjoonise järgi (2026-11-25)
+
+v2: tuuleliistud = 4 × küljeseina kõrgus (ühekaldel 2 × (esisein − ½ palki) + 2 × (tagasein − ½ palki)) – nurkades.
+Revit (kõik 8 maja): „Windboard 18x40“ × 2200, 4 tk (Lund 6), paigaldusleht „Windboard“ (190325): toas katuse kalde
+all oleval seinal, 200 mm nurgast, 40 mm põrandast, lõigatakse katuse alla (Assembly 2), uus Ø8 ava 40 mm otsast.
+Mootor: materjal = arv × 2200 (18x40), lõikepikkused lõikenimekirjas (`src/windboards.ts`, `test/windboards.test.ts`).
+`walls.windStripsJm` (v2 valem) jääb võrdluseks. Boden II lisaks „Windboard2“ 4 × 550 (veranda) – ei arvutata;
+seina 2 aken 350 mm nurgast -> hoiatus `windboard.opening`.

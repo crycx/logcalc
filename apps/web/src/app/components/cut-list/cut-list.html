@@ -73,11 +73,24 @@
                 <td class="mark">{{ r.mark }}</td>
                 <td>{{ g.profile }}</td>
                 <td class="num">{{ r.count }}</td>
-                <td class="num">{{ r.length | number: '1.0-0' }}</td>
+                <td class="num">
+                  {{ r.length | number: '1.0-0' }}
+                  @if (r.cut) {
+                    <span class="cut" matTooltip="Lõika kohapeal sellesse pikkusse">→ {{ r.cut | number: '1.0-0' }}</span>
+                  }
+                </td>
               </tr>
             }
           </tbody>
         </table>
+        @if (g.key === 'tuuleLiist') {
+          <p class="note">
+            Toas katuse kalde all oleval seinal (viilusein), {{ wb.fromCorner }} mm nurgast ja {{ wb.fromFloor }} mm põrandast.
+            @if (hasCut(g)) {
+              Lõika ülemine ots katuse alla ({{ wb.underRoof }} mm vahe) ja puuri uude otsa Ø{{ wb.holeDiameter }} ava {{ wb.holeFromTop }} mm otsast.
+            }
+          </p>
+        }
       </section>
     }
   </div>

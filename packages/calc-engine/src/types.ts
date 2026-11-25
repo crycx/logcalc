@@ -384,6 +384,8 @@ export interface CalcResult {
   cutList: import('./wall-model.js').WallCutList[];
   /** Muu puit lõikenimekirjana (prussid, põranda-/katuselauad, pärlinid, räästalauad, tuuleliistud) */
   materials: import('./materials.js').MaterialCutGroup[];
+  /** Tuuleliistud (Windboard 18x40 × 2200) asukoha ja lõikepikkusega */
+  windboards: import('./windboards.js').Windboard[];
   /** Seinad koos ridade ja paigutatud avadega (joonistamiseks) */
   wallModel: import('./wall-model.js').WallSpec[];
   /** Uksed ja aknad paigutatuna (sisendi järjekorras: uksed, siis aknad; kogus lahti laotud) */

@@ -5,13 +5,14 @@
  *
  * Asukohad: prussid ja põrand mootori plaanikastidest (plaanita majal ristküliku plaanist), katus
  * katusepindadest (`RoofPlane3D`), pärlinid horisontaalse vahega (Revit, D10), räästalauad vabades
- * viiluotstes. Profiilid (paksus) on kuvamiseks; kus sisendis pole, kasutatakse tüüpilisi.
+ * viiluotstes, tuuleliistud toas viiluseinal (Viktra paigaldusjoonis). Profiilid (paksus) on kuvamiseks; kus sisendis pole, kasutatakse tüüpilisi.
  */
 import { planFloor, planFoundation } from './floor-plan.js';
 import { materialMark } from './materials.js';
 import type { RoofPlane3D, Vec3, Wall3D } from './model3d.js';
 import type { HousePlan, WallGeometry } from './plan.js';
 import { planGrid, solidBelow } from './plan-regions.js';
+import { WINDBOARD } from './windboards.js';
 import type { CalcResult, EngineConstants, HouseInput, PlanBox, PurlinsResult, RoofResult } from './types.js';
 
 export type MemberLayer = 'foundation' | 'floor' | 'roof' | 'trim';
@@ -33,8 +34,9 @@ export interface Member3D {
 
 /** kuvamiseks: katuse- ja põrandalaua paksus, tuuleliistu ristlõige, pärlin (kui sisendis pole) */
 const ROOF_BOARD_T = 20;
-const FLOOR_BOARD_T = 22;
-const WIND_STRIP: [number, number] = [20, 95];
+/** Revit: põrandalaud FB 17x114, terrassilaud 28x120 */
+const FLOOR_BOARD_T = WINDBOARD.floorTop;
+const TERRACE_BOARD_T = 28;
 const PURLIN_DEFAULT: [number, number] = [45, 120];
 
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -106,16 +108,17 @@ export function buildMembers(
       const pitch = (across1 - across0) / n;
       const bw = Math.max(1, Math.min(p.boardWidth, pitch) - (p.open ? 0 : 1));
       const m = mark(key, p.boardLength);
+      const bt = p.open ? TERRACE_BOARD_T : FLOOR_BOARD_T;
       for (let i = 0; i < n; i++) {
         const a = across0 + pitch * (i + 0.5);
         out.push({
           key,
           mark: m,
           layer: 'floor',
-          c: alongX ? [mid, a, FLOOR_BOARD_T / 2] : [a, mid, FLOOR_BOARD_T / 2],
+          c: alongX ? [mid, a, bt / 2] : [a, mid, bt / 2],
           u: alongX ? X : Y,
           v: alongX ? Y : X,
-          size: [p.boardLength, bw, FLOOR_BOARD_T],
+          size: [p.boardLength, bw, bt],
         });
       }
     }
@@ -210,51 +213,24 @@ export function buildMembers(
     }
   }
 
-  // ---- tuuleliistud: välisnurkades räästaseina (viilkatus) / esi- ja tagaseina (ühekalle) palgiotstel
-  const strips = result.bom.find((l) => l.key === 'tuuleLiist');
-  if (strips?.pieces?.length) {
-    const ys = ctx.geo.filter((g) => g.dir === 'x').map((g) => g.a.y);
-    const yFront = Math.max(...ys);
-    const p = input.log.height;
-    const gById = new Map(ctx.geo.map((g) => [g.id, g]));
-    // sõlm -> seinad, mille palk ulatub seal üle nurga (nurgaülejääk)
-    const ends = new Map<string, { w: Wall3D; at: 0 | 1 }[]>();
-    for (const w of ctx.walls) {
-      const g = gById.get(w.id);
-      if (!g) continue;
-      for (const [node, ext, atEnd] of [[g.a, g.startExt, 0], [g.b, g.endExt, 1]] as const) {
-        if (ext <= t / 2 + 1) continue;
-        const k = `${Math.round(node.x)},${Math.round(node.y)}`;
-        ends.set(k, [...(ends.get(k) ?? []), { w, at: atEnd }]);
-      }
-    }
-    const eaveTop = (w: Wall3D) => Math.max(0, ...w.pieces.filter((q) => q.kind !== 'gable').map((q) => q.y1));
-    for (const list of ends.values()) {
-      if (list.length < 2) continue;
-      const pick = gable
-        ? [...list].sort((x, y) => eaveTop(y.w) - eaveTop(x.w) || (x.w.dir === 'y' ? -1 : 1))[0]!
-        : (list.find((x) => x.w.dir === 'x') ?? list[0]!);
-      const { w, at } = pick;
-      const L = gable
-        ? input.sideWallHeight
-        : Math.abs(gById.get(w.id)!.a.y - yFront) < 1
-          ? input.frontBackWallHeight - p
-          : input.roofHeight - p;
-      const u: Vec3 = [w.u.x, w.u.y, 0];
-      const across: Vec3 = [-w.u.y, w.u.x, 0];
-      const X0 = at === 0 ? 0 : w.length;
-      const out1 = at === 0 ? -1 : 1;
-      const base: Vec3 = [w.origin.x + w.u.x * X0, w.origin.y + w.u.y * X0, 0];
-      out.push({
-        key: 'tuuleLiist',
-        mark: mark('tuuleLiist', L),
-        layer: 'trim',
-        c: sum(base, mul(u, (out1 * WIND_STRIP[0]) / 2), mul(Z, L / 2)),
-        u: Z,
-        v: across,
-        size: [L, WIND_STRIP[1], WIND_STRIP[0]],
-      });
-    }
+  // ---- tuuleliistud: toas viiluseinal, 200 mm nurgast, 40 mm põrandast, lõigatud katuse alla (windboards.ts)
+  const wById = new Map(ctx.walls.map((w) => [w.id, w]));
+  for (const wb of result.windboards ?? []) {
+    const w = wById.get(wb.wall);
+    if (!w) continue;
+    const u: Vec3 = [w.u.x, w.u.y, 0];
+    // sisemine pool plaani teljel risti seinaga (x-seinal y, y-seinal x)
+    const inward: Vec3 = w.dir === 'x' ? [0, wb.side, 0] : [wb.side, 0, 0];
+    const base: Vec3 = [w.origin.x + w.u.x * wb.x, w.origin.y + w.u.y * wb.x, 0];
+    out.push({
+      key: 'tuuleLiist',
+      mark: mark('tuuleLiist', wb.cut),
+      layer: 'trim',
+      c: sum(base, mul(inward, t / 2 + WINDBOARD.thickness / 2), mul(Z, (wb.z0 + wb.z1) / 2)),
+      u: Z,
+      v: u,
+      size: [wb.cut, WINDBOARD.width, WINDBOARD.thickness],
+    });
   }
   return out;
 }
