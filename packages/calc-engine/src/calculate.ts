@@ -67,6 +67,7 @@ const LABELS: Record<keyof PriceList, string> = {
   postid: 'Veranda postid',
   kasipuud: 'Käsipuud',
   postijalg: 'Reguleeritav postijalg',
+  uprofiil: 'U-profiil (piirde ots)',
 };
 
 /**
@@ -169,7 +170,7 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
   try {
     const wbPlan = input.plan ?? rectanglePlan(dimensions.width, dimensions.depth, input.log.thickness, c);
     const wbGeo = planGeo ?? planGeometry(wbPlan, input.log.thickness, c);
-    const pre = { dimensions, cutList, materials: [], windboards: [], veranda: { posts: [], handrails: [] }, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom: [], totalPrice: 0, warnings: [] } as CalcResult;
+    const pre = { dimensions, cutList, materials: [], windboards: [], veranda: { posts: [], handrails: [], uProfiles: [] }, wallModel, placedOpenings, walls, openings, longBoards, foundation, floor, roof, purlins, bom: [], totalPrice: 0, warnings: [] } as CalcResult;
     const m = houseModel3d(input, pre, c, { members: false });
     windboards = computeWindboards(
       wbPlan,
@@ -196,7 +197,7 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
 
   // veranda postid ja käsipuud (piirete valikud plaanis)
   const veranda: VerandaResult =
-    input.plan && planGeo ? computeVeranda(input.plan, planGeo, wallModel, input.log.thickness, c.maxLogLength) : { posts: [], handrails: [] };
+    input.plan && planGeo ? computeVeranda(input.plan, planGeo, wallModel, input.log.thickness, c.maxLogLength) : { posts: [], handrails: [], uProfiles: [] };
 
   const prices = options.prices ?? {};
   const bom: BomLine[] = [];
@@ -248,6 +249,21 @@ export function calculateHouse(input: HouseInput, options: CalculateOptions = {}
       quantity: n,
       unit: 'tk',
       profile: `${VERANDA.foot} mm`,
+      pieces: [{ count: n, length: VERANDA.foot }],
+      ...(unitPrice !== undefined ? { unitPrice, total: n * unitPrice } : {}),
+    });
+  }
+  // U-profiilid piirde vabades otstes (Revit Kolding: 2 × 40x76 × 625)
+  if (veranda.uProfiles.length) {
+    const n = veranda.uProfiles.length;
+    const unitPrice = prices.uprofiil;
+    bom.push({
+      key: 'uprofiil',
+      label: LABELS.uprofiil,
+      quantity: n,
+      unit: 'tk',
+      profile: `${VERANDA.uDepth}x${VERANDA.uWidth}`,
+      pieces: mergePieces(veranda.uProfiles.map((u) => ({ count: 1, length: Math.round(u.z1 - u.z0) }))),
       ...(unitPrice !== undefined ? { unitPrice, total: n * unitPrice } : {}),
     });
   }

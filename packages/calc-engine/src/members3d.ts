@@ -330,23 +330,56 @@ export function buildMembers(
   if (ver) {
     const wById3 = new Map(ctx.walls.map((w) => [w.id, w]));
     for (const p of ver.posts) {
-      // tükid kõrvuti esimese seina suunas (2 × paksus), sügavus 70 teise seina suunas
-      const first = p.pieces[0]!;
-      const ua: Vec3 = [first.u.x, first.u.y, 0];
-      const ub: Vec3 = p.pieces[1] ? [p.pieces[1].u.x, p.pieces[1].u.y, 0] : [-first.u.y, first.u.x, 0];
-      p.pieces.forEach((q, i) => {
-        const off = (i - (p.pieces.length - 1) / 2) * t;
+      // tükid kõrvuti piirde seina suunas: ristuva seina tükk sõlmes, piirde seina tükk palgi otsa pool; 70 risti
+      const g = wById3.get(p.wall);
+      const ua: Vec3 = g ? [g.u.x, g.u.y, 0] : [p.out.x, p.out.y, 0];
+      const ub: Vec3 = [-ua[1], ua[0], 0];
+      for (const q of p.pieces) {
+        const off = q.wall === p.wall ? t : 0;
         out.push({
           key: 'postid',
           mark: mark('postid', q.length),
           layer: 'trim',
-          c: [p.x + ua[0] * off, p.y + ua[1] * off, p.z0 + q.length / 2],
+          c: [p.x + p.out.x * off, p.y + p.out.y * off, p.z0 + q.length / 2],
           u: Z,
           v: ua,
           size: [q.length, t, VERANDA.postWidth],
         });
-      });
-      out.push({ key: 'postijalg', mark: '', layer: 'trim', c: [p.x, p.y, p.z0 - VERANDA.foot / 2], u: ua, v: ub, size: [t * p.pieces.length, VERANDA.postWidth, VERANDA.foot] });
+      }
+      // reguleeritav postijalg (I): alumine ja ülemine plaat, vahel tihvt – posti all keskel
+      const fx = p.x + (p.out.x * t) / 2;
+      const fy = p.y + (p.out.y * t) / 2;
+      const footMark = mark('postijalg', VERANDA.foot);
+      const plate = 6;
+      for (const [z, sz] of [
+        [p.z0 - VERANDA.foot + plate / 2, [2 * t, VERANDA.postWidth, plate]],
+        [p.z0 - plate / 2, [2 * t, VERANDA.postWidth, plate]],
+        [p.z0 - VERANDA.foot / 2, [16, 16, VERANDA.foot - 2 * plate]],
+      ] as [number, Vec3][]) {
+        out.push({ key: 'postijalg', mark: footMark, layer: 'trim', c: [fx, fy, z], u: ua, v: ub, size: sz });
+      }
+    }
+    // U-profiil piirde vabas otsas: selg (18) palgiotsast väljas, servad (22) palgi külgedel
+    for (const up of ver.uProfiles ?? []) {
+      const w = wById3.get(up.wall);
+      if (!w) continue;
+      const ua: Vec3 = [w.u.x, w.u.y, 0];
+      const n: Vec3 = [-w.u.y, w.u.x, 0];
+      const h = up.z1 - up.z0;
+      const um = mark('uprofiil', Math.round(h));
+      const at = (s: number, a: number): [number, number] => [w.origin.x + w.u.x * s + n[0] * a, w.origin.y + w.u.y * s + n[1] * a];
+      const flange = VERANDA.uDepth - VERANDA.uBack;
+      const fw = (VERANDA.uWidth - t) / 2;
+      const parts: [number, number, number, number][] = [
+        // [keskkoht piki seina, keskkoht risti, mõõt piki, mõõt risti]
+        [up.x + (up.dir * VERANDA.uBack) / 2, 0, VERANDA.uBack, VERANDA.uWidth],
+        [up.x - (up.dir * flange) / 2, t / 2 + fw / 2, flange, fw],
+        [up.x - (up.dir * flange) / 2, -(t / 2 + fw / 2), flange, fw],
+      ];
+      for (const [s, a, ls, la] of parts) {
+        const [x, y] = at(s, a);
+        out.push({ key: 'uprofiil', mark: um, layer: 'trim', c: [x, y, (up.z0 + up.z1) / 2], u: Z, v: ua, size: [h, ls, la] });
+      }
     }
     for (const h of ver.handrails) {
       const w = wById3.get(h.wall);

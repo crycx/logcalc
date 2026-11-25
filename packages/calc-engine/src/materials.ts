@@ -38,9 +38,11 @@ export const MATERIAL_PREFIX: Record<string, string> = {
   tuuleLiist: 'TU',
   postid: 'CM',
   kasipuud: 'HR',
+  postijalg: 'PJ',
+  uprofiil: 'UP',
 };
 
-const ORDER = ['vundament', 'porandaLauad', 'terrassiLauad', 'parlinid', 'katuseLauad', 'toelaud38', 'toelaud95', 'esiraastalaud', 'papikinnituslaud', 'tuuleLiist', 'postid', 'kasipuud'];
+const ORDER = ['vundament', 'porandaLauad', 'terrassiLauad', 'parlinid', 'katuseLauad', 'toelaud38', 'toelaud95', 'esiraastalaud', 'papikinnituslaud', 'tuuleLiist', 'postid', 'kasipuud', 'uprofiil', 'postijalg'];
 
 export function materialCutList(input: HouseInput, bom: BomLine[], c: EngineConstants, windboards: Windboard[] = []): MaterialCutGroup[] {
   const profileOf = (l: BomLine): string => {

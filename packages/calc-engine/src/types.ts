@@ -135,6 +135,8 @@ export interface PriceList {
   kasipuud?: number;
   /** reguleeritav postijalg (tk) */
   postijalg?: number;
+  /** U-profiil 40x76 piirde vabas otsas (tk) */
+  uprofiil?: number;
 }
 
 export interface HouseInput {

@@ -55,4 +55,4 @@ export { planTemplate, PLAN_TEMPLATES, type PlanTemplateKind, type PlanTemplateI
 export { materialCutList, materialMark, MATERIAL_PREFIX, type MaterialCutGroup, type MaterialCutRow } from './materials.js';
 export { WINDBOARD, computeWindboards, type Windboard } from './windboards.js';
 export { DETAIL, extCut, endCutOf, pieceDetails, type EndCut, type PieceDetail, type PieceNotch } from './details.js';
-export { VERANDA, computeVeranda, type VerandaPost, type VerandaHandrail, type VerandaResult } from './veranda.js';
+export { VERANDA, computeVeranda, type VerandaPost, type VerandaHandrail, type VerandaUProfile, type VerandaResult } from './veranda.js';

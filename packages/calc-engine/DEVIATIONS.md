@@ -87,3 +87,14 @@ võimalused: lahtise osa `steps` (astmeline varikatus, otsad 45°), `cap` (piird
 Revit ATL1 profiil 40x123 – mudelis 40x114; ALG7 (3) ja ALG8 (1) on mudelis üks tähis (LG8 „sisselõige 7 + punn“ –
 eesmärk teadmata). Tuuleliist: kui 200 mm kohal on lahtine osa, pannakse nurgapostile (Lund), posti puudumisel ei
 panda (Kolding veranda raam) – Revit Kolding 4, Lund 6.
+
+## D20. Kolding veranda: post, käsipuud, U-profiil, vundament (2026-11-25)
+
+Revit Kolding Floor Plan / Details 5: külgseina (A/B) käsipuu jookseb nurgast läbi (1945, seinast kuni 45 üle palgi
+otsa), esiseina käsipuu katkeb selle kohal – lühike tükk väljas, pikk sees. Post seisab nurgasõlmes külgseina käsipuul
+reguleeritava jala (45) peal: ristuva seina tükk sõlmes, esiseina tükk palgi otsa pool (kokku 80 × 70); pikkused
+1233 / 1176 nagu Revitis. Katkestatud käsipuu otsad 54 üle (plaanilt mõõdetud) – mudelis 103 / 1043, Revit 105 / 1040.
+U-profiil 40x76 × 625 piirde vabades otstes (ukse kõrval), 2 tk. Vundament: Kolding näidismaja seaded nagu Revit
+(IFB 70x40, ääreprussid, vahe ≤ 620) -> 11 × 3450 (toas 7, terrassil 4). Erinevus: ääreprussid mudelis lõigu kaupa
+(2 × 3570 + 2 × 1910, nagu Revit Lund), Revit Kolding ühes tükis 2 × 5490; seina 2 all mudelis topeltpruss kõrvuti
+(Lund), Revit Koldingul terrassi esimene pruss 55 mm eemal.

@@ -95,8 +95,44 @@ describe('veranda postid ja käsipuud (Revit Kolding Roof 1 / Details 5)', () =>
     expect(line('postid')!.pieces).toEqual(expect.arrayContaining([{ count: 2, length: 1233 }, { count: 2, length: 1176 }]));
     expect(line('postid')!.profile).toBe('40x70');
     expect(line('postijalg')!.quantity).toBe(2);
-    expect(line('kasipuud')!.pieces).toEqual(expect.arrayContaining([{ count: 2, length: 1945 }, { count: 2, length: 1040 }, { count: 2, length: 105 }]));
+    // külgseina käsipuu 1945 täpselt; esiseina oma katkeb külgseina käsipuu kohal: Revit 105 + 1040 (meil ±3 mm)
+    const hr = line('kasipuud')!.pieces!;
+    expect(hr).toEqual(expect.arrayContaining([{ count: 2, length: 1945 }]));
+    const near = (len: number) => hr.find((x) => x.count === 2 && Math.abs(x.length - len) <= 3);
+    expect(near(105)).toBeTruthy();
+    expect(near(1040)).toBeTruthy();
     expect(line('kasipuud')!.profile).toBe('40x143');
     expect(r.materials.find((g) => g.key === 'postid')!.rows.map((x) => x.mark)).toEqual(['CM-1', 'CM-2']);
+  });
+
+  it('post nurgasõlmes külgseina käsipuul (Revit Floor Plan): ristuva seina tükk sõlmes, esiseina tükk palgi otsa pool', async () => {
+    const { KOLDING } = await import('./graph-fixtures.js');
+    const r = calculateHouse(KOLDING.input);
+    const n1a = KOLDING.input.plan!.nodes.find((n) => n.id === '1a')!;
+    const p = r.veranda.posts.find((x) => x.node === '1a')!;
+    expect([p.x, p.y]).toEqual([n1a.x, n1a.y]);
+    expect(p.wall).toBe('1');
+    expect(p.out).toEqual({ x: -1, y: 0 });
+    // külgseina käsipuu jookseb sõlmest läbi (seinast kuni 45 üle palgi otsa)
+    const a = r.veranda.handrails.filter((h) => h.wall === 'A');
+    expect(a).toHaveLength(1);
+    expect([a[0]!.x0, a[0]!.x1]).toEqual([3800, 5745]);
+    // post seisab käsipuul: postijala all käsipuu pealispind
+    expect(p.z0).toBe(677 + 40 + 45);
+  });
+
+  it('U-profiil 2 × 40x76 × 625 piirde vabades otstes (ukse kõrval)', async () => {
+    const { KOLDING } = await import('./graph-fixtures.js');
+    const r = calculateHouse(KOLDING.input);
+    expect(r.veranda.uProfiles.map((u) => [u.wall, u.x, u.dir])).toEqual([
+      ['1', 1180, 1],
+      ['1', 2620, -1],
+    ]);
+    const l = r.bom.find((x) => x.key === 'uprofiil')!;
+    expect(l.quantity).toBe(2);
+    expect(l.profile).toBe('40x76');
+    expect(l.pieces).toEqual([{ count: 2, length: 625 }]);
+    expect(r.materials.find((g) => g.key === 'uprofiil')!.rows).toEqual([{ mark: 'UP-1', count: 2, length: 625 }]);
+    expect(r.materials.find((g) => g.key === 'postijalg')!.rows).toEqual([{ mark: 'PJ-1', count: 2, length: 45 }]);
   });
 });

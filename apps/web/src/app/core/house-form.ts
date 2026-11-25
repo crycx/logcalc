@@ -84,6 +84,7 @@ export const PRICE_KEYS: { key: keyof PriceList; label: string; unit?: 'tk' }[] 
   { key: 'postid', label: 'Veranda postid 40x70' },
   { key: 'kasipuud', label: 'Käsipuud 40x143' },
   { key: 'postijalg', label: 'Reguleeritav postijalg', unit: 'tk' },
+  { key: 'uprofiil', label: 'U-profiil 40x76 (piirde ots)', unit: 'tk' },
 ];
 
 /** Vormi väärtus (getRawValue) – ka localStorage-sse salvestatav kuju. */

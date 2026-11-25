@@ -33,6 +33,7 @@ const MEMBER_COLORS: Record<string, number> = {
   postid: 0xd9b27a,
   kasipuud: 0xd4ad74,
   postijalg: 0x55595e,
+  uprofiil: 0xc9a56e,
   parlinid: 0xa8773f,
   toelaud38: 0x9a7448,
   toelaud95: 0xb08a5a,

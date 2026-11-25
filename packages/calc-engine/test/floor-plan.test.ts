@@ -170,3 +170,16 @@ describe('uks: tiivad ja avanemise pool', () => {
     expect(side('1', mid('1'))).toBe(-1);
   });
 });
+
+describe('Kolding vundament (Revit Foundation)', () => {
+  it('IFB 70x40, ääreprussidega, vahe ≤ 620: 11 × 3450 (toas 7, terrassil 4)', async () => {
+    const { KOLDING } = await import('./graph-fixtures.js');
+    const r = calculateHouse({ ...KOLDING.input, floorDirection: '12', foundation: { joistWidth: 70, joistHeight: 40, ring: true, maxSpacing: 620 } });
+    const bays = r.foundation!.bays!;
+    expect(bays.map((b) => b.joistCount)).toEqual([7, 4]);
+    expect(r.foundation!.joistCount).toBe(11);
+    expect(r.foundation!.joistLength).toBe(3450);
+    // toas kesktelgede vahe Revit 517 + 70 = 587
+    expect(Math.abs(bays[0]!.spacing - 587)).toBeLessThanOrEqual(5);
+  });
+});
