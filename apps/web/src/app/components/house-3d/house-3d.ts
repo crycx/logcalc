@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import type { HouseModel3D, Member3D, MemberLayer, Wall3D } from '@logcalc/calc-engine';
+import { DETAIL, extCut, type HouseModel3D, type Member3D, type MemberLayer, type Wall3D } from '@logcalc/calc-engine';
 import type * as THREE_NS from 'three';
+import { logProfile } from '../../helpers/log-profile';
 import { roofAtFn, underRoof } from '../../helpers/roof-cut';
 
 type Three = typeof THREE_NS;
@@ -190,8 +191,9 @@ export class House3d {
 
     const mat = {
       log: new THREE.MeshStandardMaterial({ color: 0xd9b27a, roughness: 0.85 }),
-      half: new THREE.MeshStandardMaterial({ color: 0xcfa66c, roughness: 0.85 }),
-      gable: new THREE.MeshStandardMaterial({ color: 0xe0bd88, roughness: 0.85 }),
+      // pool palki ja viilupalgid on sama puit (sama värv)
+      half: new THREE.MeshStandardMaterial({ color: 0xd9b27a, roughness: 0.85 }),
+      gable: new THREE.MeshStandardMaterial({ color: 0xd9b27a, roughness: 0.85 }),
       window: new THREE.MeshStandardMaterial({ color: 0x9cc6e6, transparent: true, opacity: 0.55, roughness: 0.1 }),
       door: new THREE.MeshStandardMaterial({ color: 0x7a5534, roughness: 0.7 }),
       panel: new THREE.MeshStandardMaterial({ color: 0x6a4729, roughness: 0.75 }),
@@ -316,8 +318,8 @@ export class House3d {
      */
     const profiled = (p: Wall3D['pieces'][number], mark: string, material: THREE_NS.Material, ring: [number, number][], topAt: (a: number) => number) => {
       const h = p.y1 - p.y0;
-      const c = Math.min(15, h * 0.13);
-      const d = h * 0.43;
+      const c = Math.min(DETAIL.endChamfer, h * 0.2);
+      const d = extCut(h);
       const T0 = (topAt(-t / 2) + topAt(t / 2)) / 2;
       const T1 = (topAt(t / 2) - topAt(-t / 2)) / t;
       const cons: Cons[] = [];
@@ -433,7 +435,36 @@ export class House3d {
     const v = to3(x.v).normalize();
     const w = new THREE.Vector3().crossVectors(u, v).normalize();
     const m4 = new THREE.Matrix4().makeBasis(u, v, w).setPosition(to3(x.c));
-    const geo = new THREE.BoxGeometry(x.size[0], x.size[1], x.size[2]);
+    // pärlin: otstes alumine nurk lõigatud (65 püsti + 45°), harjal terav tipp (Revit Details 2)
+    let geo: THREE_NS.BufferGeometry;
+    if (x.detail) {
+      const [L, wd, ht] = x.size;
+      const side = x.detail.pointedSide;
+      const ring: [number, number][] = side
+        ? [[-wd / 2, -ht / 2], [wd / 2, -ht / 2], [wd / 2, -ht / 2 + side], [0, ht / 2], [-wd / 2, -ht / 2 + side]]
+        : [[-wd / 2, -ht / 2], [wd / 2, -ht / 2], [wd / 2, ht / 2], [-wd / 2, ht / 2]];
+      const k = x.detail.cut;
+      const cons: Cons[] = k > 0
+        ? [
+            { ka: 0, kz: 1, ks: 1, k0: -(-ht / 2 + k) + L / 2 }, // algus: z ≥ −h/2 + k − (s + L/2)
+            { ka: 0, kz: 1, ks: -1, k0: -(-ht / 2 + k) + L / 2 }, // lõpp: z ≥ −h/2 + k − (L/2 − s)
+          ]
+        : [];
+      geo = logSolid(THREE, ring, -L / 2, L / 2, cons);
+      // ristlõike koordinaadid (a = v, z = u × v, s = u)
+      const v3 = to3(x.v).normalize();
+      const u3 = to3(x.u).normalize();
+      const w3 = new THREE.Vector3().crossVectors(u3, v3).normalize();
+      const m4c = new THREE.Matrix4().makeBasis(v3, w3, u3).setPosition(to3(x.c));
+      const mesh = new THREE.Mesh(geo, material);
+      mesh.applyMatrix4(m4c);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
+      edges.applyMatrix4(m4c);
+      group.add(mesh, edges);
+      this.pieces.push({ mesh, edges, mark: x.mark, base: material });
+      return;
+    }
+    geo = new THREE.BoxGeometry(x.size[0], x.size[1], x.size[2]);
     const mesh = new THREE.Mesh(geo, material);
     mesh.applyMatrix4(m4);
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
@@ -503,37 +534,6 @@ export class House3d {
     this.renderer?.dispose();
     this.renderer?.domElement.remove();
   }
-}
-
-/**
- * Palgi ristlõige (a, z): a = risti seinaga (−t/2 … t/2), z = kõrgus. Revit 40x114: kaks punni peal ja kaks soont
- * all (laius ~12 % paksusest, kõrgus ≤ 10 mm, keskkohad ±20 % paksusest), servad faasitud 45° (~4,5 mm).
- * `top` = kaldlõikega ülemine serv (räästa palk) – siis punne pole.
- */
-function logProfile(
-  t: number,
-  y0: number,
-  y1: number,
-  o: { grooves: boolean; tongues: boolean; top?: (a: number) => number },
-): [number, number][] {
-  const h = y1 - y0;
-  // faas 45°: Revit „Log Profile“ 40x114 mõõdetud ~4,5 × 4,5 mm (≈ 11 % paksusest)
-  const cx = Math.min(4.5, t * 0.11, h * 0.05);
-  const cz = cx;
-  const tw = Math.max(3, t * 0.12);
-  const th = Math.min(10, h * 0.09);
-  const g = [-t * 0.2, t * 0.2];
-  const pts: [number, number][] = [[-t / 2, y0 + cz], [-t / 2 + cx, y0]];
-  if (o.grooves) for (const x of g) pts.push([x - tw / 2, y0], [x - tw / 2, y0 + th], [x + tw / 2, y0 + th], [x + tw / 2, y0]);
-  pts.push([t / 2 - cx, y0], [t / 2, y0 + cz]);
-  if (o.top) {
-    pts.push([t / 2, o.top(t / 2)], [-t / 2, o.top(-t / 2)]);
-    return pts;
-  }
-  pts.push([t / 2, y1 - cz], [t / 2 - cx, y1]);
-  if (o.tongues) for (const x of [...g].reverse()) pts.push([x + tw / 2, y1], [x + tw / 2, y1 + th], [x - tw / 2, y1 + th], [x - tw / 2, y1]);
-  pts.push([-t / 2 + cx, y1], [-t / 2, y1 - cz]);
-  return pts;
 }
 
 /** Lineaarne piirang g = ka·a + kz·z + ks·s + k0 ≥ 0 (a, z ristlõikes, s piki palki) */

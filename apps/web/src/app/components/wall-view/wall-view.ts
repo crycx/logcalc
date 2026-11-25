@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { DEFAULT_CONSTANTS, wallPieces, type PlacedPiece, type WallSpec } from '@logcalc/calc-engine';
+import { DEFAULT_CONSTANTS, DETAIL, endCutOf, extCut, wallPieces, type PieceDetail, type PlacedPiece, type WallSpec } from '@logcalc/calc-engine';
 import { roofAtFn, underRoof } from '../../helpers/roof-cut';
 import { DimLines, type Dim } from '../dim-lines/dim-lines';
 
@@ -34,6 +34,8 @@ export class WallView {
   readonly cross = input<{ x0: number; x1: number; z0: number; k: number }[]>([]);
   /** pärlinite sälgud viilupalkides (Wall3D.notches) */
   readonly notches = input<{ pts: [number, number][] }[]>([]);
+  /** tükkide detailid mootorist (Wall3D.details): otsalõiked, sälgud, ukse vajumisvaru */
+  readonly details = input<PieceDetail[] | null>(null);
 
   protected readonly Math = Math;
 
@@ -50,11 +52,12 @@ export class WallView {
 
     // palgid: viilupalgid (ja muud katusest kõrgemad) katusejoone järgi hulknurgaks
     type Shape = { kind: string; poly: [number, number][] | null; rect: { x0: number; x1: number; y0: number; y1: number } };
-    const shapes: (Shape & { spliceStart: boolean; spliceEnd: boolean; mark: string })[] = [];
+    const dets = this.details();
+    const shapes: (Shape & { piece: PlacedPiece; mark: string; det: PieceDetail | null })[] = [];
     pieces.forEach((p, i) => {
       const cut = line && roofAt && p.kind === 'gable' ? underRoof(p, line, roofAt) : null;
       if (cut === 'none') return;
-      shapes.push({ kind: p.kind, poly: cut, rect: p, spliceStart: p.spliceStart, spliceEnd: p.spliceEnd, mark: marks[i] ?? '' });
+      shapes.push({ kind: p.kind, poly: cut, rect: p, piece: p, mark: marks[i] ?? '', det: dets?.[i] ?? null });
     });
     // esiletõstmine: valitud tähis oranž, teised hallimad
     const cls = (s: { kind: string; mark: string }) => `log ${s.kind}${hl ? (s.mark === hl ? ' hi' : ' dim') : ''}`;
@@ -66,23 +69,14 @@ export class WallView {
     const fs = m * 0.035;
     const Y = (y: number) => H - y; // SVG y alla
 
-    // palgi otsad (Revit): seina otsas profiili faasid (ridade vahel V), pikendatud palk (varikatus) 45° lõikega
-    // alumisest nurgast, avade/jätkude kohal sirge
-    type End = 'log' | 'ext' | 'plain';
-    const endOf = (s: (typeof shapes)[number], start: boolean): End => {
-      const x = start ? s.rect.x0 : s.rect.x1;
-      if (start ? s.spliceStart || w.buttStart : s.spliceEnd || w.buttEnd) return Math.abs(start ? x : x - w.length) < 1 ? 'plain' : endOfFree(x, start);
-      return endOfFree(x, start);
-    };
-    const endOfFree = (x: number, start: boolean): End =>
-      start ? (x < -1 ? 'ext' : Math.abs(x) < 1 ? 'log' : 'plain') : x > w.length + 1 ? 'ext' : Math.abs(x - w.length) < 1 ? 'log' : 'plain';
+    // palgi otsad (Revit Details): seina otsas nurgafaas ~12 mm (ridade vahel V), pikendatud ots ülevalt 65 püsti
+    // + 45°, avade/jätkude kohal sirge – mootori detailidest (puudumisel samad reeglid siin)
     const outline = (s: (typeof shapes)[number]): [number, number][] => {
       const { x0: a, x1: b, y0, y1 } = s.rect;
-      const h = y1 - y0;
-      const c = Math.min(15, h * 0.13);
-      const d = h * 0.43;
-      const L = endOf(s, true);
-      const R = endOf(s, false);
+      const c = Math.min(DETAIL.endChamfer, (y1 - y0) * 0.2);
+      const d = extCut(y1 - y0);
+      const L = s.det?.start ?? endCutOf(w, s.piece, true);
+      const R = s.det?.end ?? endCutOf(w, s.piece, false);
       const left: [number, number][] = L === 'log' ? [[a + c, y1], [a, y1 - c], [a, y0 + c], [a + c, y0]] : L === 'ext' ? [[a, y1], [a, y0 + d], [a + d, y0]] : [[a, y1], [a, y0]];
       const right: [number, number][] = R === 'log' ? [[b - c, y0], [b, y0 + c], [b, y1 - c], [b - c, y1]] : R === 'ext' ? [[b - d, y0], [b, y0 + d], [b, y1]] : [[b, y0], [b, y1]];
       return [...left, ...right];
@@ -91,30 +85,25 @@ export class WallView {
     const rects: { x: number; y: number; w: number; h: number; cls: string; mark: string }[] = [];
     const polys = shapes.map((s) => ({ cls: cls(s), mark: s.mark, points: pts(s.poly ?? outline(s)) }));
 
-    // nurgaliite sälgud: liite teljel palgi üla- ja alaservas (naaberpalkide sälgud = ruut rea vahel; Revit)
+    // sälgud (Revit): nurgaliide laius = palgi paksus, sügavus h/4 peal ja all (naaberpalkide sälgud = ruut rea
+    // vahel); ukse kohal alt vajumisvaru 12 mm
     const t = this.thickness();
     const notchRects: { x: number; y: number; w: number; h: number }[] = [];
-    const spans: [number, number, number][] = [];
+    const spans: [number, number, number, number][] = []; // x, w, y0, y1
     if (t > 0) {
-      for (const j of w.joints) {
-        for (const s of shapes) {
-          const { x0: a, x1: b, y0, y1 } = s.rect;
-          if (j.x - t / 2 < a + 1 || j.x + t / 2 > b - 1) continue;
-          if (j.ranges && !j.ranges.some(([r0, r1]) => r0 < y1 - 1 && r1 > y0 + 1)) continue;
-          // viilupalk ainult siis, kui see on liite kohal (alumine viilurida)
-          const nd = Math.min(20, (y1 - y0) * 0.17);
-          if (!s.poly) spans.push([j.x, y1 - nd, y1]);
-          spans.push([j.x, y0, y0 + nd]);
-        }
+      for (const s of shapes) {
+        const { y0, y1 } = s.rect;
+        const list = s.det?.notches ?? [];
+        for (const n of list) spans.push(n.side === 'top' ? [n.x, n.w, y1 - n.depth, y1] : [n.x, n.w, y0, y0 + n.depth]);
       }
-      // naaberpalkide pooled üheks sälguks (rea vahel ruut, ülemisel/alumisel palgil U)
-      spans.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+      // naaberpalkide pooled üheks (sama x ja laius, kõrgused kokku)
+      spans.sort((p, q) => p[0] - q[0] || p[1] - q[1] || p[2] - q[2]);
       for (let i = 0; i < spans.length; ) {
-        const [x, a] = spans[i]!;
-        let b = spans[i]![2];
+        const [x, wd, a] = spans[i]!;
+        let b = spans[i]![3];
         let k = i + 1;
-        while (k < spans.length && Math.abs(spans[k]![0] - x) < 0.5 && spans[k]![1] <= b + 0.5) b = Math.max(b, spans[k++]![2]);
-        notchRects.push({ x: x - t / 2, y: Y(b), w: t, h: b - a });
+        while (k < spans.length && Math.abs(spans[k]![0] - x) < 0.5 && Math.abs(spans[k]![1] - wd) < 0.5 && spans[k]![2] <= b + 0.5) b = Math.max(b, spans[k++]![3]);
+        notchRects.push({ x: x - wd / 2, y: Y(b), w: wd, h: b - a });
         i = k;
       }
     }
@@ -143,7 +132,7 @@ export class WallView {
       return { x, y: Y(o.sill + o.height), w: o.width, h: o.height, kind: o.kind, leaves };
     });
     const joints = w.joints.map((j) => ({ x: j.x, wall: j.wall ?? '' }));
-    const splices = shapes.filter((s) => s.spliceEnd).map((s) => ({ x: s.rect.x1, y: Y(s.rect.y1), h: s.rect.y1 - s.rect.y0 }));
+    const splices = shapes.filter((s) => s.piece.spliceEnd).map((s) => ({ x: s.rect.x1, y: Y(s.rect.y1), h: s.rect.y1 - s.rect.y0 }));
 
     const dims: Dim[] = [];
     const full = this.dimensions();

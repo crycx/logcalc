@@ -219,3 +219,47 @@ describe('pikemad ülemised palgid (varikatus) – Revit Placas I 40 sein B', ()
     ]);
   });
 });
+
+describe('detailid Revit-i järgi (Kolding 40 _D_ PDF)', () => {
+  const kolding: HouseInput = {
+    roofType: 'gable', lengthScenario: 'log', width: 3800, depth: 3800, sideWallHeight: 2166, frontBackWallHeight: 2109, roofHeight: 2679,
+    log: { thickness: 40, height: 114 }, roof: {}, purlins: {},
+    longBoards: [{ length: 4800, height: 114, count: 2 }],
+    doors: [{ width: 1440, height: 1995, count: 1, wall: '1' }],
+  };
+  const r = calculateHouse(kolding);
+  const m = houseModel3d(kolding, r, C);
+  const w1 = m.walls.find((w) => w.id === '1')!;
+  it('nurgaliite sälk: laius 40, sügavus h/4 = 28,5, peal ja all; tavaline ots „log“', () => {
+    const i = w1.pieces.findIndex((p) => p.kind === 'log' && p.x0 === 0 && p.x1 === w1.length);
+    const d = w1.details[i]!;
+    expect(d.start).toBe('log');
+    expect(d.end).toBe('log');
+    const corner = d.notches.filter((n) => n.kind === 'corner');
+    expect(corner.length).toBe(4);
+    expect(corner.every((n) => n.w === 40 && n.depth === 28.5)).toBe(true);
+  });
+  it('ukse kohal olev palk: alt 12 mm sisselõige ukse laiuses', () => {
+    const door = w1.openings.find((o) => o.kind === 'door')!;
+    const i = w1.pieces.findIndex((p) => Math.abs(p.y0 - door.z1) < 1 && p.x0 <= door.x0 && p.x1 >= door.x1);
+    expect(i).toBeGreaterThanOrEqual(0);
+    expect(w1.details[i]!.notches.find((n) => n.kind === 'door')).toMatchObject({ w: 1440, depth: 12, side: 'bottom' });
+  });
+  it('pärlin: alt 48 sälk iga viiluseina kohal, otsas 143 − 65 = 78 lõige; hari terav; viilus pilu 95', () => {
+    const purl = m.members.filter((x) => x.key === 'parlinid');
+    for (const p of purl) {
+      expect(p.detail!.notches.length).toBe(2);
+      expect(p.detail!.notches.every((n) => n.w === 40 && n.depth === 48)).toBe(true);
+      expect(p.detail!.cut).toBe(78);
+    }
+    expect(purl.filter((p) => p.detail!.pointedSide).length).toBe(1);
+    const slot = w1.notches[0]!.pts;
+    const depth = Math.hypot(slot[0]![0] - slot[3]![0], slot[0]![1] - slot[3]![1]);
+    expect(depth).toBeCloseTo(95, 0);
+  });
+  it('varikatuse palk: ots „ext“', () => {
+    const A = m.walls.find((w) => w.id === 'A')!;
+    const i = A.pieces.findIndex((p) => p.x1 - p.x0 > A.length + 1);
+    expect([A.details[i]!.start, A.details[i]!.end]).toContain('ext');
+  });
+});

@@ -13,7 +13,7 @@
         @let fm = model3dWalls().get(fw.id);
         <app-wall-view class="plan-mini" [wall]="fw" [roofLine]="roofLines().get(fw.id) ?? null" [dimensions]="true"
           [pieces]="fm?.pieces ?? null" [marks]="fm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)"
-          [thickness]="fm?.thickness ?? 0" [cross]="fm?.roofCross ?? []" [notches]="fm?.notches ?? []" />
+          [thickness]="fm?.thickness ?? 0" [cross]="fm?.roofCross ?? []" [notches]="fm?.notches ?? []" [details]="fm?.details ?? null" />
       </figure>
     }
     } @else {
@@ -44,7 +44,7 @@
         </figcaption>
         <app-wall-view class="wall-mini" [wall]="w" [roofLine]="roofLines().get(w.id) ?? null" [dimensions]="true"
           [pieces]="wm?.pieces ?? null" [marks]="wm?.marks ?? []" [highlight]="highlight()" (pick)="pick.emit($event)"
-          [thickness]="wm?.thickness ?? 0" [cross]="wm?.roofCross ?? []" [notches]="wm?.notches ?? []" />
+          [thickness]="wm?.thickness ?? 0" [cross]="wm?.roofCross ?? []" [notches]="wm?.notches ?? []" [details]="wm?.details ?? null" />
       </figure>
     }
   }

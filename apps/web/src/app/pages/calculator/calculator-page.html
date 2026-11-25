@@ -275,6 +275,7 @@
               <mat-button-toggle value="floor">Põrand</mat-button-toggle>
               <mat-button-toggle value="foundation">Vundament</mat-button-toggle>
               <mat-button-toggle value="3d" matTooltip="3D mudel: palgid, avad, katus">3D</mat-button-toggle>
+              <mat-button-toggle value="details" matTooltip="Detailijoonised: iga tähise lõiked ja mõõdud (nagu Revit „Details“)">Detailid</mat-button-toggle>
             </mat-button-toggle-group>
           </div>
           @if (view() === 'plan') {
@@ -289,6 +290,10 @@
               [openings]="r.placedOpenings"
               [readonly]="readonly()"
             />
+          } @else if (view() === 'details') {
+            @if (model3d(); as m) {
+              <app-piece-details [model]="m" [result]="r" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
+            }
           } @else if (view() === '3d') {
             @if (model3d(); as m) {
               <app-house-3d [model]="m" [highlight]="activeMark()" (pick)="pieceMark.set($event)" />
@@ -363,7 +368,7 @@
               </mat-tab>
             }
             <mat-tab label="Lõikenimekiri">
-              <app-cut-list [walls]="r.cutList" [materials]="r.materials" [selected]="activeMark()" [linked]="view() === '3d' || view() === 'walls'" [scrollToSelected]="view() === '3d'" (select)="pieceMark.set($event)" />
+              <app-cut-list [walls]="r.cutList" [materials]="r.materials" [selected]="activeMark()" [linked]="view() === '3d' || view() === 'walls' || view() === 'details'" [scrollToSelected]="view() === '3d'" (select)="pieceMark.set($event)" />
             </mat-tab>
           </mat-tab-group>
         </div>

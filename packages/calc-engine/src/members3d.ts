@@ -30,6 +30,11 @@ export interface Member3D {
   v: Vec3;
   /** pikkus, laius, paksus (mm) */
   size: Vec3;
+  /**
+   * Pärlini detailid (Revit Kolding Details 2): alt sälgud viiluseinte kohal (x piki pärlinit algusest), otstes
+   * alumine nurk lõigatud (cut = 45° osa, ülevalt 65 püsti), harjal terav tipp (külje kõrgus `pointedSide`).
+   */
+  detail?: { notches: { x: number; w: number; depth: number }[]; cut: number; pointedSide?: number };
 }
 
 /** kuvamiseks: katuse- ja põrandalaua paksus, tuuleliistu ristlõige, pärlin (kui sisendis pole) */

@@ -11,6 +11,7 @@ import { pitchRatio, roofVolumes, volumeSpan, type RoofVolume } from './roof-vol
 import type { CalcResult, EngineConstants, HouseInput } from './types.js';
 import { wallPieces, type PlacedPiece } from './wall-model.js';
 import { buildMembers, type Member3D } from './members3d.js';
+import { DETAIL, extCut, pieceDetails, type PieceDetail } from './details.js';
 
 export type { Member3D };
 
@@ -48,8 +49,10 @@ export interface Wall3D {
   /** sein jätkub samal joonel teise seinana (otsas pole palgiotsa – sirge) */
   buttStart?: boolean;
   buttEnd?: boolean;
-  /** sälgud seina tasandis (X, Z) – pärlinite/harja ristlõiked viilupalkides */
+  /** sälgud seina tasandis (X, Z) – pärlinite/harja pilud viilupalkides (40 × 95, Revit Kolding Details 1) */
   notches: { kind: 'purlin'; pts: [number, number][] }[];
+  /** tükkide detailid (sälgud, otsalõiked, pilud) – pieces järjekorras */
+  details: PieceDetail[];
 }
 
 export interface RoofPlane3D {
@@ -103,6 +106,7 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       roofLine: null,
       roofCross: [],
       notches: [],
+      details: [],
       ...(spec.buttStart ? { buttStart: true } : {}),
       ...(spec.buttEnd ? { buttEnd: true } : {}),
     });
@@ -267,11 +271,17 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
 
   const zMax = Math.max(zTop, ...roofs.flatMap((r) => r.pts.map((p) => p[2])));
   const members = opts.members === false ? [] : buildMembers(input, result, c, { plan, geo, walls, roofs, roofZ });
-  // pärlinite sälgud: pärlin läbib risti seina (viilusein) -> ristlõige seina tasandis
+  // pärlinite pilud: pärlin läbib risti seina (viilusein) -> pilu seina tasandis (pärlini ülaosa, 143 − 48 = 95),
+  // pärlinile alt sälk seina paksuses × 48
   for (const mb of members) {
     if (mb.key !== 'parlinid') continue;
     const [ux, uy] = [mb.u[0], mb.u[1]];
-    const w3: Vec3 = [mb.u[1] * mb.v[2] - mb.u[2] * mb.v[1], mb.u[2] * mb.v[0] - mb.u[0] * mb.v[2], mb.u[0] * mb.v[1] - mb.u[1] * mb.v[0]];
+    let w3: Vec3 = [mb.u[1] * mb.v[2] - mb.u[2] * mb.v[1], mb.u[2] * mb.v[0] - mb.u[0] * mb.v[2], mb.u[0] * mb.v[1] - mb.u[1] * mb.v[0]];
+    if (w3[2] < 0) w3 = [-w3[0], -w3[1], -w3[2]];
+    const ph = mb.size[2];
+    const slotDepth = Math.max(0, ph - DETAIL.purlinNotch);
+    const ridge = Math.abs(w3[2] - 1) < 1e-6 && Math.abs(mb.v[2]) < 1e-6;
+    const notches: { x: number; w: number; depth: number }[] = [];
     for (const w of walls) {
       // sein risti pärliniga ja pärlin ulatub üle seina joone
       if (Math.abs(w.u.x * ux + w.u.y * uy) > 0.01) continue;
@@ -281,15 +291,27 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       const along = ux * n.x + uy * n.y; // ±1
       if (Math.abs(dist) > half + EPS || Math.abs(along) < 0.5) continue;
       const toW = (p: Vec3): [number, number] => [(p[0] - w.origin.x) * w.u.x + (p[1] - w.origin.y) * w.u.y, p[2]];
-      const corner = (sv: number, sw: number): Vec3 => [
-        mb.c[0] + (mb.v[0] * sv * mb.size[1]) / 2 + (w3[0] * sw * mb.size[2]) / 2,
-        mb.c[1] + (mb.v[1] * sv * mb.size[1]) / 2 + (w3[1] * sw * mb.size[2]) / 2,
-        mb.c[2] + (mb.v[2] * sv * mb.size[1]) / 2 + (w3[2] * sw * mb.size[2]) / 2,
+      // pilu: pärlini ülemisest pinnast (katuse alumine pind) slotDepth alla
+      const corner = (sv: number, down: number): Vec3 => [
+        mb.c[0] + (mb.v[0] * sv * mb.size[1]) / 2 + w3[0] * (ph / 2 - down),
+        mb.c[1] + (mb.v[1] * sv * mb.size[1]) / 2 + w3[1] * (ph / 2 - down),
+        mb.c[2] + (mb.v[2] * sv * mb.size[1]) / 2 + w3[2] * (ph / 2 - down),
       ];
-      const pts = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)].map(toW);
+      const pts = [corner(-1, slotDepth), corner(1, slotDepth), corner(1, 0), corner(-1, 0)].map(toW);
       if (pts.every(([x]) => x < -EPS || x > w.length + EPS)) continue;
       w.notches.push({ kind: 'purlin', pts });
+      // pärlini sälk: seina keskjoone koht piki pärlinit (algusest)
+      const at = mb.size[0] / 2 + ((w.origin.x - mb.c[0]) * n.x + (w.origin.y - mb.c[1]) * n.y) * along;
+      notches.push({ x: at, w: w.thickness, depth: DETAIL.purlinNotch });
     }
+    notches.sort((p, q) => p.x - q.x);
+    mb.detail = { notches, cut: extCut(ph), ...(ridge ? { pointedSide: ph - 6 } : {}) };
+  }
+  // tükkide detailid (sälgud, otsalõiked, pilud, ukse vajumisvaru)
+  const specById = new Map(result.wallModel.map((s) => [s.id, s]));
+  for (const w of walls) {
+    const spec = specById.get(w.id);
+    if (spec) w.details = pieceDetails(spec, w.pieces, t, input.log.height, w.notches.map((n) => n.pts));
   }
   return { walls, roofs, members, bounds: { x0: bx0 - ov, y0: by0 - ov, z0: 0, x1: bx1 + ov, y1: by1 + ov, z1: zMax } };
 }

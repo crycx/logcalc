@@ -1,0 +1,93 @@
+:host {
+  display: block;
+}
+
+.lead {
+  margin: 0 0 12px;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.group h3 {
+  margin: 16px 0 8px;
+  font: var(--mat-sys-title-small);
+}
+
+.cards {
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 10px;
+  cursor: pointer;
+  break-inside: avoid;
+
+  &:hover {
+    border-color: var(--mat-sys-primary);
+  }
+
+  /* lõikenimekirjast / 3D-st valitud tähis */
+  &.sel {
+    border-color: #ff7a1a;
+    box-shadow: inset 3px 0 0 #ff7a1a;
+  }
+
+  figcaption {
+    font: var(--mat-sys-body-medium);
+    margin-bottom: 4px;
+  }
+}
+
+.muted {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 8px;
+  align-items: center;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.side {
+  max-height: 200px;
+}
+
+.prof {
+  max-height: 160px;
+}
+
+.wood {
+  fill: #e8c98f;
+  stroke: #5e4529;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+/* sälgud ja pilud – välja lõigatud */
+.cut {
+  fill: #fff;
+  stroke: #5e4529;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.note {
+  fill: var(--mat-sys-on-surface);
+}
+
+@media print {
+  .card {
+    page-break-inside: avoid;
+  }
+}

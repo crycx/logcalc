@@ -45,6 +45,7 @@ import { ProjectsDialog } from '../../dialogs/projects-dialog/projects-dialog';
 import { ShareDialog } from '../../dialogs/share-dialog/share-dialog';
 import { HouseDrawing, type DrawingView } from '../../components/house-drawing/house-drawing';
 import { House3d } from '../../components/house-3d/house-3d';
+import { PieceDetails } from '../../components/piece-details/piece-details';
 import { PlanEditor } from '../../components/plan-editor/plan-editor';
 import {
   DEFAULT_VALUE,
@@ -118,6 +119,7 @@ function houseData(v: HouseFormValue): HouseData {
     RowsEditor,
     HouseDrawing,
     House3d,
+    PieceDetails,
     PlanEditor,
     CatalogEditor,
     RoofIcon,
@@ -134,7 +136,7 @@ export class CalculatorPage {
   protected readonly session = inject(Session);
 
   protected readonly priceKeys = PRICE_KEYS;
-  protected readonly view = signal<DrawingView | 'plan' | '3d'>('overview');
+  protected readonly view = signal<DrawingView | 'plan' | '3d' | 'details'>('overview');
   /** lõikenimekirja ja 3D vaate ühine valik: palgi tähis (nt "1LG-3") */
   protected readonly pieceMark = signal<string | null>(null);
   /** valitud tähis, kui see on veel lõikenimekirjas (maja muutmisel võib kaduda) */
@@ -203,7 +205,7 @@ export class CalculatorPage {
   /** 3D mudel (3D vaade; seinte joonistel katusejoon viilupalkide lõikamiseks) */
   protected readonly model3d = computed(() => {
     const v = this.view();
-    if (v !== '3d' && v !== 'walls' && !(v === 'overview' && this.hasPlan())) return null;
+    if (v !== '3d' && v !== 'walls' && v !== 'details' && !(v === 'overview' && this.hasPlan())) return null;
     const c = this.calc();
     if (!c.ok) return null;
     try {

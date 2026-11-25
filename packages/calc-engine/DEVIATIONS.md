@@ -69,3 +69,11 @@ seina 2 aken 350 mm nurgast -> hoiatus `windboard.opening`.
 - RF/EE pikkus viiluservas: Revit = katuselaud + 32…50 mm, mootor ceil10(laud + 38) – Revit-i laua pikkusega erinevus
   ≤ 10 mm; suurem vahe (nt Bente 1690 vs 1640) tuleb katuselaua pikkusest (üleulatus, QUESTIONS.md K14).
 - Profiilid lõikenimekirjas: põranda- ja katuselaud 17x114 (katteleius 110), pärlin/hari 40x143 (Boden 68x143/193).
+
+## D18. Detailid Revit „Details“ järgi (Kolding 40 _D_ PDF, 2026-11-25)
+
+`src/details.ts`, `test/model3d.test.ts` („detailid Revit-i järgi“): nurgaliite sälk laius = palgi paksus, sügavus h/4
+peal ja all; tavaline palgiots nurgafaas 12 mm; pikendatud ots (varikatus, pärlin) ülevalt 65 püsti + 45°; pärlin 40x143
+alt sälk seina paksus × 48 viiluseina kohal, viilupalkides pilu 40 × 95 (143 − 48); hari terav (külg 137); ukse kohal
+olev palk alt 12 mm vajumisvaru ukse laiuses. Varem: sälk 19 mm, otsa faas 15 mm, varikatuse ots 0,43 × h, pilu kogu
+pärlini kõrguses. Kolding A/B LG-8 „sisselõige 7 + punni kõrgus“ – eesmärk teadmata, ei arvutata.

@@ -1,0 +1,35 @@
+<p class="lead">
+  Iga tähise detailijoonis (nagu Revit „Details“): otsalõiked, nurgaliite sälgud peal ja all, pärlinite pilud, ukse kohal
+  vajumisvaru; mõõdud palgi otsast. Klõps joonisel tõstab tükid esile.
+</p>
+@for (g of groups(); track g.title) {
+  <section class="group">
+    <h3>{{ g.title }}</h3>
+    <div class="cards">
+      @for (c of g.cards; track c.mark) {
+        <figure class="card" [class.sel]="isSel(c.mark)" (click)="toggle(c.mark)">
+          <figcaption><b>{{ c.mark }}</b>&nbsp;&nbsp;<span class="muted">{{ c.sub }}</span></figcaption>
+          <div class="row">
+            <svg class="side" [attr.viewBox]="c.view.viewBox" preserveAspectRatio="xMidYMid meet" role="img" [attr.aria-label]="'Detail ' + c.mark">
+              <polygon class="wood" [attr.points]="c.view.outline" />
+              @for (n of c.view.notches; track $index) {
+                <rect class="cut" [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" />
+              }
+              @for (s of c.view.slots; track $index) {
+                <polygon class="cut" [attr.points]="s" />
+              }
+              @for (n of c.view.notes; track $index) {
+                <text class="note" [attr.x]="n.x" [attr.y]="n.y" [attr.font-size]="c.view.fs * 0.8" text-anchor="middle">{{ n.text }}</text>
+              }
+              <g lcDims [dims]="c.view.dims" [fs]="c.view.fs * 0.8"></g>
+            </svg>
+            <svg class="prof" [attr.viewBox]="c.prof.viewBox" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Ristlõige">
+              <polygon class="wood" [attr.points]="c.prof.points" />
+              <g lcDims [dims]="c.prof.dims" [fs]="c.prof.fs * 0.8"></g>
+            </svg>
+          </div>
+        </figure>
+      }
+    </div>
+  </section>
+}

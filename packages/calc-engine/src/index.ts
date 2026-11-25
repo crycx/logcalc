@@ -54,3 +54,4 @@ export type { MemberLayer } from './members3d.js';
 export { planTemplate, PLAN_TEMPLATES, type PlanTemplateKind, type PlanTemplateInfo, type PlanTemplateOptions } from './plan-templates.js';
 export { materialCutList, materialMark, MATERIAL_PREFIX, type MaterialCutGroup, type MaterialCutRow } from './materials.js';
 export { WINDBOARD, computeWindboards, type Windboard } from './windboards.js';
+export { DETAIL, extCut, endCutOf, pieceDetails, type EndCut, type PieceDetail, type PieceNotch } from './details.js';
