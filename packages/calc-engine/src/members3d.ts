@@ -37,8 +37,8 @@ export interface Member3D {
 const ROOF_BOARD_T = 17;
 /** katusepapp (Revit „Roofing sheet“ – kogust pole) */
 const PAPER_T = 3;
-/** katusepapp ulatub üle RF-i / räästalaua välispinna */
-const PAPER_OVER = 20;
+/** katusepapp ulatub 5 cm üle katuse serva (RF-i / räästalaua välispinna) */
+const PAPER_OVER = 50;
 /** Revit: põrandalaud FB 17x114, terrassilaud 28x120 */
 const FLOOR_BOARD_T = WINDBOARD.floorTop;
 const TERRACE_BOARD_T = 28;
