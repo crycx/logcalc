@@ -45,6 +45,9 @@ export interface Wall3D {
    * viilusein – viilupalgid lõigatakse alati `roofLine` järgi.
    */
   roofCross: { x0: number; x1: number; z0: number; k: number }[];
+  /** sein jätkub samal joonel teise seinana (otsas pole palgiotsa – sirge) */
+  buttStart?: boolean;
+  buttEnd?: boolean;
   /** sälgud seina tasandis (X, Z) – pärlinite/harja ristlõiked viilupalkides */
   notches: { kind: 'purlin'; pts: [number, number][] }[];
 }
@@ -100,6 +103,8 @@ export function houseModel3d(input: HouseInput, result: CalcResult, c: EngineCon
       roofLine: null,
       roofCross: [],
       notches: [],
+      ...(spec.buttStart ? { buttStart: true } : {}),
+      ...(spec.buttEnd ? { buttEnd: true } : {}),
     });
   }
 

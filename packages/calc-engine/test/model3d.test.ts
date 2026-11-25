@@ -201,3 +201,21 @@ describe('3D: pärlinite sälgud viilupalkides', () => {
     expect(Math.max(...ridge.map(([, z]) => z))).toBeCloseTo(2223, -1);
   });
 });
+
+describe('pikemad ülemised palgid (varikatus) – Revit Placas I 40 sein B', () => {
+  const placas: HouseInput = {
+    roofType: 'gable', lengthScenario: 'log', width: 4500, depth: 3000, sideWallHeight: 2052, frontBackWallHeight: 1995, roofHeight: 2565,
+    log: { thickness: 40, height: 114 },
+    longBoards: [{ length: 3900, height: 114, count: 2 }, { length: 3500, height: 114, count: 2 }, { length: 3200, height: 114, count: 2 }],
+  };
+  it('BTL-1 3900: taha 100, ette 800; BLG-3 3500 ja BLG-2 3200 tagant tasa, ette 500 / 200', () => {
+    const r = calculateHouse(placas);
+    const B = r.wallModel.find((w) => w.id === 'B')!;
+    const long = B.rows.filter((x) => x.length > B.length + 1);
+    expect(long.map((x) => [x.length, x.x0])).toEqual([
+      [3200, 0],
+      [3500, 0],
+      [3900, -100],
+    ]);
+  });
+});

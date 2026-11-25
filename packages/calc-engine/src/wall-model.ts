@@ -205,6 +205,20 @@ export function buildWalls(
 
   // pikemad lauad: viilkatusel külgseintele, ühekaldelisel esi-/tagaseinale; üks kummalegi seinale
   const lowLimit = c.longBoardThreshold;
+  /**
+   * Pikemad ülemised palgid (varikatus, Revit Placas BTL-1/BLG-3/BLG-2): madalamad tagant seinaga tasa, ulatuvad
+   * ainult ette; ülemine (TL) ulatub taha kuni 100 mm (pool pikendust), ülejäänu ette. Üks pikem laud
+   * (Bente 4000 / 3800) jääb nii sümmeetriliseks. frontAtEnd: ees on seina lõpp (x suureneb ette).
+   */
+  const placeLong = (rows: WallRow[], wallLength: number, frontAtEnd: boolean) => {
+    const longRows = rows.filter((r) => r.length > wallLength + EPS && r.x0 === undefined);
+    longRows.forEach((r, i) => {
+      const ext = r.length - wallLength;
+      const top = i === longRows.length - 1;
+      const back = top ? Math.min(ext / 2, 100) : 0;
+      r.x0 = (frontAtEnd ? -back : -(ext - back)) + 0; // + 0: ei -0
+    });
+  };
   const extendTop = (rows: WallRow[], wallLength: number) => {
     const boards = (input.longBoards ?? [])
       .flatMap((b) => Array.from({ length: Math.max(0, Math.floor(b.count / 2)) }, () => b))
@@ -338,6 +352,8 @@ export function buildWalls(
   const specs = geo.map((g): WallSpec => {
     const w = planWalls.get(g.id)!;
     const L = g.length;
+    // ees = suurem y (esisein); x-seinal suurem x
+    const frontAtEnd = g.dir === 'y' ? g.b.y > g.a.y : g.b.x > g.a.x;
     const outerX = g.dir === 'x' && (near(g.a.y, yBack) || near(g.a.y, yFront));
     const outerY = g.dir === 'y' && (near(g.a.x, xLeft) || near(g.a.x, xRight));
     const fullSpan = g.startExt > 0 && g.endExt > 0;
@@ -381,10 +397,14 @@ export function buildWalls(
         for (const e of myEnds) rows.push(...gableRowsFor(g, e, baseY).rows);
       } else if (outerY && (plan.ridge ?? 'y') === 'y') {
         extendTop(rows, L);
+        placeLong(rows, L, frontAtEnd);
       }
     } else if (g.dir === 'x') {
       rows = rectRows(L, monoHeight(g.a.y), true, false);
-      if (outerX) extendTop(rows, L);
+      if (outerX) {
+        extendTop(rows, L);
+        placeLong(rows, L, frontAtEnd);
+      }
     } else {
       const n = Math.floor((input.roofHeight - p / 2) / p + 1e-9);
       rows = Array.from({ length: n }, (_, i) => ({ y0: i * p, y1: (i + 1) * p, length: L, kind: 'log' as const }));

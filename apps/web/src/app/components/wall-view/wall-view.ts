@@ -126,9 +126,8 @@ export class WallView {
       const zLow = r.z0 - (Math.abs(r.k) * (t || 0)) / 2;
       for (const s of shapes) {
         if (s.poly || s.rect.y1 <= zLow + 1 || s.rect.y0 >= zLow) continue;
-        const a = Math.max(s.rect.x0, r.x0);
-        const b = Math.min(s.rect.x1, r.x1);
-        if (b - a > 1) bevels.push({ x1: a, x2: b, y: Y(zLow) });
+        // kaldlõige kogu palgi pikkuses (ka varikatuse osa), kui palk on räästa lõigu kohal
+        if (Math.min(s.rect.x1, r.x1) - Math.max(s.rect.x0, r.x0) > 1) bevels.push({ x1: s.rect.x0, x2: s.rect.x1, y: Y(zLow) });
       }
     }
     const openings = w.openings.map((o) => {

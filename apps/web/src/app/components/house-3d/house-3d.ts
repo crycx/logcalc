@@ -286,6 +286,55 @@ export class House3d {
     };
     const roofAt = w.roofLine ? roofAtFn(w.roofLine) : () => Infinity;
 
+    // palgi otsad (Revit seinajoonis / „Facia“ detail): seina otsas üla- ja alanurk kaldu (~15 mm, ridade vahel V),
+    // pikendatud palk (varikatus) 45° alumisest nurgast; avade/jätkude kohal sirge
+    type End = 'log' | 'ext' | 'plain';
+    const endOf = (p: Wall3D['pieces'][number], start: boolean): End => {
+      const x = start ? p.x0 : p.x1;
+      if (start ? p.spliceStart : p.spliceEnd) return 'plain';
+      if (start ? w.buttStart && Math.abs(x) < 1 : w.buttEnd && Math.abs(x - w.length) < 1) return 'plain';
+      if (start ? x < -1 : x > w.length + 1) return 'ext';
+      return Math.abs(start ? x : x - w.length) < 1 ? 'log' : 'plain';
+    };
+    const add = (geo: THREE_NS.BufferGeometry, material: THREE_NS.Material, mark: string, basisCross: boolean) => {
+      const mesh = new THREE.Mesh(geo, material);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
+      for (const o of [mesh, edges]) {
+        if (basisCross) {
+          o.applyMatrix4(crossBasis);
+          o.position.add(origin);
+        } else place(o, 0, 0, 0);
+        group.add(o);
+      }
+      this.pieces.push({ mesh, edges, mark, base: material });
+    };
+    /** profiiliga palk: keskosa ristlõike pressimisena, otsad seina tasandi kujuna (kaldlõiked) läbi paksuse */
+    const profiled = (p: Wall3D['pieces'][number], mark: string, material: THREE_NS.Material, profile: THREE_NS.Shape, yTop: number) => {
+      const h = p.y1 - p.y0;
+      const c = Math.min(15, h * 0.13);
+      const d = h * 0.43;
+      const ends = [endOf(p, true), endOf(p, false)] as const;
+      const len = (e: End) => (e === 'log' ? c : e === 'ext' ? d : 0);
+      const bx0 = p.x0 + len(ends[0]);
+      const bx1 = p.x1 - len(ends[1]);
+      if (bx1 - bx0 > 1) {
+        const geo = new THREE.ExtrudeGeometry(profile, { depth: bx1 - bx0, bevelEnabled: false });
+        geo.translate(0, 0, bx0);
+        add(geo, material, mark, true);
+      }
+      ends.forEach((e, k) => {
+        if (e === 'plain') return;
+        // otsa kuju seina tasandis (x piki seina, y üles), ots x = 0, sisse +x
+        const pts: [number, number][] =
+          e === 'log' ? [[0, p.y0 + c], [c, p.y0], [c, yTop], [0, yTop - c]] : [[0, p.y0 + d], [d, p.y0], [d, yTop], [0, yTop]];
+        const at = k === 0 ? (x: number) => p.x0 + x : (x: number) => p.x1 - x;
+        const shape = shapeOf(THREE, (k === 0 ? pts : [...pts].reverse()).map(([x, y]) => [at(x), y] as [number, number]));
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
+        geo.translate(0, 0, -t / 2);
+        add(geo, material, mark, false);
+      });
+    };
+
     w.pieces.forEach((p, i) => {
       const mark = w.marks[i] ?? '';
       const material = p.kind === 'half' ? mat.half : p.kind === 'gable' ? mat.gable : mat.log;
@@ -308,30 +357,12 @@ export class House3d {
         // ristlõige (a, z), a = −s (alus −n, üles, u -> parempoolne), pressitud piki seina
         // all sooned ja faasid (profiil), pealt kaldlõige
         const shape = shapeOf(THREE, logProfile(t, p.y0, p.y1, { grooves: true, tongues: false, top: (a) => zs(-a) }));
-        geo = new THREE.ExtrudeGeometry(shape, { depth: p.x1 - p.x0, bevelEnabled: false });
-        geo.translate(0, 0, p.x0);
-        const mesh = new THREE.Mesh(geo, material);
-        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
-        for (const o of [mesh, edges]) {
-          o.applyMatrix4(crossBasis);
-          o.position.add(origin);
-          group.add(o);
-        }
-        this.pieces.push({ mesh, edges, mark, base: material });
+        // otste kaldlõike ülemine serv: välispinna (madalam) kõrgus
+        profiled(p, mark, material, shape, Math.min(zs(t / 2), zs(-t / 2)));
         return;
       } else {
         // palgi profiil (Revit „Log Profile“): peal kaks punni, all kaks soont, servad faasitud; pool palki alt sile
-        const shape = shapeOf(THREE, logProfile(t, p.y0, p.y1, { grooves: p.kind !== 'half', tongues: true }));
-        geo = new THREE.ExtrudeGeometry(shape, { depth: p.x1 - p.x0, bevelEnabled: false });
-        geo.translate(0, 0, p.x0);
-        const mesh = new THREE.Mesh(geo, material);
-        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
-        for (const o of [mesh, edges]) {
-          o.applyMatrix4(crossBasis);
-          o.position.add(origin);
-          group.add(o);
-        }
-        this.pieces.push({ mesh, edges, mark, base: material });
+        profiled(p, mark, material, shapeOf(THREE, logProfile(t, p.y0, p.y1, { grooves: p.kind !== 'half', tongues: true })), p.y1);
         return;
       }
       const mesh = new THREE.Mesh(geo, material);
@@ -480,7 +511,7 @@ export class House3d {
 
 /**
  * Palgi ristlõige (a, z): a = risti seinaga (−t/2 … t/2), z = kõrgus. Revit 40x114: kaks punni peal ja kaks soont
- * all (laius ~12 % paksusest, kõrgus ≤ 10 mm, keskkohad ±20 % paksusest), servad faasitud (≤ 15 × 8 mm).
+ * all (laius ~12 % paksusest, kõrgus ≤ 10 mm, keskkohad ±20 % paksusest), servad faasitud 45° (~4,5 mm).
  * `top` = kaldlõikega ülemine serv (räästa palk) – siis punne pole.
  */
 function logProfile(
@@ -490,9 +521,9 @@ function logProfile(
   o: { grooves: boolean; tongues: boolean; top?: (a: number) => number },
 ): [number, number][] {
   const h = y1 - y0;
-  // faas: kõrgus ≤ 15 mm (nagu seinajoonisel / Revit „Facia“ detail – V ridade vahel), sügavus ≤ 8 mm
-  const cz = Math.min(15, h * 0.13);
-  const cx = Math.min(8, t * 0.2);
+  // faas 45°: Revit „Log Profile“ 40x114 mõõdetud ~4,5 × 4,5 mm (≈ 11 % paksusest)
+  const cx = Math.min(4.5, t * 0.11, h * 0.05);
+  const cz = cx;
   const tw = Math.max(3, t * 0.12);
   const th = Math.min(10, h * 0.09);
   const g = [-t * 0.2, t * 0.2];
